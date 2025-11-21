@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sweep benchmark_triton_kde.py over powers of two n_train values (512 → 32,768)
+# Sweep benchmark_triton_kde.py over powers of two n_train values (1,024 → 32,768)
 # while keeping n_test = n_train / 8 and logging output to a file.
 
 set -euo pipefail
@@ -13,7 +13,7 @@ DEVICE="${DEVICE:-cuda}"
 echo "Writing sweep output to ${LOG_PATH}"
 : > "${LOG_PATH}"
 
-n=512
+n=1024
 while [ "${n}" -le 32768 ]; do
   m=$(( n / 8 ))
   if [ "${m}" -lt 1 ]; then

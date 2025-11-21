@@ -15,7 +15,6 @@ SUMMARY_RE = re.compile(
     r"\(n_train=(?P<n_train>\d+), n_test=(?P<n_test>\d+)\)\s+"
     r"(?P<label>[^:]+):\s+(?P<value>[0-9.]+)\s+ms"
 )
-SK_SPEEDUP_RE = re.compile(r"speedup vs sklearn:\s+([0-9.]+|N/A)")
 
 
 def parse_log(path: Path) -> List[Dict[str, float]]:
@@ -33,17 +32,12 @@ def parse_log(path: Path) -> List[Dict[str, float]]:
                 n_train, {"n_train": n_train, "n_test": n_test}
             )
 
-            if label.startswith("(n_train"):
-                # Already handled
-                continue
             if "sklearn KDE" in label:
                 entry["sklearn_ms"] = value
-            elif "Empirical SD-KDE GPU" in label:
-                entry["emp_gpu_ms"] = value
-                sk_speed = SK_SPEEDUP_RE.search(line)
-                if sk_speed:
-                    val = sk_speed.group(1)
-                    entry["speedup"] = float(val) if val != "N/A" else None
+            elif "Empirical SD-KDE GPU (Triton" in label:
+                entry["emp_triton_ms"] = value
+            elif "Empirical SD-KDE GPU (Torch" in label:
+                entry["emp_torch_ms"] = value
 
     rows = [entries[n] for n in sorted(entries)]
     return rows
@@ -56,35 +50,38 @@ def plot(rows: List[Dict[str, float]], output: Path):
     ns = [r["n_train"] for r in rows]
     ticks = [str(n) for n in ns]
     sklearn = [r.get("sklearn_ms", float("nan")) for r in rows]
-    emp = [r.get("emp_gpu_ms", float("nan")) for r in rows]
-    speedups = [r.get("speedup") for r in rows]
+    emp_triton = [r.get("emp_triton_ms", float("nan")) for r in rows]
+    emp_torch = [r.get("emp_torch_ms", float("nan")) for r in rows]
 
     idx = np.arange(len(ns))
-    width = 0.35
+    width = 0.25
 
     plt.figure(figsize=(12, 5))
-    plt.bar(idx - width / 2, sklearn, width, label="sklearn KDE", color="#4e79a7")
-    plt.bar(idx + width / 2, emp, width, label="Empirical SD-KDE (GPU)", color="#f28e2b")
+    bar_sk = plt.bar(idx - width, sklearn, width, label="sklearn KDE", color="#4e79a7")
+    bar_to = plt.bar(idx, emp_torch, width, label="Empirical SD-KDE (Torch)", color="#59a14f")
+    bar_tr = plt.bar(idx + width, emp_triton, width, label="Empirical SD-KDE (Triton)", color="#f28e2b")
     plt.yscale("log")
 
-    for i, (x, em, sp) in enumerate(zip(idx, emp, speedups)):
-        if np.isnan(em):
-            continue
-        text = f"x{sp:.1f}" if sp is not None else "N/A"
-        plt.text(
-            x + width / 2,
-            em * 1.15,
-            text,
-            ha="center",
-            va="bottom",
-            fontsize=9,
-            rotation=0,
-        )
+    # Annotate each bar with its runtime in ms
+    for bars, values in [(bar_sk, sklearn), (bar_tr, emp_triton), (bar_to, emp_torch)]:
+        for rect, val in zip(bars, values):
+            if np.isnan(val) or val <= 0:
+                continue
+            x = rect.get_x() + rect.get_width() / 2.0
+            y = rect.get_height()
+            plt.text(
+                x,
+                y * 1.05,
+                f"{val:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
 
     plt.xticks(idx, ticks, rotation=45, ha="right")
     plt.ylabel("Average runtime (ms, log scale)")
     plt.xlabel("$n_{\\text{train}}$")
-    plt.title("sklearn vs Empirical SD-KDE GPU Runtime")
+    plt.title("sklearn vs Empirical SD-KDE GPU Runtime (Triton vs Torch)")
     plt.legend()
     plt.tight_layout()
     plt.savefig(output, bbox_inches="tight")

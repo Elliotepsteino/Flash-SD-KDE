@@ -2,6 +2,7 @@
 \usepackage{amsmath}
 \usepackage{booktabs}
 \usepackage{geometry}
+\usepackage{graphicx}
 \geometry{margin=1in}
 
 \title{Flash-SD-KDE}
@@ -28,7 +29,23 @@ and SD-KDE forms debiased samples
 $x_i^{\mathrm{SD}} = x_i + \tfrac{h^2}{2}\,\hat s(x_i)$ where
 $\hat s$ is an estimate of the score.  In empirical SD-KDE, this score
 is itself computed from the KDE, so no model of the underlying density
-is required.
+is required.  Writing $z_i(x) = (x - x_i)/h$ and
+\[
+  \hat p(x)
+  =
+  \frac{1}{n h}
+  \sum_{i=1}^n
+  \varphi\bigl(z_i(x)\bigr),
+\]
+we estimate the score as
+\[
+  \hat s(x)
+  =
+  \frac{\partial_x \hat p(x)}{\hat p(x)}
+  =
+  \frac{\sum_{i=1}^n \bigl[-z_i(x)\,\varphi(z_i(x))\bigr]}
+       {h^2 \sum_{i=1}^n \varphi(z_i(x))}.
+\]
 
 \section{Task}
 
@@ -48,9 +65,13 @@ Arithmetic intensity is defined as
   I \;=\; \frac{\text{floating-point operations}}{\text{bytes moved to/from DRAM}}.
 \]
 For a Gaussian KDE evaluated at $m$ query points using $n$ training points,
-we perform $O(mn)$ pairwise interactions.  For each pair we compute
-differences, scaling, squaring and an exponential; this costs a constant
-number of flops, say $c$.
+we perform $O(mn)$ pairwise interactions.  For the density-only KDE, each
+pair involves differences, scaling, squaring and an exponential; counting
+subtractions, multiplications, an $\exp$ and a few additions gives a
+per-pair cost of roughly $20$--$30$ flops.  Empirical SD-KDE also requires
+the score, so we accumulate both $\varphi(z_i)$ and $-z_i\varphi(z_i)$ and
+later form their ratio, adding extra flops.  Overall, a conservative estimate
+for the empirical SD-KDE pipeline is $c \approx 50$ flops per interaction.
 
 Thus the total flops scale as
 \[
@@ -81,9 +102,9 @@ this yields
   \frac{c}{4} \times 3.6 \times 10^3
   \;\gg\; 1 \quad \text{flop/byte}.
 \]
-Even for modest $c$ this is orders of magnitude larger than the
-machine-balance point of modern GPUs, so in principle the kernel is
-compute-bound rather than bandwidth-bound.
+Even with this approximate $c \approx 50$, the resulting intensity is orders
+of magnitude larger than the machine-balance point of modern GPUs, so in
+principle the kernel is compute-bound rather than bandwidth-bound.
 
 \section{Empirical results}
 
@@ -100,6 +121,15 @@ consistently faster than scikit-learn, with speedups growing with $n$; at
 the largest sizes the GPU achieves well over an order-of-magnitude speedup
 relative to the sklearn baseline.
 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../flash-sd-kde.pdf}
+  \caption{Average runtime (log-scale $y$-axis) of scikit-learn KDE and
+           empirical SD-KDE GPU across $n_{\text{train}}$; annotations show
+           the empirical SD-KDE GPU speedup relative to sklearn.}
+  \label{fig:flash_sd_kde}
+\end{figure}
+
 \section{GPU utilization on A6000}
 
 For $n_{\text{train}} = 32\text{k}$ and $n_{\text{test}} = 4\text{k}$, we
@@ -110,23 +140,22 @@ $4\,\mathrm{ms}$.  There are
   = 32{,}768 \times 4{,}096
   \approx 1.34 \times 10^8
 \]
-pairwise interactions.  If we conservatively assume $c \approx 30$ flops
-per interaction (subtract, scale, square, exponential, and a few multiplies
-and additions), the total work is
+pairwise interactions.  Using the estimate $c \approx 30$ flops per
+interaction, the total work is
 \[
-  \text{FLOPs} \approx 30 \times 1.34 \times 10^8
-  \approx 4.0 \times 10^9.
+  \text{FLOPs} \approx 50 \times 1.34 \times 10^8
+  \approx 6.7 \times 10^9.
 \]
 The achieved throughput is therefore
 \[
-  \frac{4.0 \times 10^9}{4 \times 10^{-3}}
-  \approx 1.0 \times 10^{12}
-  \;\text{FLOP/s} \;=\; 1\,\text{TFLOP/s}.
+  \frac{6.7 \times 10^9}{4 \times 10^{-3}}
+  \approx 1.7 \times 10^{12}
+  \;\text{FLOP/s} \;\approx\; 1.7\,\text{TFLOP/s}.
 \]
 The RTX~A6000 has a peak single-precision throughput of about
 $40\,\text{TFLOP/s}$, so the achieved utilization is on the order of
 \[
-  \frac{1}{40} \approx 2.5\% .
+  \frac{1.7}{40} \approx 4\% .
 \]
 This modest utilization is expected for a first, straightforward Triton
 implementation without extensive fusion or kernel tuning; nonetheless, the
@@ -134,4 +163,3 @@ kernel already delivers substantial end-to-end speedups over the CPU and
 sklearn baselines while leaving significant headroom for further optimization.
 
 \end{document}
-

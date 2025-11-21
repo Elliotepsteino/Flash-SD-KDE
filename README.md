@@ -11,6 +11,7 @@ we can benchmark it against the existing Silverman estimator.
   and GPU empirical SD-KDE timings plus accuracy deltas.
 - `run_sweep.sh` plus `plot_flash_sd_kde.py` help automate the
   power-of-two sweeps and produce a PDF plot for papers.
+- `report/main.tex` is a concise \LaTeX{} report that includes the speedup plot.
 
 ## Running the benchmark
 
@@ -40,6 +41,13 @@ we can benchmark it against the existing Silverman estimator.
    ```bash
    python plot_flash_sd_kde.py --log sweep.log --output flash-sd-kde.pdf
    ```
-   The generated figure uses bars for sklearn and empirical SD-KDE GPU runtimes
-   at each `n_train` value (512 → 32,768, doubling) and annotates the GPU
-   speedup vs sklearn above each empirical bar.
+   The generated figure uses bars for sklearn, Triton empirical SD-KDE, and
+   Torch empirical SD-KDE GPU runtimes at each `n_train` value (1,024 → 32,768,
+   doubling), and annotates the Triton empirical bar with its speedup over
+   both sklearn and Torch.
+
+3. Compile the report (from the `report` directory):
+   ```bash
+   cd report
+   pdflatex main.tex
+   ```
