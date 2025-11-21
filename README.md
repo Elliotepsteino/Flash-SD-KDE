@@ -9,6 +9,8 @@ we can benchmark it against the existing Silverman estimator.
 - `benchmark_triton_kde.py` samples 5000 training points and 500 test points
   for 3 seeds (configurable) and reports CPU Silverman, scikit-learn, GPU Silverman,
   and GPU empirical SD-KDE timings plus accuracy deltas.
+- `run_sweep.sh` plus `plot_flash_sd_kde.py` help automate the
+  power-of-two sweeps and produce a PDF plot for papers.
 
 ## Running the benchmark
 
@@ -25,3 +27,19 @@ we can benchmark it against the existing Silverman estimator.
      `--skip-emp-gpu` to skip the GPU empirical SD-KDE run.
    - Use `--mixture-index 0|1|2` to select which mixture from
      `kde_utils.py` you want to evaluate.
+
+## Automated sweep → PDF plot
+
+1. Run the sweep (keeps the 8:1 ratio by setting `n_test = n_train / 8`):
+   ```bash
+   chmod +x run_sweep.sh  # once per checkout
+   ./run_sweep.sh sweep.log
+   ```
+   - Override seeds/mixture/device with `SEEDS`, `MIXTURE`, `DEVICE` env vars.
+2. Convert the resulting log into `flash-sd-kde.pdf` (sklearn vs Emp-SD-KDE bars):
+   ```bash
+   python plot_flash_sd_kde.py --log sweep.log --output flash-sd-kde.pdf
+   ```
+   The generated figure uses bars for sklearn and empirical SD-KDE GPU runtimes
+   at each `n_train` value (512 → 32,768, doubling) and annotates the GPU
+   speedup vs sklearn above each empirical bar.

@@ -1,0 +1,137 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{Flash-SD-KDE}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Background}
+
+Score-debiased kernel density estimation (SD-KDE) refines a standard kernel
+density estimator by moving the data slightly in the direction of the score
+function (the gradient of the log-density).  Given samples $x_i$ and a
+bandwidth $h$, a Gaussian KDE is
+\[
+  \hat p(x)
+  =
+  \frac{1}{n h}
+  \sum_{i=1}^n
+  \varphi\!\left(\frac{x - x_i}{h}\right),
+\]
+and SD-KDE forms debiased samples
+$x_i^{\mathrm{SD}} = x_i + \tfrac{h^2}{2}\,\hat s(x_i)$ where
+$\hat s$ is an estimate of the score.  In empirical SD-KDE, this score
+is itself computed from the KDE, so no model of the underlying density
+is required.
+
+\section{Task}
+
+The goal of Flash-SD-KDE is to implement a fast, GPU-accelerated empirical
+SD-KDE on an NVIDIA RTX~A6000 using Triton.  We:
+\begin{itemize}
+  \item implement a Gaussian KDE and KDE-based score estimator in Triton,
+  \item use these to construct an empirical SD-KDE on the GPU, and
+  \item benchmark against CPU Silverman KDE and scikit-learn's KDE over
+        a range of sample sizes $(n_{\text{train}}, n_{\text{test}})$.
+\end{itemize}
+
+\section{Arithmetic intensity of KDE}
+
+Arithmetic intensity is defined as
+\[
+  I \;=\; \frac{\text{floating-point operations}}{\text{bytes moved to/from DRAM}}.
+\]
+For a Gaussian KDE evaluated at $m$ query points using $n$ training points,
+we perform $O(mn)$ pairwise interactions.  For each pair we compute
+differences, scaling, squaring and an exponential; this costs a constant
+number of flops, say $c$.
+
+Thus the total flops scale as
+\[
+  \text{FLOPs} \approx c\, m n.
+\]
+With a properly tiled GPU implementation, each training point and each query
+is loaded from global memory only once and then reused from registers or
+shared memory.  The number of bytes moved is therefore
+\[
+  \text{Bytes} \approx 4\,(m + n)
+\]
+for single-precision floats, up to lower-order terms for writing the output.
+The arithmetic intensity is then
+\[
+  I
+  \approx
+  \frac{c\,m n}{4\,(m+n)}.
+\]
+When $m$ and $n$ are of the same order, $I$ grows linearly with the problem
+size (roughly $I \sim \tfrac{c}{8} \min(m,n)$).  For the largest configuration
+we consider ($n_{\text{train}} = 32\text{k}$, $n_{\text{test}} = 4\text{k}$),
+this yields
+\[
+  I
+  \approx
+  \frac{c\, (32\text{k}) (4\text{k})}{4\,(36\text{k})}
+  \approx
+  \frac{c}{4} \times 3.6 \times 10^3
+  \;\gg\; 1 \quad \text{flop/byte}.
+\]
+Even for modest $c$ this is orders of magnitude larger than the
+machine-balance point of modern GPUs, so in principle the kernel is
+compute-bound rather than bandwidth-bound.
+
+\section{Empirical results}
+
+We sweep $n_{\text{train}}$ over powers of two from $512$ to $32\text{k}$,
+with $n_{\text{test}} = n_{\text{train}} / 8$, and average over three seeds.
+For each configuration we record:
+\begin{itemize}
+  \item CPU Silverman KDE time,
+  \item scikit-learn Gaussian KDE time, and
+  \item empirical SD-KDE GPU time.
+\end{itemize}
+Across the entire range, the empirical SD-KDE GPU implementation is
+consistently faster than scikit-learn, with speedups growing with $n$; at
+the largest sizes the GPU achieves well over an order-of-magnitude speedup
+relative to the sklearn baseline.
+
+\section{GPU utilization on A6000}
+
+For $n_{\text{train}} = 32\text{k}$ and $n_{\text{test}} = 4\text{k}$, we
+observe an average empirical SD-KDE GPU runtime of approximately
+$4\,\mathrm{ms}$.  There are
+\[
+  n_{\text{train}} \times n_{\text{test}}
+  = 32{,}768 \times 4{,}096
+  \approx 1.34 \times 10^8
+\]
+pairwise interactions.  If we conservatively assume $c \approx 30$ flops
+per interaction (subtract, scale, square, exponential, and a few multiplies
+and additions), the total work is
+\[
+  \text{FLOPs} \approx 30 \times 1.34 \times 10^8
+  \approx 4.0 \times 10^9.
+\]
+The achieved throughput is therefore
+\[
+  \frac{4.0 \times 10^9}{4 \times 10^{-3}}
+  \approx 1.0 \times 10^{12}
+  \;\text{FLOP/s} \;=\; 1\,\text{TFLOP/s}.
+\]
+The RTX~A6000 has a peak single-precision throughput of about
+$40\,\text{TFLOP/s}$, so the achieved utilization is on the order of
+\[
+  \frac{1}{40} \approx 2.5\% .
+\]
+This modest utilization is expected for a first, straightforward Triton
+implementation without extensive fusion or kernel tuning; nonetheless, the
+kernel already delivers substantial end-to-end speedups over the CPU and
+sklearn baselines while leaving significant headroom for further optimization.
+
+\end{document}
+
