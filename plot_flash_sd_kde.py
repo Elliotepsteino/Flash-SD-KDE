@@ -1,4 +1,4 @@
-"""Create a PDF plot comparing sklearn vs empirical SD-KDE runtimes."""
+"""Create a PDF plot comparing sklearn vs SD-KDE runtimes."""
 
 from __future__ import annotations
 
@@ -90,7 +90,7 @@ def plot(rows: List[Dict[str, float]], output: Path):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Plot sklearn vs Empirical SD-KDE GPU timings from sweep log."
+        description="Plot sklearn vs SD-KDE GPU timings from sweep log."
     )
     parser.add_argument("--log", type=Path, required=True, help="Path to sweep log.")
     parser.add_argument(

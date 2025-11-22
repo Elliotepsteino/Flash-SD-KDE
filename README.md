@@ -8,7 +8,7 @@ we can benchmark it against the existing Silverman estimator.
   functions (keeps benchmarks lightweight).
 - `benchmark_triton_kde.py` samples 5000 training points and 500 test points
   for 3 seeds (configurable) and reports CPU Silverman, scikit-learn, GPU Silverman,
-  and GPU empirical SD-KDE timings plus accuracy deltas.
+  and GPU SD-KDE timings plus accuracy deltas.
 - `run_sweep.sh` plus `plot_flash_sd_kde.py` help automate the
   power-of-two sweeps and produce a PDF plot for papers.
 - `report/main.tex` is a concise \LaTeX{} report that includes the speedup plot.
@@ -37,16 +37,24 @@ we can benchmark it against the existing Silverman estimator.
    ./run_sweep.sh sweep.log
    ```
    - Override seeds/mixture/device with `SEEDS`, `MIXTURE`, `DEVICE` env vars.
-2. Convert the resulting log into `flash-sd-kde.pdf` (sklearn vs Emp-SD-KDE bars):
+2. Convert the resulting log into `flash-sd-kde.pdf` (sklearn vs SD-KDE bars):
    ```bash
    python plot_flash_sd_kde.py --log sweep.log --output flash-sd-kde.pdf
    ```
-   The generated figure uses bars for sklearn, Triton empirical SD-KDE, and
-   Torch empirical SD-KDE GPU runtimes at each `n_train` value (1,024 → 32,768,
+   The generated figure uses bars for sklearn, Triton SD-KDE, and
+   Torch SD-KDE GPU runtimes at each `n_train` value (1,024 → 65,536,
    doubling), and annotates the Triton empirical bar with its speedup over
    both sklearn and Torch.
 
-3. Compile the report (from the `report` directory):
+3. Optionally, generate a utilization plot (Triton vs Torch SD-KDE):
+   ```bash
+   python plot_emp_sd_kde_util.py --log sweep.log --output emp-sd-kde-util.pdf
+   ```
+   This plot uses a simple flop model to estimate FLOPs for SD-KDE
+   at each `n_train`, divides by the measured runtimes, and reports GPU
+   utilization as a percentage of the A6000 FP32 peak.
+
+4. Compile the report (from the `report` directory):
    ```bash
    cd report
    pdflatex main.tex

@@ -269,20 +269,15 @@ def run_benchmark(
     timings_sklearn = []
     timings_emp_cpu = []
     timings_emp_gpu_triton = []
-    timings_emp_gpu_torch_naive = []
-    timings_emp_gpu_torch_opt = []
-    timings_torch_naive = []
+    timings_emp_gpu_torch = []
     deltas_gpu = []
     deltas_sklearn = []
     deltas_emp_gpu_triton = []
-    deltas_emp_gpu_torch_naive = []
-    deltas_emp_gpu_torch_opt = []
-    deltas_torch_naive = []
+    deltas_emp_gpu_torch = []
 
     warmup_done = False
     emp_warmup_done = False
     torch_warmup_done = False
-    emp_torch_naive_warmup_done = False
     emp_torch_opt_warmup_done = False
 
     for seed in seeds:
@@ -337,13 +332,11 @@ def run_benchmark(
             torch_naive_vals, torch_naive_time = _gpu_kde_torch_naive(
                 train, queries, bandwidth, device=device
             )
-            timings_torch_naive.append(torch_naive_time)
             tn_max = np.max(np.abs(cpu_vals - torch_naive_vals))
             tn_mean = np.mean(np.abs(cpu_vals - torch_naive_vals))
             tn_rel = np.linalg.norm(cpu_vals - torch_naive_vals) / (
                 np.linalg.norm(cpu_vals) + 1e-12
             )
-            deltas_torch_naive.append((tn_max, tn_mean, tn_rel))
             tn_speedup = cpu_time / torch_naive_time if torch_naive_time > 0 else float("inf")
             seed_msgs.append(
                 f"TorchGPU={torch_naive_time*1e3:.3f} ms (speedup={tn_speedup:.2f}x, Δmax={tn_max:.3e}, rel-L2={tn_rel:.3e})"
@@ -379,23 +372,23 @@ def run_benchmark(
                 f"EmpGPU(Triton)={emp_gpu_time_triton*1e3:.3f} ms (Δmax={emp_max:.3e}, rel-L2={emp_rel:.3e}{speedup_str})"
             )
 
-            # Torch empirical SD-KDE (naive n×n)
-            if not emp_torch_naive_warmup_done:
-                _gpu_empirical_sd_kde_torch_naive(train, queries, device=device)
-                emp_torch_naive_warmup_done = True
-            emp_gpu_vals_torch_naive, emp_gpu_time_torch_naive = _gpu_empirical_sd_kde_torch_naive(
+            # Torch empirical SD-KDE (optimized, blocked)
+            if not emp_torch_opt_warmup_done:
+                _gpu_empirical_sd_kde_torch_optimized(train, queries, device=device)
+                emp_torch_opt_warmup_done = True
+            emp_gpu_vals_torch_opt, emp_gpu_time_torch_opt = _gpu_empirical_sd_kde_torch_optimized(
                 train, queries, device=device
             )
-            timings_emp_gpu_torch_naive.append(emp_gpu_time_torch_naive)
-            emp_t_max = np.max(np.abs(emp_cpu_vals - emp_gpu_vals_torch_naive))
-            emp_t_mean = np.mean(np.abs(emp_cpu_vals - emp_gpu_vals_torch_naive))
-            emp_t_rel = np.linalg.norm(emp_cpu_vals - emp_gpu_vals_torch_naive) / (
+            timings_emp_gpu_torch.append(emp_gpu_time_torch_opt)
+            emp_to_max = np.max(np.abs(emp_cpu_vals - emp_gpu_vals_torch_opt))
+            emp_to_mean = np.mean(np.abs(emp_cpu_vals - emp_gpu_vals_torch_opt))
+            emp_to_rel = np.linalg.norm(emp_cpu_vals - emp_gpu_vals_torch_opt) / (
                 np.linalg.norm(emp_cpu_vals) + 1e-12
             )
-            deltas_emp_gpu_torch_naive.append((emp_t_max, emp_t_mean, emp_t_rel))
+            deltas_emp_gpu_torch.append((emp_to_max, emp_to_mean, emp_to_rel))
             emp_speedup_sklearn_torch = (
-                (sklearn_time / emp_gpu_time_torch_naive)
-                if (sklearn_time is not None and emp_gpu_time_torch_naive > 0)
+                (sklearn_time / emp_gpu_time_torch_opt)
+                if (sklearn_time is not None and emp_gpu_time_torch_opt > 0)
                 else None
             )
             speedup_str_torch = (
@@ -404,35 +397,7 @@ def run_benchmark(
                 else ", speedup vs sklearn=N/A"
             )
             seed_msgs.append(
-                f"EmpGPU(Torch)={emp_gpu_time_torch_naive*1e3:.3f} ms (Δmax={emp_t_max:.3e}, rel-L2={emp_t_rel:.3e}{speedup_str_torch})"
-            )
-
-            # Torch empirical SD-KDE (optimized, blocked)
-            if not emp_torch_opt_warmup_done:
-                _gpu_empirical_sd_kde_torch_optimized(train, queries, device=device)
-                emp_torch_opt_warmup_done = True
-            emp_gpu_vals_torch_opt, emp_gpu_time_torch_opt = _gpu_empirical_sd_kde_torch_optimized(
-                train, queries, device=device
-            )
-            timings_emp_gpu_torch_opt.append(emp_gpu_time_torch_opt)
-            emp_to_max = np.max(np.abs(emp_cpu_vals - emp_gpu_vals_torch_opt))
-            emp_to_mean = np.mean(np.abs(emp_cpu_vals - emp_gpu_vals_torch_opt))
-            emp_to_rel = np.linalg.norm(emp_cpu_vals - emp_gpu_vals_torch_opt) / (
-                np.linalg.norm(emp_cpu_vals) + 1e-12
-            )
-            deltas_emp_gpu_torch_opt.append((emp_to_max, emp_to_mean, emp_to_rel))
-            emp_speedup_sklearn_torch_opt = (
-                (sklearn_time / emp_gpu_time_torch_opt)
-                if (sklearn_time is not None and emp_gpu_time_torch_opt > 0)
-                else None
-            )
-            speedup_str_torch_opt = (
-                f", speedup vs sklearn={emp_speedup_sklearn_torch_opt:.2f}x"
-                if emp_speedup_sklearn_torch_opt is not None
-                else ", speedup vs sklearn=N/A"
-            )
-            seed_msgs.append(
-                f"EmpGPU(TorchOpt)={emp_gpu_time_torch_opt*1e3:.3f} ms (Δmax={emp_to_max:.3e}, rel-L2={emp_to_rel:.3e}{speedup_str_torch_opt})"
+                f"EmpGPU(Torch)={emp_gpu_time_torch_opt*1e3:.3f} ms (Δmax={emp_to_max:.3e}, rel-L2={emp_to_rel:.3e}{speedup_str_torch})"
             )
 
         print(" | ".join(seed_msgs))
@@ -470,16 +435,7 @@ def run_benchmark(
     elif enable_gpu:
         print("Silverman GPU KDE: skipped (no timings collected).")
 
-    if enable_gpu and timings_torch_naive:
-        avg_tn = np.mean(timings_torch_naive)
-        avg_tn_speedup = avg_cpu / avg_tn if avg_tn > 0 else float("inf")
-        avg_tn_max = np.mean([d[0] for d in deltas_torch_naive])
-        avg_tn_mean = np.mean([d[1] for d in deltas_torch_naive])
-        avg_tn_rel = np.mean([d[2] for d in deltas_torch_naive])
-        print(
-            f"(n_train={n_train}, n_test={n_test}) Torch GPU KDE (avg over {seed_count} seeds): {avg_tn*1e3:.3f} ms "
-            f"(speedup={avg_tn_speedup:.2f}x, Δmax={avg_tn_max:.3e}, mean Δ={avg_tn_mean:.3e}, rel-L2={avg_tn_rel:.3e})"
-        )
+    # Torch GPU KDE summary is omitted to simplify output.
 
     print(
         f"(n_train={n_train}, n_test={n_test}) Empirical SD-KDE CPU (avg over {seed_count} seeds): {avg_emp_cpu*1e3:.3f} ms"
@@ -501,11 +457,11 @@ def run_benchmark(
             summary_triton += " | speedup vs sklearn: N/A"
         print(summary_triton)
 
-    if enable_emp_gpu and timings_emp_gpu_torch_naive:
-        avg_emp_gpu_torch = np.mean(timings_emp_gpu_torch_naive)
-        avg_emp_max_torch = np.mean([d[0] for d in deltas_emp_gpu_torch_naive])
-        avg_emp_mean_torch = np.mean([d[1] for d in deltas_emp_gpu_torch_naive])
-        avg_emp_rel_torch = np.mean([d[2] for d in deltas_emp_gpu_torch_naive])
+    if enable_emp_gpu and timings_emp_gpu_torch:
+        avg_emp_gpu_torch = np.mean(timings_emp_gpu_torch)
+        avg_emp_max_torch = np.mean([d[0] for d in deltas_emp_gpu_torch])
+        avg_emp_mean_torch = np.mean([d[1] for d in deltas_emp_gpu_torch])
+        avg_emp_rel_torch = np.mean([d[2] for d in deltas_emp_gpu_torch])
         summary_torch = (
             f"(n_train={n_train}, n_test={n_test}) Empirical SD-KDE GPU (Torch, avg over {seed_count} seeds): {avg_emp_gpu_torch*1e3:.3f} ms "
             f"(Δmax={avg_emp_max_torch:.3e}, mean Δ={avg_emp_mean_torch:.3e}, rel-L2={avg_emp_rel_torch:.3e})"
@@ -517,23 +473,7 @@ def run_benchmark(
             summary_torch += " | speedup vs sklearn: N/A"
         print(summary_torch)
 
-    if enable_emp_gpu and timings_emp_gpu_torch_opt:
-        avg_emp_gpu_torch_opt = np.mean(timings_emp_gpu_torch_opt)
-        avg_emp_max_torch_opt = np.mean([d[0] for d in deltas_emp_gpu_torch_opt])
-        avg_emp_mean_torch_opt = np.mean([d[1] for d in deltas_emp_gpu_torch_opt])
-        avg_emp_rel_torch_opt = np.mean([d[2] for d in deltas_emp_gpu_torch_opt])
-        summary_torch_opt = (
-            f"(n_train={n_train}, n_test={n_test}) Empirical SD-KDE GPU (TorchOpt, avg over {seed_count} seeds): {avg_emp_gpu_torch_opt*1e3:.3f} ms "
-            f"(Δmax={avg_emp_max_torch_opt:.3e}, mean Δ={avg_emp_mean_torch_opt:.3e}, rel-L2={avg_emp_rel_torch_opt:.3e})"
-        )
-        if avg_sklearn is not None and avg_emp_gpu_torch_opt > 0:
-            sk_speedup_torch_opt = avg_sklearn / avg_emp_gpu_torch_opt
-            summary_torch_opt += f" | speedup vs sklearn: {sk_speedup_torch_opt:.2f}x"
-        else:
-            summary_torch_opt += " | speedup vs sklearn: N/A"
-        print(summary_torch_opt)
-
-    if enable_emp_gpu and not (timings_emp_gpu_triton or timings_emp_gpu_torch_naive or timings_emp_gpu_torch_opt):
+    if enable_emp_gpu and not (timings_emp_gpu_triton or timings_emp_gpu_torch):
         print("Empirical SD-KDE GPU: skipped (no timings collected).")
 
 
