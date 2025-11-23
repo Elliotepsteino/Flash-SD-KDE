@@ -21,11 +21,13 @@ we can benchmark it against the existing Silverman estimator.
    ```
 2. Run the benchmark (replace the device if needed):
    ```bash
-   python benchmark_triton_kde.py --seeds 0,1,2 --n-train 5000 --n-test 500 --mixture-index 0 --device cuda
+   python benchmark_triton_kde.py --seeds 0,1,2 --n-train 32768 --n-test 4096 --mixture-index 0 --device cuda
    ```
    - Add `--cpu-only` if CUDA isn’t available and you just want to test the CPU
      path, `--skip-sklearn` to skip the scikit-learn baseline, or
      `--skip-emp-gpu` to skip the GPU empirical SD-KDE run.
+   - Add `--emp-kernel-only` to benchmark only the Triton SD-KDE kernel (useful
+     for profiling with Nsight tools).
    - Use `--mixture-index 0|1|2` to select which mixture from
      `kde_utils.py` you want to evaluate.
 
@@ -59,3 +61,32 @@ we can benchmark it against the existing Silverman estimator.
    cd report
    pdflatex main.tex
    ```
+
+## Profiling the Triton SD-KDE kernel
+
+Use the `--emp-kernel-only` flag to time just the Triton SD-KDE kernel
+(score + shift + final KDE). This is handy when profiling with Nsight tools:
+
+```bash
+python benchmark_triton_kde.py \
+  --seeds 0,1,2 \
+  --n-train 32768 \
+  --n-test 4096 \
+  --mixture-index 0 \
+  --device cuda \
+  --emp-kernel-only
+```
+
+To capture a timeline without requiring perf-counter access:
+
+```bash
+nsys profile --force-overwrite true -o sd-kde --trace=cuda \
+  python benchmark_triton_kde.py \
+    --seeds 0 \
+    --n-train 32768 \
+    --n-test 4096 \
+    --mixture-index 0 \
+    --device cuda \
+    --emp-kernel-only
+nsys stats --force-export true sd-kde.nsys-rep
+```

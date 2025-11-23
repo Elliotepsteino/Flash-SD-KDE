@@ -252,6 +252,62 @@ def _gpu_empirical_sd_kde_torch_optimized(
     return densities.detach().cpu().numpy(), elapsed
 
 
+def benchmark_empirical_triton_kernel_only(
+    mixture_index: int,
+    seeds: Sequence[int],
+    n_train: int,
+    n_test: int,
+    *,
+    device: str = "cuda",
+) -> None:
+    """Benchmark the full Triton SD-KDE (score + shift + final KDE)."""
+    params = mixture_params_list[mixture_index]
+    torch_device = torch.device(device)
+    print(
+        f"[Empirical SD-KDE Triton Kernel Only] mixture={mixture_index}, "
+        f"seeds={list(seeds)}, n_train={n_train}, n_test={n_test}, device={device}"
+    )
+    times = []
+    warmup_done = False
+    for seed in seeds:
+        np.random.seed(seed)
+        train = sample_from_mixture(n_train, params)
+        np.random.seed(seed + 10_000)
+        queries = sample_from_mixture(n_test, params)
+
+        if not warmup_done:
+            warm_x, warm_h = empirical_sd_kde_triton(
+                train, device=device, return_tensor=True, synchronize=True
+            )
+            gaussian_kde_triton(
+                warm_x, queries, warm_h, device=device, synchronize=True
+            )
+            warmup_done = True
+
+        torch.cuda.synchronize(torch_device)
+        start = time.perf_counter()
+        x_emp, h_emp = empirical_sd_kde_triton(
+            train, device=device, return_tensor=True, synchronize=False
+        )
+        gaussian_kde_triton(
+            x_emp, queries, h_emp, device=device, synchronize=False
+        )
+        torch.cuda.synchronize(torch_device)
+        elapsed = time.perf_counter() - start
+        times.append(elapsed)
+        print(
+            f"  Seed {seed}: Triton SD-KDE (score+shift+KDE) {elapsed*1e3:.3f} ms"
+        )
+
+    avg = np.mean(times)
+    std = np.std(times)
+    print("-" * 80)
+    print(
+        f"[Empirical kernel only] avg={avg*1e3:.3f} ms, std={std*1e3:.3f} ms "
+        f"over {len(seeds)} seeds"
+    )
+
+
 def run_benchmark(
     mixture_index: int,
     seeds: Sequence[int],
@@ -487,6 +543,11 @@ def main():
     parser.add_argument("--n-test", type=int, default=500)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument(
+        "--emp-kernel-only",
+        action="store_true",
+        help="Benchmark only the Triton empirical SD-KDE kernel and exit.",
+    )
+    parser.add_argument(
         "--cpu-only",
         action="store_true",
         help="Skip the Triton GPU run (useful when CUDA is unavailable).",
@@ -512,6 +573,17 @@ def main():
         f"{len(seeds)} seeds, n_train={args.n_train}, n_test={args.n_test} "
         f"using device {args.device}."
     )
+
+    if args.emp_kernel_only:
+        benchmark_empirical_triton_kernel_only(
+            mixture_index=args.mixture_index,
+            seeds=seeds,
+            n_train=args.n_train,
+            n_test=args.n_test,
+            device=args.device,
+        )
+        return
+
     run_benchmark(
         mixture_index=args.mixture_index,
         seeds=seeds,

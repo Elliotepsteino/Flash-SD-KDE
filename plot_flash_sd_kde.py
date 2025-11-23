@@ -58,8 +58,8 @@ def plot(rows: List[Dict[str, float]], output: Path):
 
     plt.figure(figsize=(12, 5))
     bar_sk = plt.bar(idx - width, sklearn, width, label="sklearn KDE", color="#4e79a7")
-    bar_to = plt.bar(idx, emp_torch, width, label="Empirical SD-KDE (Torch)", color="#59a14f")
-    bar_tr = plt.bar(idx + width, emp_triton, width, label="Empirical SD-KDE (Triton)", color="#f28e2b")
+    bar_to = plt.bar(idx, emp_torch, width, label="SD-KDE (Torch)", color="#59a14f")
+    bar_tr = plt.bar(idx + width, emp_triton, width, label="SD-KDE (Triton)", color="#f28e2b")
     plt.yscale("log")
 
     # Annotate each bar with its runtime in ms
@@ -81,7 +81,7 @@ def plot(rows: List[Dict[str, float]], output: Path):
     plt.xticks(idx, ticks, rotation=45, ha="right")
     plt.ylabel("Average runtime (ms, log scale)")
     plt.xlabel("$n_{\\text{train}}$")
-    plt.title("sklearn vs Empirical SD-KDE GPU Runtime (Triton vs Torch)")
+    plt.title("sklearn vs SD-KDE GPU Runtime (Triton vs Torch)")
     plt.legend()
     plt.tight_layout()
     plt.savefig(output, bbox_inches="tight")

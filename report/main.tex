@@ -189,4 +189,20 @@ implementation without extensive fusion or kernel tuning; nonetheless, the
 kernel already delivers substantial end-to-end speedups over the CPU and
 sklearn baselines while leaving significant headroom for further optimization.
 
+\section{Performance tuning}
+
+We performed a sweep over the Triton launch parameters to improve utilization
+for the $k = 32\text{k}$ case (with $k/8$ queries).  Specifically we varied:
+\begin{itemize}
+  \item $BLOCK\_M \in \{32, 64, 128, 256\}$,
+  \item $BLOCK\_N \in \{32, 64, 128, 256\}$,
+  \item $num\_warps \in \{1, 2, 4, 8\}$,
+  \item $num\_stages \in \{1, 2, 4\}$,
+\end{itemize}
+and selected the combination that minimized runtime.  For this workload we
+found that $BLOCK\_M=64$, $BLOCK\_N=128$, $num\_warps=1$, and $num\_stages=2$
+gave the best overall performance, increasing measured FLOP utilization by
+more than $2\times$ relative to the initial settings.  The same sweep can be
+repeated for different problem sizes if further tuning is needed.
+
 \end{document}
