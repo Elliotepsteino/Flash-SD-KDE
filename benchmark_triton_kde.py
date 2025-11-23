@@ -277,21 +277,19 @@ def benchmark_empirical_triton_kernel_only(
 
         if not warmup_done:
             warm_x, warm_h = empirical_sd_kde_triton(
-                train, device=device, return_tensor=True, synchronize=True
-            )
+                train, device=device, return_tensor=True, synchronize=True) 
+            # block_n = 256, block_m = 128 for large problems is better
+            # For instance when n_train = 2^23
             gaussian_kde_triton(
-                warm_x, queries, warm_h, device=device, synchronize=True
-            )
+                warm_x, queries, warm_h, device=device, synchronize=True)
             warmup_done = True
 
         torch.cuda.synchronize(torch_device)
         start = time.perf_counter()
         x_emp, h_emp = empirical_sd_kde_triton(
-            train, device=device, return_tensor=True, synchronize=False
-        )
+            train, device=device, return_tensor=True, synchronize=False)
         gaussian_kde_triton(
-            x_emp, queries, h_emp, device=device, synchronize=False
-        )
+            x_emp, queries, h_emp, device=device, synchronize=False)
         torch.cuda.synchronize(torch_device)
         elapsed = time.perf_counter() - start
         times.append(elapsed)

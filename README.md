@@ -62,6 +62,33 @@ we can benchmark it against the existing Silverman estimator.
    pdflatex main.tex
    ```
 
+## Large-n Triton-only scaling sweep
+
+To stress only the Triton empirical SD-KDE kernel (score + shift + KDE) on
+multi-million-sample problems, use the helper script below.  It sweeps powers
+of two from $2^{15}$ up to $2^{22}$ (32{,}768 → 4{,}194{,}304) with a single
+seed, fixing $n_{\text{test}} = n_{\text{train}}/8$ in each case:
+
+```bash
+chmod +x run_triton_scaling.sh  # once per checkout
+./run_triton_scaling.sh large_triton.log
+```
+
+Override the defaults with environment variables:
+
+```bash
+SEED=1 DEVICE=cuda:1 START_POWER=17 END_POWER=22 ./run_triton_scaling.sh
+```
+
+The script calls `benchmark_triton_kde.py --emp-kernel-only ...` so only the
+Triton kernels execute; the resulting log pairs well with `nsys profile` for
+collecting timeline data on the largest configurations.  To visualize the
+achieved utilization, feed the log into the helper plotter:
+
+```bash
+python plot_triton_large_util.py --log large_triton.log --output triton-large-util.pdf
+```
+
 ## Profiling the Triton SD-KDE kernel
 
 Use the `--emp-kernel-only` flag to time just the Triton SD-KDE kernel

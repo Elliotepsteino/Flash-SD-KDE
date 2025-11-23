@@ -11,12 +11,17 @@ enough for the current problem sizes (n up to a few hundred thousand).
 from __future__ import annotations
 
 import math
+import warnings
 from typing import Sequence
 
 import torch
 import triton
 import triton.language as tl
 import numpy as np
+
+_CUDA_MAX_GRID_DIM_X = 65_535
+_CUDA_MAX_GRID_DIM_Y = 65_535
+_MAX_BLOCK_TILE = 1024
 
 
 @triton.jit
@@ -49,7 +54,6 @@ def _gaussian_kde_kernel(
     diff = (query_vals - data_vals) * inv_bandwidth
     inv_sqrt_2pi = 0.3989422804014327  # simple literal avoids global constexpr issues
     contrib = tl.exp(-0.5 * diff * diff) * inv_sqrt_2pi
-
     data_mask_matrix = tl.reshape(data_mask, (1, BLOCK_N))
     contrib = tl.where(data_mask_matrix, contrib, 0.0)
 
@@ -113,6 +117,72 @@ def _to_torch_tensor(
     return tensor.contiguous()
 
 
+def _next_power_of_two(value: int) -> int:
+    if value <= 1:
+        return 1
+    return 1 << ((value - 1).bit_length())
+
+
+def _resolve_launch_shape(
+    *,
+    n_query: int,
+    n_data: int,
+    block_m: int,
+    block_n: int,
+    kernel_name: str,
+) -> tuple[int, int, int, int]:
+    """Ensure Triton grid dimensions stay within CUDA limits."""
+    bm = int(block_m)
+    bn = int(block_n)
+
+    if bm <= 0 or bn <= 0:
+        raise ValueError(f"{kernel_name}: block sizes must be positive, got ({bm}, {bn}).")
+
+    grid_m = triton.cdiv(n_query, bm)
+    if grid_m > _CUDA_MAX_GRID_DIM_X:
+        required_bm = math.ceil(n_query / _CUDA_MAX_GRID_DIM_X)
+        promoted_bm = max(bm, _next_power_of_two(required_bm))
+        promoted_bm = min(_MAX_BLOCK_TILE, promoted_bm)
+        promoted_bm = min(promoted_bm, n_query)
+        grid_m = triton.cdiv(n_query, promoted_bm)
+        if grid_m > _CUDA_MAX_GRID_DIM_X:
+            raise ValueError(
+                f"{kernel_name}: even block_m={promoted_bm} yields grid_m={grid_m} "
+                f"> {_CUDA_MAX_GRID_DIM_X}; split the queries before launching."
+            )
+        if promoted_bm != bm:
+            warnings.warn(
+                f"{kernel_name}: promoting block_m from {bm} to {promoted_bm} so that "
+                f"grid_m stays within CUDA limit {_CUDA_MAX_GRID_DIM_X}.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            bm = promoted_bm
+
+    grid_n = triton.cdiv(n_data, bn)
+    if grid_n > _CUDA_MAX_GRID_DIM_Y:
+        required_bn = math.ceil(n_data / _CUDA_MAX_GRID_DIM_Y)
+        promoted_bn = max(bn, _next_power_of_two(required_bn))
+        promoted_bn = min(_MAX_BLOCK_TILE, promoted_bn)
+        promoted_bn = min(promoted_bn, n_data)
+        grid_n = triton.cdiv(n_data, promoted_bn)
+        if grid_n > _CUDA_MAX_GRID_DIM_Y:
+            raise ValueError(
+                f"{kernel_name}: even block_n={promoted_bn} yields grid_n={grid_n} "
+                f"> {_CUDA_MAX_GRID_DIM_Y}; split the training data before launching."
+            )
+        if promoted_bn != bn:
+            warnings.warn(
+                f"{kernel_name}: promoting block_n from {bn} to {promoted_bn} so that "
+                f"grid_n stays within CUDA limit {_CUDA_MAX_GRID_DIM_Y}.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            bn = promoted_bn
+
+    return bm, bn, grid_m, grid_n
+
+
 def gaussian_kde_triton(
     data: Sequence[float] | torch.Tensor,
     queries: Sequence[float] | torch.Tensor,
@@ -157,22 +227,35 @@ def gaussian_kde_triton(
 
     output = torch.zeros_like(query)
 
-    grid_m = triton.cdiv(n_query, block_m)
-    grid_n = triton.cdiv(n_data, block_n)
-    grid = (grid_m, grid_n)
+    max_queries_per_launch = max(block_m, block_m * _CUDA_MAX_GRID_DIM_X)
+    # Chunk queries so each launch keeps gridDim.x within CUDA limits.
+    for q_start in range(0, n_query, max_queries_per_launch):
+        q_end = min(n_query, q_start + max_queries_per_launch)
+        query_chunk = query[q_start:q_end]
+        output_chunk = output[q_start:q_end]
+        chunk_n_query = query_chunk.numel()
 
-    _gaussian_kde_kernel[grid](
-        train,
-        query,
-        output,
-        n_data,
-        n_query,
-        1.0 / bandwidth,
-        BLOCK_M=block_m,
-        BLOCK_N=block_n,
-        num_warps=num_warps,
-        num_stages=num_stages,
-    )
+        chunk_block_m, chunk_block_n, grid_m, grid_n = _resolve_launch_shape(
+            n_query=chunk_n_query,
+            n_data=n_data,
+            block_m=block_m,
+            block_n=block_n,
+            kernel_name="gaussian_kde_triton",
+        )
+        grid = (grid_m, grid_n)
+
+        _gaussian_kde_kernel[grid](
+            train,
+            query_chunk,
+            output_chunk,
+            n_data,
+            chunk_n_query,
+            1.0 / bandwidth,
+            BLOCK_M=chunk_block_m,
+            BLOCK_N=chunk_block_n,
+            num_warps=num_warps,
+            num_stages=num_stages,
+        )
 
     if synchronize:
         torch.cuda.synchronize(device)
@@ -225,23 +308,37 @@ def gaussian_kde_score_triton(
     pdf_acc = torch.zeros_like(query)
     deriv_acc = torch.zeros_like(query)
 
-    grid_m = triton.cdiv(n_query, block_m)
-    grid_n = triton.cdiv(n_data, block_n)
-    grid = (grid_m, grid_n)
+    max_queries_per_launch = max(block_m, block_m * _CUDA_MAX_GRID_DIM_X)
+    # Chunk queries so each launch keeps gridDim.x within CUDA limits.
+    for q_start in range(0, n_query, max_queries_per_launch):
+        q_end = min(n_query, q_start + max_queries_per_launch)
+        query_chunk = query[q_start:q_end]
+        pdf_chunk = pdf_acc[q_start:q_end]
+        deriv_chunk = deriv_acc[q_start:q_end]
+        chunk_n_query = query_chunk.numel()
 
-    _gaussian_kde_pdf_deriv_kernel[grid](
-        train,
-        query,
-        pdf_acc,
-        deriv_acc,
-        n_data,
-        n_query,
-        1.0 / bandwidth,
-        BLOCK_M=block_m,
-        BLOCK_N=block_n,
-        num_warps=num_warps,
-        num_stages=num_stages,
-    )
+        chunk_block_m, chunk_block_n, grid_m, grid_n = _resolve_launch_shape(
+            n_query=chunk_n_query,
+            n_data=n_data,
+            block_m=block_m,
+            block_n=block_n,
+            kernel_name="gaussian_kde_score_triton",
+        )
+        grid = (grid_m, grid_n)
+
+        _gaussian_kde_pdf_deriv_kernel[grid](
+            train,
+            query_chunk,
+            pdf_chunk,
+            deriv_chunk,
+            n_data,
+            chunk_n_query,
+            1.0 / bandwidth,
+            BLOCK_M=chunk_block_m,
+            BLOCK_N=chunk_block_n,
+            num_warps=num_warps,
+            num_stages=num_stages,
+        )
 
     if synchronize:
         torch.cuda.synchronize(device)
@@ -256,9 +353,9 @@ def gaussian_kde_score_triton(
 def empirical_sd_kde_triton(
     data: Sequence[float] | torch.Tensor,
     *,
-    block_m: int = 128,
+    block_m: int = 64,
     block_n: int = 128,
-    num_warps: int = 4,
+    num_warps: int = 1,
     num_stages: int = 2,
     device: str | torch.device = "cuda",
     return_tensor: bool = False,

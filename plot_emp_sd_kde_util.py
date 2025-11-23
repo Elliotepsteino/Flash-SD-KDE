@@ -23,12 +23,16 @@ PEAK_FLOPS = PEAK_TFLOPS * 1e12
 def estimate_flops_emp_sd_kde(k: int) -> float:
     """Estimate total FLOPs for empirical SD-KDE for n_train=k, n_test=k/8.
 
-    Model:
-      - Score+shift: c1 * k^2 with c1 ≈ 40 flops per (train, train) pair
-      - KDE on debiased data: c2 * k * (k/8) with c2 ≈ 20 flops per (train, test) pair
+    Hardware model:
+      - Each RTX A6000 SM exposes 128 FP32 ALUs and 16 SFUs, so we budget one
+        exp() as the equivalent of 8 FP32 flops.
+      - Score+shift: 1 exp (8 flops) + ~8 other FP32 flops ⇒ c1 = 16 per
+        (train, train) pair.
+      - KDE on debiased data: 1 exp (8 flops) + ~6 other FP32 flops ⇒ c2 = 14
+        per (train, test) pair.
     """
-    c1 = 40.0
-    c2 = 20.0
+    c1 = 16.0
+    c2 = 14.0
     return c1 * (k ** 2) + c2 * (k ** 2 / 8.0)
 
 

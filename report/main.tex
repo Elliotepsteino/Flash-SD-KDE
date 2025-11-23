@@ -58,6 +58,23 @@ The goal of Flash-SD-KDE is to implement a fast, GPU-accelerated SD-KDE
         a range of sample sizes $(n_{\text{train}}, n_{\text{test}})$.
 \end{itemize}
 
+\subsection{Hardware}
+
+All experiments run on a workstation equipped with an NVIDIA RTX~A6000
+(GA102).  This GPU exposes 84 streaming multiprocessors (SMs); each SM
+contains 128 FP32 ALUs and 16 special function units (SFUs).  Because the
+ratio of FP32 ALUs to SFUs is $128{:}16$, we treat one $\exp$ (issued on an
+SFU) as costing the equivalent of $128/16 = 8$ FP32 flops in our models.
+The card delivers roughly $40$~TFLOP/s of peak FP32 throughput and
+approximately $770$~GB/s of GDDR6 bandwidth.
+
+The host CPU is a dual-socket AMD EPYC~7763 system (``Milan'') configured
+with $2 \times 64$ cores and two hardware threads per core (256 logical
+CPUs reported by \texttt{lscpu}).  The processors boost up to
+3.53~GHz, expose 512~MiB of shared L3 cache across the sockets, and provide
+modern ISA extensions (AVX/AVX2, FMA, BMI1/2, SHA, VAES, etc.).  Unless
+otherwise noted, all CPU benchmarks in this report run on this platform.
+
 \section{Arithmetic intensity of KDE}
 
 Arithmetic intensity is defined as
@@ -70,16 +87,17 @@ there are two steps:
   \item \textbf{Score + shift:} For each training point we compute
         $\hat s(x_i)$ from all $k$ points and then form
         $x_i^{\mathrm{SD}} = x_i + \tfrac{h^2}{2}\hat s(x_i)$.  This uses
-        $O(k^2)$ pairwise kernel interactions.  Counting subtractions,
-        multiplications, an $\exp$ (we approximate a single $\exp$ as about
-        $15$ flops) and a few additions for the two sums
-        $\sum\varphi(z_i)$ and $\sum -z_i\varphi(z_i)$, we approximate
-        this as $c_1 \approx 40$ flops per $(\text{train},\text{train})$ pair.
+        $O(k^2)$ pairwise kernel interactions.  With the RTX~A6000 hardware
+        ratio ($128$ FP32 ALUs, $16$ SFUs per SM) we budget an $\exp$ as
+        $8$ flop-equivalents.  The score accumulation requires one $\exp$
+        and roughly eight additional arithmetic ops (subtraction, scaling,
+        accumulation), yielding $c_1 \approx 16$ flops per
+        $(\text{train},\text{train})$ pair.
   \item \textbf{KDE on debiased samples:} We then evaluate a standard Gaussian
         KDE at $k/8$ query points using the $k$ debiased samples, which uses
-        $O(k^2/8)$ interactions.  For the density-only KDE we use
-        $c_2 \approx 20$ flops per $(\text{train},\text{test})$ pair, again
-        taking the cost of one $\exp$ as roughly $15$ flops.
+        $O(k^2/8)$ interactions.  Each pair requires one $\exp$ (8 flops) plus
+        about six other operations (difference, square, scaling, accumulation),
+        so we take $c_2 \approx 14$ flops per $(\text{train},\text{test})$ pair.
 \end{enumerate}
 The total work is therefore approximated by
 \[
@@ -87,12 +105,12 @@ The total work is therefore approximated by
   \;\approx\;
   c_1 k^2 + c_2\,k\,(k/8)
   \;\approx\;
-  40 k^2 + 20\frac{k^2}{8}
+  16 k^2 + 14\frac{k^2}{8}
   \;=\;
-  42.5\,k^2.
+  17.75\,k^2.
 \]
 For $k = 32\text{k}$ this is on the order of
-$4\times 10^{10}$ flops.  With a properly tiled GPU implementation, each training
+$2\times 10^{10}$ flops.  With a properly tiled GPU implementation, each training
 point and each query can be loaded from global memory once and then reused
 from registers or shared memory.  When we fix $n_{\text{test}} = k/8$ we move
 \[
@@ -109,16 +127,16 @@ $k$ is then
   =
   \frac{\text{FLOPs}(k)}{\text{Bytes}(k)}
   \;\approx\;
-  \frac{42.5\,k^2}{5\,k}
+  \frac{17.75\,k^2}{5\,k}
   \approx
-  8.5\,k
+  3.55\,k
   \quad \text{flops/byte}.
 \]
 This corresponds to the minimal traffic where each sample is read once and
 each output is written once; any additional passes contributes only $O(k)$
 more bytes and does not change the scaling.
 Thus $I(k)$ grows linearly with $k$; for $k=32\text{k}$ this already yields
-an intensity on the order of $3\times 10^5$ flops/byte, far above the
+an intensity on the order of $1\times 10^5$ flops/byte, far above the
 machine-balance point of the A6000, so the kernel is compute-bound rather
 than bandwidth-bound.
 
@@ -130,7 +148,7 @@ memory (not HBM), corresponding to a balance point of
   \frac{40\times 10^{12}}{7.7\times 10^{11}}
   \approx 50 \;\text{flops/byte}.
 \]
-Setting $I(k)\approx 8.5k \approx 50$ gives $k\approx 6$, so for any
+Setting $I(k)\approx 3.55k \approx 50$ gives $k\approx 15$, so for any
 realistic problem size (e.g.\ $k\ge 64$) SD-KDE on the A6000 is
 firmly in the compute-bound regime.
 
@@ -148,6 +166,14 @@ Across the entire range, the empirical SD-KDE GPU implementation is
 consistently faster than scikit-learn, with speedups growing with $n$; at
 the largest sizes the GPU achieves well over an order-of-magnitude speedup
 relative to the sklearn baseline.
+
+For profiling and scaling studies we also introduce a Triton-only sweep over
+larger problem sizes, using powers of two for $n_{\text{train}}$ up to
+$2^{22} \approx 4.2$ million (and $n_{\text{test}} = n_{\text{train}}/8$) with
+a single seed.  The helper script \texttt{run\_triton\_scaling.sh} executes
+this experiment by invoking the \texttt{--emp-kernel-only} benchmark mode,
+producing a compact log that we feed to Nsight Systems when examining the
+multi-million-sample kernels.
 
 \begin{figure}[t]
   \centering
@@ -178,8 +204,9 @@ $4\,\mathrm{ms}$.  There are
   \approx 1.34 \times 10^8
 \]
 pairwise interactions contributing to the KDE stage, and an additional
-$O(k^2)$ interactions for the empirical score.  Using the above flop model
-for SD-KDE, this corresponds to roughly $10^{10}$ flops.  Dividing
+$O(k^2)$ interactions for the empirical score.  Using the updated flop model
+for SD-KDE (one $\exp$ counted as eight FP32 flops), this corresponds to roughly
+$2\times 10^{10}$ flops.  Dividing
 by the observed $4\,\mathrm{ms}$ runtime gives an empirical throughput on the
 order of a few TFLOP/s.  The RTX~A6000 has a peak single-precision throughput
 of about $40\,\text{TFLOP/s}$, so the achieved utilization is in the
@@ -188,6 +215,33 @@ This modest utilization is expected for a first, straightforward Triton
 implementation without extensive fusion or kernel tuning; nonetheless, the
 kernel already delivers substantial end-to-end speedups over the CPU and
 sklearn baselines while leaving significant headroom for further optimization.
+
+\section{Large-scale experiments}
+
+To stress-test the Triton implementation beyond the sweep shown in
+Figure~\ref{fig:flash_sd_kde}, we run a Triton-only experiment that scales
+$n_{\text{train}}$ over powers of two from $2^{15}$ through $2^{22}$
+($\approx 4.2$ million), keeping $n_{\text{test}} = n_{\text{train}}/8$
+and using a single seed.  We invoke \texttt{benchmark\_triton\_kde.py}
+with \texttt{--emp-kernel-only} so the profile captures just the score,
+shift, and final KDE kernels, and we record the runtime for each size.
+Using the same flop model that underlies Figure~\ref{fig:flash_sd_kde_util}, we
+convert the runtimes into an estimated percentage of the A6000 FP32 peak.
+Figure~\ref{fig:triton_large_util} summarizes the resulting utilization curve.
+Even at $n_{\text{train}} \approx 4$ million the kernel remains comfortably
+compute-bound, though the achieved utilization is still in the low
+double-digit percentages, highlighting ample room for further kernel
+fusion and occupancy tuning at the largest scales.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../triton-large-util.pdf}
+  \caption{Utilization of the Triton SD-KDE kernel for large $n_{\text{train}}$
+           (powers of two up to $2^{22}$).  Labels show the observed runtime
+           for each data size; error bars are omitted because a single seed is
+           used per point.}
+  \label{fig:triton_large_util}
+\end{figure}
 
 \section{Performance tuning}
 
