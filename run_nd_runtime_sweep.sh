@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_PATH="${1:-nd_runtime.log}"
 SEED="${SEED:-0}"
 DEVICE="${DEVICE:-cuda}"
-START_POWER="${START_POWER:-12}"  # 2^12 = 4096
+START_POWER="${START_POWER:-11}"  # 2^11 = 2048
 END_POWER="${END_POWER:-15}"      # 2^15 = 32768
 
 echo "Writing 16-D runtime sweep to ${LOG_PATH}"

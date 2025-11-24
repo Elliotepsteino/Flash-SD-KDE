@@ -121,7 +121,7 @@ def plot_runtime(rows: List[Dict[str, float]], output: Path):
             plt.text(
                 x,
                 y * 1.02,
-                f"{val:.0f} ms",
+                f"{val:.1f}",
                 ha="center",
                 va="bottom",
                 fontsize=8,

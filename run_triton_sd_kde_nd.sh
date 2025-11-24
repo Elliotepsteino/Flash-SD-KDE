@@ -7,8 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_PATH="${1:-triton_sd_kde_nd.log}"
 SEED="${SEED:-0}"
 DEVICE="${DEVICE:-cuda}"
-START_POWER="${START_POWER:-12}"  # 2^12 = 4096
-END_POWER="${END_POWER:-18}"      # 2^18 = 262,144
+START_POWER="${START_POWER:-11}"  # 2^11 = 2,048
+END_POWER="${END_POWER:-20}"      # 2^20 = 1,048,576
 
 echo "Writing 16-D SD-KDE sweep to ${LOG_PATH}"
 : > "${LOG_PATH}"

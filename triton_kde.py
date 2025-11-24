@@ -488,7 +488,7 @@ def empirical_sd_kde_triton_nd(
     bandwidth: float,
     *,
     block_m: int = 64,
-    block_n: int = 64,
+    block_n: int = 128,
     num_warps: int = 4,
     num_stages: int = 2,
     device: str | torch.device = "cuda",

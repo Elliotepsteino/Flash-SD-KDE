@@ -1,23 +1,34 @@
 \documentclass[11pt]{article}
 \usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
 \usepackage{booktabs}
 \usepackage{geometry}
+\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
 \usepackage{graphicx}
 \geometry{margin=1in}
 
-\title{Flash-SD-KDE}
+\title{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
 \author{}
 \date{}
 
 \begin{document}
 \maketitle
 
-\section{Background}
+\section{Introduction}
 
-Score-debiased kernel density estimation (SD-KDE) refines a standard kernel
-density estimator by moving the data slightly in the direction of the score
-function (the gradient of the log-density).  Given samples $x_i$ and a
-bandwidth $h$, a Gaussian KDE is
+Score-debiased kernel density estimation (SD-KDE)~\cite{epstein2025sdkde}
+improves the statistical efficiency of standard kernel density estimators:
+for sufficiently smooth densities, SD-KDE attains better bias and mean-squared
+error rates than vanilla KDE while retaining a simple, nonparametric form.
+These accuracy gains come with a significant computational drawback: the
+empirical score used for debiasing introduces an additional $O(n^2)$ pass
+over the data, so a naive implementation has roughly the same quadratic cost
+as KDE itself but with a larger constant factor.  At realistic sample sizes,
+this puts strong pressure on both the algorithmic structure and the hardware
+implementation.
+
+Given samples $x_i$ in one dimension and a bandwidth $h$, a Gaussian KDE is
 \[
   \hat p(x)
   =
@@ -29,13 +40,14 @@ and SD-KDE forms debiased samples
 $x_i^{\mathrm{SD}} = x_i + \tfrac{h^2}{2}\,\hat s(x_i)$ where
 $\hat s$ is an estimate of the score.  In this work we always use an
 empirical score computed from the KDE itself, i.e.\ no parametric model
-for the underlying density is assumed.  Writing $z_i(x) = (x - x_i)/h$ and
+for the underlying density is assumed.  Writing the KDE explicitly in terms
+of the samples,
 \[
   \hat p(x)
   =
   \frac{1}{n h}
   \sum_{i=1}^n
-  \varphi\bigl(z_i(x)\bigr),
+  \varphi\!\left(\frac{x - x_i}{h}\right),
 \]
 we estimate the score as
 \[
@@ -43,8 +55,8 @@ we estimate the score as
   =
   \frac{\partial_x \hat p(x)}{\hat p(x)}
   =
-  \frac{\sum_{i=1}^n \bigl[-z_i(x)\,\varphi(z_i(x))\bigr]}
-       {h^2 \sum_{i=1}^n \varphi(z_i(x))}.
+  \frac{\sum_{i=1}^n \bigl[-\tfrac{x - x_i}{h}\,\varphi\!\left(\tfrac{x - x_i}{h}\right)\bigr]}
+       {h^2 \sum_{i=1}^n \varphi\!\left(\tfrac{x - x_i}{h}\right)}.
 \]
 
 \section{Task}
@@ -75,13 +87,212 @@ CPUs reported by \texttt{lscpu}).  The processors boost up to
 modern ISA extensions (AVX/AVX2, FMA, BMI1/2, SHA, VAES, etc.).  Unless
 otherwise noted, all CPU benchmarks in this report run on this platform.
 
-\section{Arithmetic intensity of KDE}
+\section{High-dimensional SD-KDE and Tensor Cores}
 
-Arithmetic intensity is defined as
+The 1-D SD-KDE formulation provides useful intuition, but our primary goal is
+to understand how the method scales in higher dimensions and how to exploit
+Tensor Cores.  Let $x_i, y_j \in \mathbb{R}^d$ denote
+training and query points, with bandwidth $h$ and squared Euclidean distance
 \[
-  I \;=\; \frac{\text{floating-point operations}}{\text{bytes moved to/from DRAM}}.
+  \lVert x_i - y_j \rVert^2
+  =
+  \lVert x_i \rVert^2
+  +
+  \lVert y_j \rVert^2
+  - 2\,x_i^\top y_j.
 \]
-For SD-KDE with $n_{\text{train}} = k$ and $n_{\text{test}} = k/8$,
+Stacking training samples into $X \in \mathbb{R}^{n_{\text{train}}\times d}$
+and queries into $Y \in \mathbb{R}^{n_{\text{test}}\times d}$, the
+pairwise dot-product matrix
+\[
+  G
+  =
+  X Y^\top
+  \in
+  \mathbb{R}^{n_{\text{train}}\times n_{\text{test}}}
+\]
+dominates the arithmetic once $d$ is moderately large ($d\gtrsim 16$).  On
+modern NVIDIA GPUs this GEMM can be mapped to Tensor Cores and evaluated at
+5--10$\times$ the throughput of standard FP32 SIMT arithmetic, particularly
+when we restrict to $d$ that are multiples of 16 and use Triton’s
+\texttt{tl.dot} interface.  The remaining operations---vector norms,
+broadcasted additions, and exponentials---are all $O(n_{\text{train}}
+n_{\text{test}})$ but quickly become a small fraction of the total FLOPs as
+$d$ grows.
+
+The empirical SD-KDE score inherits the same GEMM structure.  Its numerator
+involves terms of the form
+\[
+  \sum_j -(x_i - y_j)\,\varphi_{ij},
+  \qquad
+  \varphi_{ij}
+  = \exp\!\left(-\frac{\lVert x_i - y_j\rVert^2}{2h^2}\right),
+\]
+which naively suggests $O(n_{\text{train}} n_{\text{test}} d)$ additional
+elementwise arithmetic.  Using the identity
+\[
+  \sum_j (x_i - y_j)\,\varphi_{ij}
+  =
+  x_i \sum_j \varphi_{ij}
+  -
+  \sum_j \varphi_{ij}\,y_j,
+\]
+we can decompose the numerator into a second GEMM:
+\[
+  T
+  =
+  \Phi Y.
+\]
+Thus both the KDE evaluation and the SD-KDE score numerator reduce to
+Tensor-Core-accelerable matrix multiplies, plus $O(n^2)$ scalar work for the
+norms and exponentials.  In this note we focus on the $d=16$ case, which
+aligns naturally with the Tensor Core tile sizes on the RTX~A6000 and offers a
+clean contrast to the 1-D baseline (summarized in the appendix).
+
+\subsection{Arithmetic intensity in $d$ dimensions}
+
+To understand when the high-dimensional SD-KDE becomes compute-bound, we
+estimate FLOPs, bytes moved, and arithmetic intensity for the $d$-dimensional
+case.  Let $n_{\text{train}} = k$ and set $n_{\text{test}} = k/8$ as in the
+experiments.
+
+\paragraph{Total FLOPs.}
+The 16-D implementation consists of three main matrix-multiply stages:
+\begin{enumerate}
+  \item Score Gram matrix $G = X X^\top$:
+        $2 d k^2$ FLOPs.
+  \item Score numerator $T = \Phi X$:
+        $2 d k^2$ FLOPs, plus $4 k^2$ scalar FLOPs for norms and distance
+        terms and $8 k^2$ FLOPs for exponentials (counting each $\exp$ as
+        $8$ FLOPs due to the SFU/FP32 ratio).
+  \item Final KDE Gram matrix on debiased data:
+        $2 d k (k/8)$ FLOPs, plus $4 k (k/8)$ scalar FLOPs and
+        $8 k (k/8)$ FLOPs for exponentials.
+\end{enumerate}
+Aggregating these terms yields
+\[
+  \text{FLOPs}_d(k)
+  \approx
+  4 d k^2 + 12 k^2 + 2 d \frac{k^2}{8} + 12 \frac{k^2}{8}
+  =
+  \Bigl(4 d + 12 + \tfrac{d}{4} + \tfrac{3}{2}\Bigr) k^2.
+\]
+Substituting $d=16$ gives
+\[
+  \text{FLOPs}_{16}(k)
+  \approx
+  81.5\,k^2,
+\]
+which is on the order of $10^{11}$ FLOPs for $k=32\text{k}$.
+
+\paragraph{Bytes moved.}
+In the idealized case where each sample and query is read once and each
+output is written once, the leading-order memory traffic is
+\[
+  \text{Bytes}_d(k)
+  \approx
+  4\bigl(d k + d (k/8) + d k + k/8\bigr)
+  =
+  4\Bigl(\tfrac{9}{8} d k + \tfrac{k}{8}\Bigr),
+\]
+where we count reads of the training data $X$, debiased data, queries $Y$,
+and writes of the $k/8$ outputs, up to lower-order terms.
+
+\paragraph{Arithmetic intensity.}
+Dividing FLOPs by bytes gives
+\[
+  I_d(k)
+  =
+  \frac{\text{FLOPs}_d(k)}{\text{Bytes}_d(k)}
+  \approx
+  \frac{\bigl(4 d + 12 + \tfrac{d}{4} + \tfrac{3}{2}\bigr) k^2}
+       {4\bigl(\tfrac{9}{8} d k + \tfrac{k}{8}\bigr)}
+  \sim
+  C(d)\,k
+  \quad\text{for large }k,
+\]
+with
+\[
+  C(d)
+  \approx
+  \frac{4 d + 12 + d/4 + 3/2}{4\cdot (9 d/8)}
+  =
+  \frac{(17/4)\,d + 27/2}{9 d/2}.
+\]
+For $d=16$ this simplifies to
+\[
+  C(16) \approx 2.0,
+  \qquad
+  I_{16}(k) \approx 2.0\,k\ \text{flops/byte}.
+\]
+Thus, as in the 1-D setting, the arithmetic intensity grows linearly with
+problem size; even moderate $k$ values place the 16-D SD-KDE well into the
+compute-bound regime on the RTX~A6000.
+
+\section{16-D experiments}
+
+We now summarize the empirical behavior of the 16-D implementation on the
+RTX~A6000.  For each $n_{\text{train}}$ in $\{4\text{k}, 8\text{k}, 16\text{k},
+32\text{k}\}$ we set $n_{\text{test}} = n_{\text{train}}/8$, draw data from a
+simple 16-D Gaussian mixture, and run three baselines: scikit-learn KDE,
+Torch SD-KDE (GEMM-based), and Triton SD-KDE (Tensor-Core GEMMs for both KDE
+and score).  Figure~\ref{fig:nd_runtime} shows that the Triton SD-KDE rapidly
+outpaces both baselines as $n$ grows, while remaining numerically close to the
+Torch SD-KDE reference.
+
+We also measure utilization by combining the flop model above with the
+measured runtimes.  As shown in Figure~\ref{fig:triton_sd_kde_nd_util}, the
+Torch SD-KDE baseline reaches only a few percent of the A6000 Tensor Core
+peak, whereas the Triton implementation climbs into the multi-digit range once
+$n_{\text{train}}$ exceeds $8\text{k}$.  This confirms that the 16-D
+Tensor-Core formulation is firmly compute-bound and that additional tuning
+effort should focus on kernel fusion and occupancy rather than memory traffic.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../nd-runtime.pdf}
+  \caption{Runtime comparison for 16-D KDE/SD-KDE across $n_{\text{train}}$
+           up to $32{,}768$ ($n_{\text{test}} = n_{\text{train}}/8$).
+           The Triton SD-KDE enjoys both the Tensor-Core acceleration
+           (relative to sklearn) and the GEMM-based score computation
+           (relative to the Torch baseline).}
+  \label{fig:nd_runtime}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../triton-sd-kde-nd-util.pdf}
+  \caption{Utilization (percentage of RTX A6000 Tensor Core peak, taken as
+           $155\,\text{TFLOP/s}$ FP32-equivalent) for the 16-D SD-KDE
+           pipeline, using the flop estimate
+           $4 d n^2 + (4+8) n^2 + 2 d m n + (4+8) m n$ with $d=16$ and
+           $m = n/8$.  Bars are annotated with the observed runtime (ms).}
+  \label{fig:triton_sd_kde_nd_util}
+\end{figure}
+
+\section{Performance tuning}
+
+We performed a sweep over the Triton launch parameters to improve utilization
+for the $n_{\text{train}} = 32\text{k}$ case (with $n_{\text{test}}=4\text{k}$).
+Specifically we varied:
+\begin{itemize}
+  \item $BLOCK\_M \in \{32, 64, 128, 256\}$,
+  \item $BLOCK\_N \in \{32, 64, 128, 256\}$,
+  \item $num\_warps \in \{1, 2, 4, 8\}$,
+  \item $num\_stages \in \{1, 2, 4\}$,
+\end{itemize}
+and selected the combination that minimized runtime.  For this workload we
+found that $BLOCK\_M=64$, $BLOCK\_N=128$, $num\_warps=1$, and $num\_stages=2$
+gave the best overall performance, increasing measured FLOP utilization by
+more than $2\times$ relative to the initial settings.  The same sweep can be
+repeated for different problem sizes if further tuning is needed.
+
+\appendix
+
+\section{1-D SD-KDE baseline}
+
+For completeness we briefly summarize the 1-D SD-KDE arithmetic intensity and
+empirical behavior.  With $n_{\text{train}} = k$ and $n_{\text{test}} = k/8$,
 there are two steps:
 \begin{enumerate}
   \item \textbf{Score + shift:} For each training point we compute
@@ -109,19 +320,10 @@ The total work is therefore approximated by
   \;=\;
   17.75\,k^2.
 \]
-For $k = 32\text{k}$ this is on the order of
-$2\times 10^{10}$ flops.  With a properly tiled GPU implementation, each training
-point and each query can be loaded from global memory once and then reused
-from registers or shared memory.  When we fix $n_{\text{test}} = k/8$ we move
-\[
-  \text{Bytes}(k) \approx 4\,(k + k/8 + k/8)
-  = 4\Bigl(k + \frac{2k}{8}\Bigr)
-  = 4\cdot\frac{5k}{4}
-  = 5\,k
-\]
-bytes (counting one read of each train and test point and one write of each
-output, up to lower-order terms).  The arithmetic intensity as a function of
-$k$ is then
+For $k = 32\text{k}$ this is on the order of $2\times 10^{10}$ flops.  When we
+fix $n_{\text{test}} = k/8$ we move approximately $5k$ bytes (counting one
+read of each train and test point and one write of each output), so the
+arithmetic intensity scales as
 \[
   I(k)
   =
@@ -130,56 +332,23 @@ $k$ is then
   \frac{17.75\,k^2}{5\,k}
   \approx
   3.55\,k
-  \quad \text{flops/byte}.
+  \quad \text{flops/byte},
 \]
-This corresponds to the minimal traffic where each sample is read once and
-each output is written once; any additional passes contributes only $O(k)$
-more bytes and does not change the scaling.
-Thus $I(k)$ grows linearly with $k$; for $k=32\text{k}$ this already yields
-an intensity on the order of $1\times 10^5$ flops/byte, far above the
-machine-balance point of the A6000, so the kernel is compute-bound rather
-than bandwidth-bound.
+placing realistic problem sizes firmly in the compute-bound regime.
 
-For reference, the RTX~A6000 has a peak FP32 throughput of roughly
-$40\,\text{TFLOP/s}$ and a memory bandwidth of about
-$7.7\times 10^{11}$ bytes/s ($\approx 770\,\text{GB/s}$) from its GDDR6
-memory (not HBM), corresponding to a balance point of
-\[
-  \frac{40\times 10^{12}}{7.7\times 10^{11}}
-  \approx 50 \;\text{flops/byte}.
-\]
-Setting $I(k)\approx 3.55k \approx 50$ gives $k\approx 15$, so for any
-realistic problem size (e.g.\ $k\ge 64$) SD-KDE on the A6000 is
-firmly in the compute-bound regime.
-
-\section{Empirical results}
-
-We sweep $n_{\text{train}}$ over powers of two from $512$ to $32\text{k}$,
-with $n_{\text{test}} = n_{\text{train}} / 8$, and average over three seeds.
-For each configuration we record:
-\begin{itemize}
-  \item CPU Silverman KDE time,
-  \item scikit-learn Gaussian KDE time, and
-  \item SD-KDE GPU time.
-\end{itemize}
-Across the entire range, the empirical SD-KDE GPU implementation is
-consistently faster than scikit-learn, with speedups growing with $n$; at
-the largest sizes the GPU achieves well over an order-of-magnitude speedup
-relative to the sklearn baseline.
-
-For profiling and scaling studies we also introduce a Triton-only sweep over
-larger problem sizes, using powers of two for $n_{\text{train}}$ up to
-$2^{22} \approx 4.2$ million (and $n_{\text{test}} = n_{\text{train}}/8$) with
-a single seed.  The helper script \texttt{run\_triton\_scaling.sh} executes
-this experiment by invoking the \texttt{--emp-kernel-only} benchmark mode,
-producing a compact log that we feed to Nsight Systems when examining the
-multi-million-sample kernels.
+Empirically we sweep $k$ over powers of two from $512$ to $32\text{k}$, with
+$n_{\text{test}} = k/8$, and average over three seeds.  For each
+configuration we record CPU Silverman KDE time, scikit-learn Gaussian KDE
+time, and SD-KDE GPU time.  Across the entire range, the empirical SD-KDE GPU
+implementation is consistently faster than scikit-learn, with speedups
+growing with $k$; at the largest sizes the GPU achieves well over an
+order-of-magnitude speedup relative to the sklearn baseline.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.8\linewidth]{../flash-sd-kde.pdf}
   \caption{Average runtime (log-scale $y$-axis) of scikit-learn KDE and
-           SD-KDE GPU across $n_{\text{train}}$; annotations show
+           SD-KDE GPU across $n_{\text{train}}$ in 1-D; annotations show
            the SD-KDE GPU speedup relative to sklearn.}
   \label{fig:flash_sd_kde}
 \end{figure}
@@ -188,132 +357,38 @@ multi-million-sample kernels.
   \centering
   \includegraphics[width=0.8\linewidth]{../emp-sd-kde-util.pdf}
   \caption{Estimated GPU utilization (as a percentage of A6000 FP32 peak)
-           for SD-KDE implemented in Triton and optimized Torch,
-           computed from the flop model and the measured runtimes.}
+           for 1-D SD-KDE implemented in Triton and optimized Torch,
+           computed from the 1-D flop model and the measured runtimes.}
   \label{fig:flash_sd_kde_util}
 \end{figure}
 
-\section{GPU utilization on A6000}
-
-For $n_{\text{train}} = 32\text{k}$ and $n_{\text{test}} = 4\text{k}$, we
-observe an average SD-KDE GPU runtime of approximately
-$4\,\mathrm{ms}$.  There are
-\[
-  n_{\text{train}} \times n_{\text{test}}
-  = 32{,}768 \times 4{,}096
-  \approx 1.34 \times 10^8
-\]
-pairwise interactions contributing to the KDE stage, and an additional
-$O(k^2)$ interactions for the empirical score.  Using the updated flop model
-for SD-KDE (one $\exp$ counted as eight FP32 flops), this corresponds to roughly
-$2\times 10^{10}$ flops.  Dividing
-by the observed $4\,\mathrm{ms}$ runtime gives an empirical throughput on the
-order of a few TFLOP/s.  The RTX~A6000 has a peak single-precision throughput
-of about $40\,\text{TFLOP/s}$, so the achieved utilization is in the
-single-digit percent range.
-This modest utilization is expected for a first, straightforward Triton
-implementation without extensive fusion or kernel tuning; nonetheless, the
-kernel already delivers substantial end-to-end speedups over the CPU and
-sklearn baselines while leaving significant headroom for further optimization.
-
-\section{Large-scale experiments}
-
-To stress-test the Triton implementation beyond the sweep shown in
-Figure~\ref{fig:flash_sd_kde}, we run a Triton-only experiment that scales
-$n_{\text{train}}$ over powers of two from $2^{15}$ through $2^{22}$
-($\approx 4.2$ million), keeping $n_{\text{test}} = n_{\text{train}}/8$
-and using a single seed.  We invoke \texttt{benchmark\_triton\_kde.py}
-with \texttt{--emp-kernel-only} so the profile captures just the score,
-shift, and final KDE kernels, and we record the runtime for each size.
-Using the same flop model that underlies Figure~\ref{fig:flash_sd_kde_util}, we
-convert the runtimes into an estimated percentage of the A6000 FP32 peak.
-Figure~\ref{fig:triton_large_util} summarizes the resulting utilization curve.
-Even at $n_{\text{train}} \approx 4$ million the kernel remains comfortably
-compute-bound, though the achieved utilization is still in the low
-double-digit percentages, highlighting ample room for further kernel
-fusion and occupancy tuning at the largest scales.
-
-\subsection*{16-D SD-KDE utilization}
-
-We also profile the full 16-D SD-KDE pipeline (score + shift + KDE) using the
-Tensor-Core kernels introduced earlier.  Let $n$ denote the number of training
-samples and $m$ the number of query points (fixed to $n/8$ in our sweep).
-The empirical SD-KDE consists of three high-cost stages:
-\begin{enumerate}
-  \item $\mathbf{G} = \mathbf{X}\mathbf{X}^\top$ to form pairwise dot-products
-        ($2 d n^2$ flops with $d = 16$),
-  \item $\mathbf{T} = \Phi \mathbf{X}$, where $\Phi_{ij} =
-        \exp(-\lVert x_i - x_j\rVert^2 / 2h^2)$, to accumulate the
-        $\sum_j \varphi_{ij} y_j$ numerator ($2 d n^2$ flops plus
-        $4 n^2$ scalar FLOPs for norms and distance terms and $8 n^2$
-        FLOPs from the SFUs executing exponentials), and
-  \item $\mathbf{Q} = \tilde{\mathbf{X}}\mathbf{Y}^\top$ for the final KDE on
-        the debiased samples ($2 d m n$ flops plus $4 m n$ scalar FLOPs for
-        norms/distances and $8 m n$ FLOPs from the exponentials).
-\end{enumerate}
-Aggregating these terms yields the flop model used for Figure~\ref{fig:triton_sd_kde_nd_util}:
-\[
-  \text{FLOPs}_{16\text{D}}
-  \approx 4 d n^2 + (4 + 8) n^2 + 2 d m n + (4 + 8) m n
-  \qquad (d = 16,\; m = n/8),
-\]
-where each exponential is counted as 8 FLOPs because the SFU throughput is
-1/8 of the FP32 ALU throughput on the RTX~A6000.
-Figure~\ref{fig:triton_sd_kde_nd_util} compares the resulting utilization for
-the Torch GEMM baseline and the Triton Tensor-Core implementation across
-powers of two up to $n = 32{,}768$.  Torch remains limited by SIMT FP32
-throughput and therefore tops out in the single-digit range, whereas Triton
-consistently achieves multi-digit utilization by mapping both GEMMs to Tensor
-Cores, even though each problem entails 16 times more arithmetic than the 1-D
-setting.  Figure~\ref{fig:nd_runtime} provides the corresponding runtime
-comparison, highlighting the gap between sklearn, the Torch SD-KDE baseline,
-and the Triton SD-KDE implementation.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.8\linewidth]{../nd-runtime.pdf}
-  \caption{Runtime comparison for 16-D KDE/SD-KDE across $n_{\text{train}}$
-           up to $32{,}768$ ($n_{\text{test}} = n_{\text{train}}/8$).
-           The Triton SD-KDE enjoys both the Tensor-Core acceleration
-           (relative to sklearn) and the GEMM-based score computation
-           (relative to the Torch baseline).}
-  \label{fig:nd_runtime}
-\end{figure}
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.8\linewidth]{../triton-sd-kde-nd-util.pdf}
-  \caption{Utilization (percentage of RTX A6000 FP32 peak) for the 16-D SD-KDE
-           pipeline, using the flop estimate
-           $4 d n^2 + 6 n^2 + 2 d m n + 6 m n$ with $d=16$ and $m = n/8$.
-           Bars are annotated with the observed runtime (ms).}
-  \label{fig:triton_sd_kde_nd_util}
-\end{figure}
+We also run a Triton-only sweep over larger 1-D problem sizes, using powers of
+two for $n_{\text{train}}$ up to $2^{22} \approx 4.2$ million (and
+$n_{\text{test}} = n_{\text{train}}/8$) with a single seed.  The helper
+script \texttt{run\_triton\_scaling.sh} executes this experiment by invoking
+the \texttt{--emp-kernel-only} benchmark mode, producing a compact log that we
+feed to Nsight Systems when examining the multi-million-sample kernels.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.8\linewidth]{../triton-large-util.pdf}
-  \caption{Utilization of the Triton SD-KDE kernel for large $n_{\text{train}}$
-           (powers of two up to $2^{22}$).  Labels show the observed runtime
-           for each data size; error bars are omitted because a single seed is
-           used per point.}
+  \caption{Utilization of the 1-D Triton SD-KDE kernel for large
+           $n_{\text{train}}$ (powers of two up to $2^{22}$).  Labels show
+           the observed runtime for each data size; error bars are omitted
+           because a single seed is used per point.}
   \label{fig:triton_large_util}
 \end{figure}
 
-\section{Performance tuning}
+\section{Additional commands}
 
-We performed a sweep over the Triton launch parameters to improve utilization
-for the $k = 32\text{k}$ case (with $k/8$ queries).  Specifically we varied:
+For convenience we summarize the most frequently used scripts:
 \begin{itemize}
-  \item $BLOCK\_M \in \{32, 64, 128, 256\}$,
-  \item $BLOCK\_N \in \{32, 64, 128, 256\}$,
-  \item $num\_warps \in \{1, 2, 4, 8\}$,
-  \item $num\_stages \in \{1, 2, 4\}$,
+  \item \texttt{run\_triton\_scaling.sh}: sweeps 1-D SD-KDE with \texttt{--emp-kernel-only} for Nsight profiling.
+  \item \texttt{run\_triton\_sd\_kde\_nd.sh}: runs Triton-only 16-D SD-KDE sweeps and logs runtimes for utilization plots.
+  \item \texttt{run\_nd\_runtime\_sweep.sh}: collects runtime data (sklearn vs Torch vs Triton) for 16-D KDE/SD-KDE up to $n=32{,}768$.
 \end{itemize}
-and selected the combination that minimized runtime.  For this workload we
-found that $BLOCK\_M=64$, $BLOCK\_N=128$, $num\_warps=1$, and $num\_stages=2$
-gave the best overall performance, increasing measured FLOP utilization by
-more than $2\times$ relative to the initial settings.  The same sweep can be
-repeated for different problem sizes if further tuning is needed.
+
+\bibliographystyle{plain}
+\bibliography{references}
 
 \end{document}

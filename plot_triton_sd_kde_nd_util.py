@@ -21,7 +21,7 @@ SUMMARY_RE_TRITON_ONLY = re.compile(
     r"\[16D SD-KDE\]\s+Triton-only avg runtime=(?P<triton>[0-9.]+)\s+ms"
 )
 
-PEAK_TFLOPS = 40.0  # RTX A6000 FP32 peak
+PEAK_TFLOPS = 155.0  # RTX A6000 Tensor Core (FP32-equivalent) peak
 PEAK_FLOPS = PEAK_TFLOPS * 1e12
 DIM = 16
 
@@ -135,7 +135,7 @@ def plot_util(rows: List[Dict[str, float]], output: Path):
             plt.text(
                 x,
                 y * 1.03,
-                f"{runtime:.0f} ms",
+                f"{runtime:.1f} ms",
                 ha="center",
                 va="bottom",
                 fontsize=8,
@@ -146,16 +146,16 @@ def plot_util(rows: List[Dict[str, float]], output: Path):
         plt.text(
             x,
             y * 1.03,
-            f"{runtime:.0f} ms",
+            f"{runtime:.1f} ms",
             ha="center",
             va="bottom",
             fontsize=8,
         )
 
     plt.xticks(idx, [f"{int(k):d}" for k in ks], rotation=45, ha="right")
-    plt.ylabel("GPU utilization (\\% of A6000 FP32 peak)")
+    plt.ylabel("Fraction of A6000 Tensor Core peak (\\%)")
     plt.xlabel("$n_{\\text{train}}$")
-    plt.title("16-D SD-KDE Utilization")
+    plt.title("16-D SD-KDE Utilization vs Tensor Core Peak")
     util_values = [util_triton]
     if has_torch:
         util_values.append(util_torch)

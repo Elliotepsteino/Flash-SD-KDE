@@ -219,3 +219,15 @@ nsys stats --force-export true sd-kde-nd.nsys-rep
 
 The resulting `.nsys-rep` captures both the tensor-core KDE GEMM and the SD-KDE
 score GEMM, mirroring the 1-D profiling workflow but for the ND kernels.
+
+For microbenchmarking just the 16-D empirical score kernel on Tensor Cores, we
+also ship a small Proton-compatible harness:
+
+```bash
+python nd_score_proton.py             # or: proton nd_score_proton.py
+```
+
+This script allocates synthetic 16-D data on the GPU and benchmarks the
+`_empirical_sd_kde_kernel_nd` Triton kernel across a range of `n_train` and
+tile sizes, reporting kernel-only runtimes (and optional plots if Triton's
+`perf_report` tooling is enabled).
