@@ -233,6 +233,63 @@ compute-bound, though the achieved utilization is still in the low
 double-digit percentages, highlighting ample room for further kernel
 fusion and occupancy tuning at the largest scales.
 
+\subsection*{16-D SD-KDE utilization}
+
+We also profile the full 16-D SD-KDE pipeline (score + shift + KDE) using the
+Tensor-Core kernels introduced earlier.  Let $n$ denote the number of training
+samples and $m$ the number of query points (fixed to $n/8$ in our sweep).
+The empirical SD-KDE consists of three high-cost stages:
+\begin{enumerate}
+  \item $\mathbf{G} = \mathbf{X}\mathbf{X}^\top$ to form pairwise dot-products
+        ($2 d n^2$ flops with $d = 16$),
+  \item $\mathbf{T} = \Phi \mathbf{X}$, where $\Phi_{ij} =
+        \exp(-\lVert x_i - x_j\rVert^2 / 2h^2)$, to accumulate the
+        $\sum_j \varphi_{ij} y_j$ numerator ($2 d n^2$ flops plus
+        $4 n^2$ scalar FLOPs for norms and distance terms and $8 n^2$
+        FLOPs from the SFUs executing exponentials), and
+  \item $\mathbf{Q} = \tilde{\mathbf{X}}\mathbf{Y}^\top$ for the final KDE on
+        the debiased samples ($2 d m n$ flops plus $4 m n$ scalar FLOPs for
+        norms/distances and $8 m n$ FLOPs from the exponentials).
+\end{enumerate}
+Aggregating these terms yields the flop model used for Figure~\ref{fig:triton_sd_kde_nd_util}:
+\[
+  \text{FLOPs}_{16\text{D}}
+  \approx 4 d n^2 + (4 + 8) n^2 + 2 d m n + (4 + 8) m n
+  \qquad (d = 16,\; m = n/8),
+\]
+where each exponential is counted as 8 FLOPs because the SFU throughput is
+1/8 of the FP32 ALU throughput on the RTX~A6000.
+Figure~\ref{fig:triton_sd_kde_nd_util} compares the resulting utilization for
+the Torch GEMM baseline and the Triton Tensor-Core implementation across
+powers of two up to $n = 32{,}768$.  Torch remains limited by SIMT FP32
+throughput and therefore tops out in the single-digit range, whereas Triton
+consistently achieves multi-digit utilization by mapping both GEMMs to Tensor
+Cores, even though each problem entails 16 times more arithmetic than the 1-D
+setting.  Figure~\ref{fig:nd_runtime} provides the corresponding runtime
+comparison, highlighting the gap between sklearn, the Torch SD-KDE baseline,
+and the Triton SD-KDE implementation.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../nd-runtime.pdf}
+  \caption{Runtime comparison for 16-D KDE/SD-KDE across $n_{\text{train}}$
+           up to $32{,}768$ ($n_{\text{test}} = n_{\text{train}}/8$).
+           The Triton SD-KDE enjoys both the Tensor-Core acceleration
+           (relative to sklearn) and the GEMM-based score computation
+           (relative to the Torch baseline).}
+  \label{fig:nd_runtime}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../triton-sd-kde-nd-util.pdf}
+  \caption{Utilization (percentage of RTX A6000 FP32 peak) for the 16-D SD-KDE
+           pipeline, using the flop estimate
+           $4 d n^2 + 6 n^2 + 2 d m n + 6 m n$ with $d=16$ and $m = n/8$.
+           Bars are annotated with the observed runtime (ms).}
+  \label{fig:triton_sd_kde_nd_util}
+\end{figure}
+
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.8\linewidth]{../triton-large-util.pdf}

@@ -130,3 +130,47 @@ def one_step_debiased_data_emp_kde(x: np.ndarray) -> Tuple[np.ndarray, float]:
     s_hat = kde_score_eval(x, x, h)
     x_deb = x + delta * s_hat
     return x_deb, h
+
+
+def sample_gaussian_mixture_16d(
+    n: int,
+    *,
+    pi: float = 0.5,
+    mean_offset: float = 1.5,
+    sigma1: float = 0.5,
+    sigma2: float = 1.0,
+) -> np.ndarray:
+    """Sample an isotropic two-component Gaussian mixture in 16 dimensions."""
+    if not (0.0 < pi < 1.0):
+        raise ValueError("pi must lie in (0, 1).")
+    d = 16
+    z = np.random.rand(n) < pi
+    samples = np.empty((n, d), dtype=np.float32)
+    n1 = int(z.sum())
+    n2 = n - n1
+    if n1:
+        samples[z] = np.random.normal(
+            loc=-mean_offset, scale=sigma1, size=(n1, d)
+        ).astype(np.float32, copy=False)
+    if n2:
+        samples[~z] = np.random.normal(
+            loc=mean_offset, scale=sigma2, size=(n2, d)
+        ).astype(np.float32, copy=False)
+    return samples
+
+
+def silverman_bandwidth_nd(data: np.ndarray) -> float:
+    """Silverman's rule-of-thumb bandwidth for d-dimensional data."""
+    x = np.asarray(data, dtype=np.float32)
+    if x.ndim != 2:
+        raise ValueError("data must be a 2-D array (n_samples, n_features).")
+    n, d = x.shape
+    if n == 0:
+        raise ValueError("data must contain at least one point.")
+    std_per_dim = np.std(x, axis=0)
+    iqr_per_dim = np.subtract(*np.percentile(x, [75, 25], axis=0)) / 1.34
+    sigma = np.minimum(std_per_dim, iqr_per_dim)
+    sigma = float(np.mean(sigma))
+    if sigma <= 0:
+        sigma = 1.0
+    return 0.9 * sigma * n ** (-1.0 / (d + 4))

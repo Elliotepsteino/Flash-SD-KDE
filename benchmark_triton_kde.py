@@ -20,9 +20,16 @@ from kde_utils import (
     mixture_params_list,
     one_step_debiased_data_emp_kde,
     sample_from_mixture,
+    sample_gaussian_mixture_16d,
     silverman_bandwidth,
+    silverman_bandwidth_nd,
 )
-from triton_kde import gaussian_kde_triton, empirical_sd_kde_triton
+from triton_kde import (
+    gaussian_kde_triton,
+    gaussian_kde_triton_nd,
+    empirical_sd_kde_triton,
+    empirical_sd_kde_triton_nd,
+)
 
 
 def _parse_seeds(seeds: Sequence[int] | str) -> List[int]:
@@ -48,6 +55,20 @@ def _sklearn_kde(
     kde = KernelDensity(kernel="gaussian", bandwidth=bandwidth)
     kde.fit(train.reshape(-1, 1))
     log_dens = kde.score_samples(queries.reshape(-1, 1))
+    densities = np.exp(log_dens)
+    elapsed = time.perf_counter() - start
+    return densities, elapsed
+
+
+def _sklearn_kde_nd(
+    train: np.ndarray, queries: np.ndarray, bandwidth: float
+) -> tuple[np.ndarray, float]:
+    if KernelDensity is None:
+        raise RuntimeError("scikit-learn is not installed; cannot run sklearn baseline.")
+    start = time.perf_counter()
+    kde = KernelDensity(kernel="gaussian", bandwidth=bandwidth)
+    kde.fit(train)
+    log_dens = kde.score_samples(queries)
     densities = np.exp(log_dens)
     elapsed = time.perf_counter() - start
     return densities, elapsed
@@ -250,6 +271,318 @@ def _gpu_empirical_sd_kde_torch_optimized(
     torch.cuda.synchronize(torch_device)
     elapsed = time.perf_counter() - start
     return densities.detach().cpu().numpy(), elapsed
+
+
+def _torch_kde_nd(
+    train: np.ndarray,
+    queries: np.ndarray,
+    bandwidth: float,
+    *,
+    device: str,
+) -> torch.Tensor:
+    torch_device = torch.device(device)
+    x = torch.as_tensor(queries, device=torch_device, dtype=torch.float32)
+    d = torch.as_tensor(train, device=torch_device, dtype=torch.float32)
+    inv_h2 = 1.0 / (bandwidth * bandwidth)
+
+    x_norm = (x * x).sum(dim=1, keepdim=True)
+    d_norm = (d * d).sum(dim=1, keepdim=True).transpose(0, 1)
+    dot = x @ d.t()
+    dist = torch.clamp(x_norm + d_norm - 2.0 * dot, min=0.0)
+    phi = torch.exp(-0.5 * dist * inv_h2)
+
+    dim = d.shape[1]
+    norm = 1.0 / (
+        (math.pow(2.0 * math.pi, dim / 2.0))
+        * (bandwidth ** dim)
+        * d.shape[0]
+    )
+    return norm * phi.sum(dim=1)
+
+
+def _torch_empirical_sd_kde_nd(
+    train: np.ndarray,
+    bandwidth: float,
+    *,
+    device: str,
+) -> torch.Tensor:
+    torch_device = torch.device(device)
+    x = torch.as_tensor(train, device=torch_device, dtype=torch.float32)
+    inv_h2 = 1.0 / (bandwidth * bandwidth)
+
+    x_norm = (x * x).sum(dim=1, keepdim=True)
+    gram = x @ x.t()
+    dist = torch.clamp(x_norm + x_norm.transpose(0, 1) - 2.0 * gram, min=0.0)
+    phi = torch.exp(-0.5 * dist * inv_h2)
+    phi_sum = phi.sum(dim=1, keepdim=True)
+    weighted = phi @ x
+    eps = 1e-12
+    score = (weighted / (phi_sum + eps) - x) * inv_h2
+    delta = 0.5 * (bandwidth ** 2)
+    return x + delta * score
+
+
+def _torch_sd_kde_nd(
+    train: np.ndarray,
+    queries: np.ndarray,
+    bandwidth: float,
+    *,
+    device: str,
+) -> tuple[np.ndarray, float]:
+    torch_device = torch.device(device)
+    if torch_device.type == "cuda":
+        torch.cuda.synchronize(torch_device)
+    start = time.perf_counter()
+    x_emp = _torch_empirical_sd_kde_nd(train, bandwidth, device=device)
+    densities = _torch_kde_nd(x_emp, queries, bandwidth, device=device)
+    if torch_device.type == "cuda":
+        torch.cuda.synchronize(torch_device)
+    elapsed = time.perf_counter() - start
+    return densities.detach().cpu().numpy(), elapsed
+
+
+def _triton_sd_kde_nd(
+    train: np.ndarray,
+    queries: np.ndarray,
+    bandwidth: float,
+    *,
+    device: str,
+    warmup_done: bool,
+) -> tuple[np.ndarray, float]:
+    torch_device = torch.device(device)
+    if torch_device.type != "cuda":
+        raise ValueError("Triton SD-KDE benchmark requires a CUDA device.")
+    if not warmup_done:
+        empirical_sd_kde_triton_nd(
+            train,
+            bandwidth,
+            device=device,
+            return_tensor=True,
+            synchronize=True,
+        )
+        gaussian_kde_triton_nd(
+            train,
+            queries,
+            bandwidth,
+            device=device,
+            synchronize=True,
+        )
+    torch.cuda.synchronize(torch_device)
+    start = time.perf_counter()
+    x_emp, _ = empirical_sd_kde_triton_nd(
+        train,
+        bandwidth,
+        device=device,
+        return_tensor=True,
+        synchronize=False,
+    )
+    densities = gaussian_kde_triton_nd(
+        x_emp,
+        queries,
+        bandwidth,
+        device=device,
+        synchronize=False,
+    )
+    torch.cuda.synchronize(torch_device)
+    elapsed = time.perf_counter() - start
+    return densities.detach().cpu().numpy(), elapsed
+
+
+def benchmark_triton_kde_multid(
+    seeds: Sequence[int],
+    n_train: int,
+    n_test: int,
+    *,
+    device: str = "cuda",
+    bandwidth: float | None = None,
+) -> None:
+    """Benchmark 16-D Triton KDE vs sklearn baseline."""
+    if KernelDensity is None:
+        raise RuntimeError("scikit-learn is required for the multi-D benchmark.")
+    torch_device = torch.device(device)
+    if torch_device.type != "cuda":
+        raise ValueError("The multi-dimensional Triton benchmark requires a CUDA device.")
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA is not available for the multi-dimensional benchmark.")
+
+    print(
+        f"[16D KDE] seeds={list(seeds)}, n_train={n_train}, "
+        f"n_test={n_test}, device={device}"
+    )
+    triton_times = []
+    sklearn_times = []
+    deltas = []
+    speedups = []
+    warmup_done = False
+
+    for seed in seeds:
+        np.random.seed(seed)
+        train = sample_gaussian_mixture_16d(n_train)
+        np.random.seed(seed + 10_000)
+        queries = sample_gaussian_mixture_16d(n_test)
+
+        bw = bandwidth or silverman_bandwidth_nd(train)
+
+        sk_vals, sk_time = _sklearn_kde_nd(train, queries, bw)
+        sklearn_times.append(sk_time)
+
+        if not warmup_done:
+            gaussian_kde_triton_nd(train, queries, bw, device=device, synchronize=True)
+            warmup_done = True
+
+        torch.cuda.synchronize(torch_device)
+        start = time.perf_counter()
+        tri_vals = gaussian_kde_triton_nd(
+            train, queries, bw, device=device, synchronize=False
+        )
+        torch.cuda.synchronize(torch_device)
+        tri_time = time.perf_counter() - start
+
+        tri_np = tri_vals.detach().cpu().numpy()
+        max_delta = np.max(np.abs(sk_vals - tri_np))
+        mean_delta = np.mean(np.abs(sk_vals - tri_np))
+        rel_l2 = np.linalg.norm(sk_vals - tri_np) / (np.linalg.norm(sk_vals) + 1e-12)
+
+        triton_times.append(tri_time)
+        deltas.append((max_delta, mean_delta, rel_l2))
+        speedups.append(sk_time / tri_time if tri_time > 0 else float("inf"))
+
+        print(
+            f"  Seed {seed}: sklearn={sk_time*1e3:.2f} ms, "
+            f"Triton={tri_time*1e3:.2f} ms "
+            f"(speedup={speedups[-1]:.2f}x, Δmax={max_delta:.3e}, rel-L2={rel_l2:.3e})"
+        )
+
+    avg_tri = np.mean(triton_times)
+    avg_sk = np.mean(sklearn_times)
+    avg_speed = np.mean(speedups)
+    delta_arr = np.array(deltas, dtype=float)
+    max_delta, mean_delta, rel_l2 = delta_arr.mean(axis=0)
+
+    print("-" * 80)
+    print(
+        f"[16D KDE] avg sklearn={avg_sk*1e3:.2f} ms, "
+        f"avg Triton={avg_tri*1e3:.2f} ms, "
+        f"speedup={avg_speed:.2f}x"
+    )
+    print(
+        f"[16D KDE] Δmax={max_delta:.3e}, Δmean={mean_delta:.3e}, rel-L2={rel_l2:.3e}"
+    )
+
+
+def benchmark_empirical_sd_kde_multid(
+    seeds: Sequence[int],
+    n_train: int,
+    n_test: int,
+    *,
+    device: str = "cuda",
+    bandwidth: float | None = None,
+    torch_baseline: bool = True,
+) -> None:
+    """Benchmark 16-D SD-KDE (Torch vs Triton)."""
+    torch_device = torch.device(device)
+    if torch_device.type != "cuda":
+        raise ValueError("The multi-dimensional SD-KDE benchmark requires a CUDA device.")
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA is not available for the multi-dimensional SD-KDE benchmark.")
+
+    print(
+        f"[16D SD-KDE] seeds={list(seeds)}, n_train={n_train}, "
+        f"n_test={n_test}, device={device}"
+    )
+    times_torch = []
+    times_triton = []
+    deltas = []
+    speedups = []
+    torch_warmup_done = False
+    triton_warmup_done = False
+
+    for seed in seeds:
+        np.random.seed(seed)
+        train = sample_gaussian_mixture_16d(n_train)
+        np.random.seed(seed + 10_000)
+        queries = sample_gaussian_mixture_16d(n_test)
+
+        bw = bandwidth or silverman_bandwidth_nd(train)
+
+        if torch_baseline and not torch_warmup_done:
+            _torch_sd_kde_nd(train, queries, bw, device=device)
+            torch_warmup_done = True
+
+        if not triton_warmup_done:
+            empirical_sd_kde_triton_nd(
+                train,
+                bw,
+                device=device,
+                return_tensor=True,
+                synchronize=True,
+            )
+            gaussian_kde_triton_nd(
+                train,
+                queries,
+                bw,
+                device=device,
+                synchronize=True,
+            )
+            triton_warmup_done = True
+
+        if torch_baseline:
+            torch_vals, torch_time = _torch_sd_kde_nd(
+                train, queries, bw, device=device
+            )
+            times_torch.append(torch_time)
+        else:
+            torch_vals = None
+            torch_time = None
+
+        tri_vals, tri_time = _triton_sd_kde_nd(
+            train,
+            queries,
+            bw,
+            device=device,
+            warmup_done=True,
+        )
+
+        times_triton.append(tri_time)
+
+        if torch_baseline:
+            max_delta = np.max(np.abs(torch_vals - tri_vals))
+            mean_delta = np.mean(np.abs(torch_vals - tri_vals))
+            rel_l2 = np.linalg.norm(torch_vals - tri_vals) / (
+                np.linalg.norm(torch_vals) + 1e-12
+            )
+            deltas.append((max_delta, mean_delta, rel_l2))
+            speed = torch_time / tri_time if tri_time > 0 else float("inf")
+            speedups.append(speed)
+            print(
+                f"  Seed {seed}: Torch={torch_time*1e3:.2f} ms, "
+                f"Triton={tri_time*1e3:.2f} ms "
+                f"(speedup={speed:.2f}x, Δmax={max_delta:.3e}, rel-L2={rel_l2:.3e})"
+            )
+        else:
+            print(f"  Seed {seed}: Triton={tri_time*1e3:.2f} ms")
+
+    print("-" * 80)
+    avg_triton = np.mean(times_triton)
+    if torch_baseline:
+        avg_torch = np.mean(times_torch)
+        avg_speed = np.mean(speedups)
+        delta_arr = np.array(deltas, dtype=float)
+        max_delta, mean_delta, rel_l2 = delta_arr.mean(axis=0)
+        print(
+            f"[16D SD-KDE] avg Torch={avg_torch*1e3:.2f} ms, "
+            f"avg Triton={avg_triton*1e3:.2f} ms, "
+            f"speedup={avg_speed:.2f}x"
+        )
+        print(
+            f"[16D SD-KDE] Δmax={max_delta:.3e}, Δmean={mean_delta:.3e}, "
+            f"rel-L2={rel_l2:.3e}"
+        )
+    else:
+        print(
+            f"[16D SD-KDE] Triton-only avg runtime={avg_triton*1e3:.2f} ms "
+            f"over {len(seeds)} seed(s)"
+        )
 
 
 def benchmark_empirical_triton_kernel_only(
@@ -541,6 +874,27 @@ def main():
     parser.add_argument("--n-test", type=int, default=500)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument(
+        "--multi-d",
+        action="store_true",
+        help="Run the 16-D Triton KDE benchmark and exit.",
+    )
+    parser.add_argument(
+        "--multi-d-sd",
+        action="store_true",
+        help="Run the 16-D SD-KDE (Torch vs Triton) benchmark and exit.",
+    )
+    parser.add_argument(
+        "--sd-nd-triton-only",
+        action="store_true",
+        help="Skip the Torch baseline when running --multi-d-sd.",
+    )
+    parser.add_argument(
+        "--multi-d-bandwidth",
+        type=float,
+        default=None,
+        help="Optional fixed bandwidth for the 16-D benchmark.",
+    )
+    parser.add_argument(
         "--emp-kernel-only",
         action="store_true",
         help="Benchmark only the Triton empirical SD-KDE kernel and exit.",
@@ -565,6 +919,26 @@ def main():
     seeds = _parse_seeds(args.seeds)
     if not args.cpu_only and not torch.cuda.is_available():
         raise RuntimeError("CUDA device is required for the Triton KDE benchmark.")
+
+    if args.multi_d:
+        benchmark_triton_kde_multid(
+            seeds=seeds,
+            n_train=args.n_train,
+            n_test=args.n_test,
+            device=args.device,
+            bandwidth=args.multi_d_bandwidth,
+        )
+        return
+    if args.multi_d_sd:
+        benchmark_empirical_sd_kde_multid(
+            seeds=seeds,
+            n_train=args.n_train,
+            n_test=args.n_test,
+            device=args.device,
+            bandwidth=args.multi_d_bandwidth,
+            torch_baseline=not args.sd_nd_triton_only,
+        )
+        return
 
     print(
         f"Running benchmark on mixture {args.mixture_index} with "

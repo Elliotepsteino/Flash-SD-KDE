@@ -89,6 +89,91 @@ achieved utilization, feed the log into the helper plotter:
 python plot_triton_large_util.py --log large_triton.log --output triton-large-util.pdf
 ```
 
+## 16-D tensor-core KDE
+
+We also support a fixed-width (16 dimensional) Gaussian KDE that keeps the 1-D
+code paths intact while showcasing how the problem maps to Tensor Cores.  A
+pairwise squared distance between $x_i, y_j \in \\mathbb{R}^{16}$ decomposes as
+$\lVert x_i\rVert^2 + \lVert y_j\rVert^2 - 2 x_i^\top y_j$, so the dominant
+cost is the dot-product matrix $XY^\top$.  For $d=16$ this becomes a small
+GEMM that we execute via Triton's `tl.dot` interface, enabling Tensor Cores to
+handle $>90\\%$ of the FLOPs.  Vector norms, broadcasted additions, and the
+final exponential are still $O(n_{\\text{train}} n_{\\text{test}})$ but are
+minor once the GEMM is accelerated.
+
+Run the new benchmark with:
+
+```bash
+python benchmark_triton_kde.py \
+  --multi-d \
+  --seeds 0,1 \
+  --n-train 65536 \
+  --n-test 8192 \
+  --device cuda
+```
+
+This routine samples a simple isotropic two-component Gaussian mixture in
+16 dimensions, computes a Silverman-style bandwidth, compares Triton against
+scikit-learn's `KernelDensity`, and reports accuracy plus end-to-end speedup.
+Pass `--multi-d-bandwidth <value>` to override the adaptive bandwidth.
+
+The empirical SD-KDE step also benefits from matrix-multiply structure.  Its
+score numerator involves terms of the form
+$\sum_j -(x_i - y_j)\,\varphi_{ij}$ with $\varphi_{ij} = \exp(-\lVert
+x_i - y_j \rVert^2 / (2h^2))$.  Using the identity
+$\sum_j (x_i - y_j)\varphi_{ij} = x_i \sum_j \varphi_{ij} - \sum_j \varphi_{ij}
+y_j$, both the KDE evaluation and the score numerator reduce to GEMMs:
+the dot-product matrix $XY^\top$ yields squared distances, while
+$\Phi Y$ (with $\Phi_{ij} = \varphi_{ij}$) produces the weighted sums needed
+for the numerator.  Triton maps both GEMMs to Tensor Cores, whereas the Torch
+baseline relies on standard SIMT FP32 kernels.
+
+To benchmark SD-KDE (score+shift+KDE) directly, add `--multi-d-sd`:
+
+```bash
+python benchmark_triton_kde.py \
+  --multi-d-sd \
+  --seeds 0,1 \
+  --n-train 32768 \
+  --n-test 4096 \
+  --device cuda
+```
+
+This run compares a Torch GEMM-based SD-KDE pipeline against the Triton
+Tensor-Core implementation (which reduces both the KDE and score numerators to
+blocked GEMMs) and prints accuracy deltas plus runtime ratios.
+Add `--sd-nd-triton-only` to skip the Torch baseline when you just need Triton
+timings (useful for profiling or long sweeps).
+
+To sweep multiple sizes automatically (single seed), use the helper script:
+
+```bash
+chmod +x run_triton_sd_kde_nd.sh  # once per checkout
+./run_triton_sd_kde_nd.sh triton_sd_kde_nd.log
+```
+
+Adjust the range or seed via `START_POWER`, `END_POWER`, and `SEED` environment
+variables (e.g. `SEED=1 START_POWER=13 END_POWER=18 ./run_triton_sd_kde_nd.sh`).
+The script launches only the Triton path (Torch is skipped) so the log is ideal
+for profiling or utilization analysis.
+Once you have the log you can convert it into a utilization plot (Torch vs
+Triton) with:
+
+```bash
+python plot_triton_sd_kde_nd_util.py \
+  --log triton_sd_kde_nd.log \
+  --output triton-sd-kde-nd-util.pdf
+```
+
+To compare runtimes for sklearn KDE, SD-KDE (Torch), and SD-KDE (Triton) up to
+32k samples, run the combined sweep and plot:
+
+```bash
+chmod +x run_nd_runtime_sweep.sh  # once per checkout
+./run_nd_runtime_sweep.sh nd_runtime.log
+python plot_nd_runtime.py --log nd_runtime.log --output nd-runtime.pdf
+```
+
 ## Profiling the Triton SD-KDE kernel
 
 Use the `--emp-kernel-only` flag to time just the Triton SD-KDE kernel
@@ -117,3 +202,20 @@ nsys profile --force-overwrite true -o sd-kde --trace=cuda \
     --emp-kernel-only
 nsys stats --force-export true sd-kde.nsys-rep
 ```
+
+For the 16-D SD-KDE kernel, replace the command with:
+
+```bash
+nsys profile --force-overwrite true -o sd-kde-nd --trace=cuda \
+  python benchmark_triton_kde.py \
+    --multi-d-sd \
+    --sd-nd-triton-only \
+    --seeds 0 \
+    --n-train 32768 \
+    --n-test 4096 \
+    --device cuda
+nsys stats --force-export true sd-kde-nd.nsys-rep
+```
+
+The resulting `.nsys-rep` captures both the tensor-core KDE GEMM and the SD-KDE
+score GEMM, mirroring the 1-D profiling workflow but for the ND kernels.
