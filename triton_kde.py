@@ -153,7 +153,7 @@ def _gaussian_kde_kernel_nd(
 
 
 @triton.jit
-def _empirical_sd_kde_kernel_nd(
+def _empirical_sd_kde_kernel_nd_old(
     data_ptr,
     query_ptr,
     pdf_ptr,
@@ -189,7 +189,7 @@ def _empirical_sd_kde_kernel_nd(
 
     dot = tl.dot(q_block, tl.trans(d_block), allow_tf32=True)
     #dot = tl.dot(q_block, tl.trans(d_block), input_precision="ieee")
-    dist = tl.maximum(q_norm[:, None] + d_norm[None, :] - 2.0 * dot, 0.0)
+    dist = q_norm[:, None] + d_norm[None, :] - 2.0 * dot
     phi = tl.exp(-0.5 * dist * inv_h2)
 
     data_mask_matrix = data_mask[None, :]
@@ -203,6 +203,100 @@ def _empirical_sd_kde_kernel_nd(
 
     w_ptrs = weighted_ptr + (offs_m[:, None] * stride_weighted + offs_k[None, :])
     tl.atomic_add(w_ptrs, weighted, mask=query_mask[:, None])
+
+
+@triton.jit
+def _empirical_sd_kde_kernel_nd(
+    data_ptr,
+    query_ptr,
+    pdf_ptr,
+    weighted_ptr,
+    n_data,
+    n_query,
+    stride_data,
+    stride_query,
+    stride_weighted,
+    inv_h2,
+    BLOCK_M: tl.constexpr,
+    BLOCK_N: tl.constexpr,         # total data tile size this program "owns" in n-dim
+    BLOCK_K: tl.constexpr,
+    BLOCK_N_CHUNK: tl.constexpr=16,   # smaller chunk size along n to reduce smem
+):
+    """Accumulate phi sums and phi-weighted data sums for SD-KDE debiasing,
+    using streaming over the data dimension to reduce shared-memory usage.
+    """
+
+    # Program ids: along queries (m) and data tiles (n)
+    pid_m = tl.program_id(axis=0)
+    pid_n = tl.program_id(axis=1)
+
+    # Query indices handled by this program
+    offs_m = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
+    # Base data index for this program (we'll stream within this tile)
+    offs_n_base = pid_n * BLOCK_N
+
+    # Feature indices
+    offs_k = tl.arange(0, BLOCK_K)
+
+    # Masks for valid queries
+    query_mask = offs_m < n_query
+
+    # Load query block once: [BLOCK_M, BLOCK_K]
+    q_ptrs = query_ptr + (offs_m[:, None] * stride_query + offs_k[None, :])
+    q_block = tl.load(q_ptrs, mask=query_mask[:, None], other=0.0)
+    q_norm = tl.sum(q_block * q_block, axis=1)  # [BLOCK_M]
+
+    # Accumulators:
+    # phi_sum[m] = sum_j phi[m, j] over all data in this tile
+    phi_sum = tl.zeros((BLOCK_M,), dtype=tl.float32)
+    # weighted[m, k] = sum_j phi[m, j] * d[j, k]
+    weighted = tl.zeros((BLOCK_M, BLOCK_K), dtype=tl.float32)
+
+    # Stream over data in chunks of size BLOCK_N_CHUNK
+    # so we never materialize a full [BLOCK_M x BLOCK_N] phi/dist tile.
+    for n_start in range(0, BLOCK_N, BLOCK_N_CHUNK):
+        # Data indices for this chunk
+        offs_n_chunk = offs_n_base + n_start + tl.arange(0, BLOCK_N_CHUNK)
+        data_mask_chunk = offs_n_chunk < n_data
+
+        # Load data chunk: [BLOCK_N_CHUNK, BLOCK_K]
+        d_ptrs_chunk = data_ptr + (offs_n_chunk[:, None] * stride_data + offs_k[None, :])
+        d_chunk = tl.load(d_ptrs_chunk, mask=data_mask_chunk[:, None], other=0.0)
+
+        # Norms of the data chunk: [BLOCK_N_CHUNK]
+        d_norm_chunk = tl.sum(d_chunk * d_chunk, axis=1)
+
+        # Dot-products between queries and this data chunk:
+        # q_block: [M, K], d_chunk: [N_chunk, K] -> dot_chunk: [M, N_chunk]
+        dot_chunk = tl.dot(q_block, tl.trans(d_chunk), allow_tf32=True)
+
+        # Squared distances for this chunk: [M, N_chunk]
+        dist_chunk = q_norm[:, None] + d_norm_chunk[None, :] - 2.0 * dot_chunk
+
+        # Kernel values for this chunk
+        phi_chunk = tl.exp(-0.5 * dist_chunk * inv_h2)
+
+        # Mask out invalid data indices
+        phi_chunk = tl.where(data_mask_chunk[None, :], phi_chunk, 0.0)
+        # Mask out invalid query indices (so we don't accumulate garbage)
+        phi_chunk = tl.where(query_mask[:, None], phi_chunk, 0.0)
+
+        # Accumulate phi_sum over data dimension for this chunk
+        # phi_sum: [M]
+        phi_sum += tl.sum(phi_chunk, axis=1)
+
+        # Accumulate weighted sum: [M, K] += [M, N_chunk] @ [N_chunk, K]
+        weighted += tl.dot(phi_chunk, d_chunk, allow_tf32=True)
+
+    # Write back results
+    # pdf: per-query density normalization term
+    tl.atomic_add(pdf_ptr + offs_m, phi_sum, mask=query_mask)
+
+    # weighted_ptr: per-query, per-feature weighted sum
+    #w_ptrs = weighted_ptr + (offs_m[:, None] * stride_weighted + offs_k[None, :])
+    #tl.atomic_add(w_ptrs, weighted, mask=query_mask[:, None])
+    w_ptrs = weighted_ptr + (offs_k[:, None] * stride_weighted + offs_m[None, :])
+    tl.atomic_add(w_ptrs, tl.trans(weighted), mask=query_mask[None, :])
 
 
 def _to_torch_tensor(
@@ -487,9 +581,9 @@ def empirical_sd_kde_triton_nd(
     data: Sequence[Sequence[float]] | torch.Tensor,
     bandwidth: float,
     *,
-    block_m: int = 64,
-    block_n: int = 128,
-    num_warps: int = 4,
+    block_m: int = 64, # 64
+    block_n: int = 2048, # 128
+    num_warps: int = 2,
     num_stages: int = 2,
     device: str | torch.device = "cuda",
     return_tensor: bool = False,
@@ -512,7 +606,7 @@ def empirical_sd_kde_triton_nd(
 
     pdf_acc = torch.zeros(n_data, device=device, dtype=torch.float32)
     weighted_acc = torch.zeros(
-        (n_data, _ND_FEATURES), device=device, dtype=torch.float32
+        ( _ND_FEATURES, n_data), device=device, dtype=torch.float32
     )
 
     inv_h2 = 1.0 / (bandwidth * bandwidth)
@@ -558,7 +652,7 @@ def empirical_sd_kde_triton_nd(
 
     eps = 1e-12
     phi_sum = pdf_acc
-    phi_y = weighted_acc
+    phi_y = weighted_acc.t()
     ratio = phi_y / (phi_sum.unsqueeze(1) + eps)
     inv_h2_scalar = inv_h2
     score = (ratio - train) * inv_h2_scalar

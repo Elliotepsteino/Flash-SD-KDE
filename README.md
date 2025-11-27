@@ -231,3 +231,14 @@ This script allocates synthetic 16-D data on the GPU and benchmarks the
 `_empirical_sd_kde_kernel_nd` Triton kernel across a range of `n_train` and
 tile sizes, reporting kernel-only runtimes (and optional plots if Triton's
 `perf_report` tooling is enabled).
+
+## Profiling with Nsight Compute 
+
+```bash
+ncu    --set full     --launch-skip 1 --launch-count 1     -o ncu_kde_deriv_nd_1     python benchmark_triton_kde.py       --seeds 0       --n-train 32768       --n-test 4096       --mixture-index 0       --device cuda       --emp-kernel-only --multi-d-sd --sd-nd-triton-only
+```
+
+```bash
+ncu    --set full --kernel-name "_empirical_sd_kde_kernel_nd"    --launch-skip 1 --launch-count 1     -o ncu_kde_deriv_nd_65k     python benchmark_triton_kde.py  
+     --seeds 0       --n-train 65536       --n-test 8192       --mixture-index 0       --device cuda       --emp-kernel-only --multi-d-sd --sd-nd-triton-only
+     ```
