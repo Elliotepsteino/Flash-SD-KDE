@@ -13,6 +13,29 @@ we can benchmark it against the existing Silverman estimator.
   power-of-two sweeps and produce a PDF plot for papers.
 - `report/main.tex` is a concise \LaTeX{} report that includes the speedup plot.
 
+## Conda environment setup
+
+1. Create and activate a fresh environment (Python 3.9+ recommended):
+   ```bash
+   conda create -n flash-sd-kde python=3.10
+   conda activate flash-sd-kde
+   ```
+2. Install the core Python dependencies:
+   ```bash
+   pip install numpy scipy matplotlib scikit-learn
+   ```
+3. Install PyTorch and Triton (pick the wheel that matches your CUDA/OS setup,
+   following the instructions on the official PyTorch website):
+   ```bash
+   # Example for a CUDA-enabled machine; adjust as needed
+   pip install torch triton
+   ```
+4. (Optional) Install PyKeOps if you want to run the ND PyKeOps benchmark
+   in `benchmark_pykeops_triton_nd.py`:
+   ```bash
+   pip install pykeops
+   ```
+
 ## Running the benchmark
 
 1. Activate the conda env that has PyTorch, Triton, NumPy, SciPy:
@@ -239,6 +262,5 @@ ncu    --set full     --launch-skip 1 --launch-count 1     -o ncu_kde_deriv_nd_1
 ```
 
 ```bash
-ncu    --set full --kernel-name "_empirical_sd_kde_kernel_nd"    --launch-skip 1 --launch-count 1     -o ncu_kde_deriv_nd_65k     python benchmark_triton_kde.py  
-     --seeds 0       --n-train 65536       --n-test 8192       --mixture-index 0       --device cuda       --emp-kernel-only --multi-d-sd --sd-nd-triton-only
+ncu    --set full --kernel-name "_empirical_sd_kde_kernel_nd"    --launch-skip 1 --launch-count 1     -o ncu_kde_deriv_nd_65k     python benchmark_triton_kde.py  --seeds 0       --n-train 65536       --n-test 8192       --mixture-index 0       --device cuda  --multi-d-sd --sd-nd-triton-only
      ```
