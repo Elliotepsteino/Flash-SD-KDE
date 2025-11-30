@@ -24,17 +24,51 @@ we can benchmark it against the existing Silverman estimator.
    ```bash
    pip install numpy scipy matplotlib scikit-learn
    ```
-3. Install PyTorch and Triton (pick the wheel that matches your CUDA/OS setup,
-   following the instructions on the official PyTorch website):
+3. Install PyTorch and Triton (example below is for a CUDA 12.1/12.2-capable
+   driver; see the official PyTorch website if you need a different build):
    ```bash
-   # Example for a CUDA-enabled machine; adjust as needed
-   pip install torch triton
+   pip install torch --index-url https://download.pytorch.org/whl/cu121
+   pip install triton
    ```
 4. (Optional) Install PyKeOps if you want to run the ND PyKeOps benchmark
    in `benchmark_pykeops_triton_nd.py`:
    ```bash
    pip install pykeops
    ```
+
+## uv environment setup
+
+If you prefer `uv` over conda, you can create an isolated virtualenv and install
+the same dependencies as follows:
+
+1. Install `uv` (if you don’t already have it), following the instructions at:
+   https://docs.astral.sh/uv/getting-started/installation/
+2. From the repo root, create and activate a virtual environment:
+   ```bash
+   uv venv .venv
+   source .venv/bin/activate
+   ```
+3. Install the core dependencies into that environment:
+   ```bash
+   uv pip install numpy scipy matplotlib scikit-learn
+   ```
+4. Install PyTorch and Triton (example for a CUDA 12.1/12.2-capable driver;
+   see the PyTorch website if you need a different build):
+   ```bash
+   uv pip install torch --index-url https://download.pytorch.org/whl/cu121
+   uv pip install triton
+   ```
+5. (Optional) Install PyKeOps for the ND PyKeOps benchmark:
+   ```bash
+   uv pip install pykeops
+   ```
+
+Once set up, either activate `.venv` as above and run `python ...`, or use
+`uv run` directly, for example:
+
+```bash
+uv run benchmark_triton_kde.py --seeds 0,1,2 --n-train 32768 --n-test 4096 --mixture-index 0 --device cuda
+```
 
 ## Running the benchmark
 
@@ -262,5 +296,5 @@ ncu    --set full     --launch-skip 1 --launch-count 1     -o ncu_kde_deriv_nd_1
 ```
 
 ```bash
-ncu    --set full --kernel-name "_empirical_sd_kde_kernel_nd"    --launch-skip 1 --launch-count 1     -o ncu_kde_deriv_nd_65k     python benchmark_triton_kde.py  --seeds 0       --n-train 65536       --n-test 8192       --mixture-index 0       --device cuda  --multi-d-sd --sd-nd-triton-only
+ncu    --set full --kernel-name "_empirical_sd_kde_kernel_nd"    --launch-skip 1 --launch-count 1     -o ncu_kde_deriv_nd_65k_a6000     python benchmark_triton_kde.py  --seeds 0       --n-train 65536       --n-test 8192       --mixture-index 0       --device cuda  --multi-d-sd --sd-nd-triton-only
      ```
