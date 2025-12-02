@@ -32,12 +32,14 @@ Score-debiased kernel density estimation (SD-KDE)~\cite{epstein2025sdkde}
 improves the statistical efficiency of standard kernel density estimators:
 for sufficiently smooth densities, SD-KDE attains better bias and mean-squared
 error rates than vanilla KDE while retaining a simple, nonparametric form.
+In particular, SD-KDE achieves an asymptotic mean integrated squared error
+(AMISE) of order $O(n^{-8/(d+8)})$, improving the convergence exponent
+relative to the $O(n^{-4/(d+4)})$ rate of classical KDE tuned with
+Silverman’s rule of thumb.
 These accuracy gains come with a significant computational drawback: the
 empirical score used for debiasing introduces an additional $O(n^2)$ pass
 over the data, so a naive implementation has roughly the same quadratic cost
-as KDE itself but with a larger constant factor.  At realistic sample sizes,
-this puts strong pressure on both the algorithmic structure and the hardware
-implementation.
+as KDE itself but with a larger constant factor.
 
 Given samples $x_i$ and a bandwidth $h$, a Gaussian KDE is
 \[
@@ -285,9 +287,11 @@ effort should focus on kernel fusion and occupancy rather than memory traffic.
 
 To compare against a specialized KDE implementation, we also benchmarked a
 PyKeOps LazyTensor Gaussian KDE (no debiasing) at $n_{\text{train}}=32\text{k}$,
-$n_{\text{test}}=4\text{k}$.  The results are summarized in
-Table~\ref{tab:pykeops} and show a $7\times$ speedup for fully debiased SD-KDE
-even though PyKeOps evaluates only the KDE stage.
+$n_{\text{test}}=4\text{k}$.  PyKeOps currently represents the state of the art
+for large-scale kernel reductions, so matching or exceeding its throughput is a
+useful sanity check.  The results are summarized in Table~\ref{tab:pykeops} and
+show a $7\times$ speedup for fully debiased SD-KDE even though PyKeOps
+evaluates only the KDE stage.
 
 \begin{table}[h]
   \centering
@@ -367,12 +371,10 @@ Figure~\ref{fig:triton_sd_kde_nd_util}: we cannot reach the nominal Tensor
 Core peak because the kernel still executes substantial non-Tensor-Core work
 (norms, exponentials, atomics).
 
-\clearpage
 
 \bibliographystyle{plain}
 \bibliography{references}
 
-\clearpage
 \begin{comment}
 \appendix
 \section{1-D SD-KDE baseline}
