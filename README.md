@@ -202,6 +202,15 @@ blocked GEMMs) and prints accuracy deltas plus runtime ratios.
 Add `--sd-nd-triton-only` to skip the Torch baseline when you just need Triton
 timings (useful for profiling or long sweeps).
 
+To compare our 16-D Triton KDE against PyKeOps on the same problem sizes, run:
+
+```bash
+python benchmark_pykeops_triton_nd.py \
+  --n-train 32768 \
+  --n-test 4096 \
+  --device cuda
+```
+
 To sweep multiple sizes automatically (single seed), use the helper script:
 
 ```bash

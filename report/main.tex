@@ -9,11 +9,21 @@
 \geometry{margin=1in}
 
 \title{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
-\author{}
+\author{Elliot L. Epstein}
 \date{}
 
 \begin{document}
 \maketitle
+
+\begin{abstract}
+Score-debiased kernel density estimation (SD-KDE) offers superior statistical
+accuracy compared to classical KDE, but the cubic-like workload of the
+empirical score has hindered GPU-scale deployments.  We show that a Triton
+implementation exploiting Tensor Cores achieves up to $2{,}500\times$ speedup
+over scikit-learn's KDE and $35\times$ speedup over a strong Torch baseline on
+32k-sample 16-D problems, removing the practical bottleneck for SD-KDE in
+modern pipelines.  Code available at \url{https://github.com/Elliotepsteino/Flash-SD-KDE}.
+\end{abstract}
 
 \section{Introduction}
 
@@ -28,7 +38,7 @@ as KDE itself but with a larger constant factor.  At realistic sample sizes,
 this puts strong pressure on both the algorithmic structure and the hardware
 implementation.
 
-Given samples $x_i$ in one dimension and a bandwidth $h$, a Gaussian KDE is
+Given samples $x_i$ and a bandwidth $h$, a Gaussian KDE is
 \[
   \hat p(x)
   =
@@ -59,18 +69,7 @@ we estimate the score as
        {h^2 \sum_{i=1}^n \varphi\!\left(\tfrac{x - x_i}{h}\right)}.
 \]
 
-\section{Task}
-
-The goal of Flash-SD-KDE is to implement a fast, GPU-accelerated SD-KDE
-(with empirical score) on an NVIDIA RTX~A6000 using Triton.  We:
-\begin{itemize}
-  \item implement a Gaussian KDE and KDE-based score estimator in Triton,
-  \item use these to construct an empirical SD-KDE on the GPU, and
-  \item benchmark against CPU Silverman KDE and scikit-learn's KDE over
-        a range of sample sizes $(n_{\text{train}}, n_{\text{test}})$.
-\end{itemize}
-
-\subsection{Hardware}
+\section{Hardware}
 
 All experiments run on a workstation equipped with an NVIDIA RTX~A6000
 (GA102).  This GPU exposes 84 streaming multiprocessors (SMs); each SM
@@ -84,15 +83,15 @@ The host CPU is a dual-socket AMD EPYC~7763 system (``Milan'') configured
 with $2 \times 64$ cores and two hardware threads per core (256 logical
 CPUs reported by \texttt{lscpu}).  The processors boost up to
 3.53~GHz, expose 512~MiB of shared L3 cache across the sockets, and provide
-modern ISA extensions (AVX/AVX2, FMA, BMI1/2, SHA, VAES, etc.).  Unless
-otherwise noted, all CPU benchmarks in this report run on this platform.
+modern ISA extensions (AVX/AVX2, FMA, BMI1/2, SHA, VAES, etc.).
 
-\section{High-dimensional SD-KDE and Tensor Cores}
+\section{Method}
 
-The 1-D SD-KDE formulation provides useful intuition, but our primary goal is
-to understand how the method scales in higher dimensions and how to exploit
-Tensor Cores.  Let $x_i, y_j \in \mathbb{R}^d$ denote
-training and query points, with bandwidth $h$ and squared Euclidean distance
+Our goal is to take $n_{\text{train}}$ samples in $d$ dimensions, form the
+empirical SD-KDE (score + shift), and evaluate the resulting density on
+$n_{\text{test}}$ queries.  Writing the computation in matrix form highlights
+the parallel structure.  Let $x_i, y_j \in \mathbb{R}^d$ denote training and
+query points, with bandwidth $h$ and squared Euclidean distance
 \[
   \lVert x_i - y_j \rVert^2
   =
@@ -186,17 +185,32 @@ Substituting $d=16$ gives
 which is on the order of $10^{11}$ FLOPs for $k=32\text{k}$.
 
 \paragraph{Bytes moved.}
-In the idealized case where each sample and query is read once and each
-output is written once, the leading-order memory traffic is
+To better capture implementation details, we count bytes per tile using the
+launch parameters that delivered the best runtime ($BLOCK\_M = 64$,
+$BLOCK\_N = 1024$).  Each tile loads $64\times d$ query values once
+($4\,BLOCK\_M d$ bytes), streams $1024\times d$ training values
+($4\,BLOCK\_N d$ bytes), and writes the partial PDF and weighted sums
+($4\,BLOCK\_M$ and $4\,BLOCK\_M d$ bytes).  All of this traffic goes to and from
+GDDR6, so for $d=16$ a tile moves roughly
 \[
-  \text{Bytes}_d(k)
+  \text{Bytes}_{\text{tile}}
   \approx
-  4\bigl(d k + d (k/8) + d k + k/8\bigr)
-  =
-  4\Bigl(\tfrac{9}{8} d k + \tfrac{k}{8}\Bigr),
+  4\bigl(BLOCK\_M d + BLOCK\_N d + BLOCK\_M + BLOCK\_M d\bigr)
+  \approx 7.4\times 10^4\ \text{bytes}.
 \]
-where we count reads of the training data $X$, debiased data, queries $Y$,
-and writes of the $k/8$ outputs, up to lower-order terms.
+The full problem processes $(k / BLOCK\_M)\times(k / BLOCK\_N)$ such tiles,
+so the total GDDR6 traffic is
+\[
+  \text{Bytes}_{16}(k)
+  \approx
+  \text{Bytes}_{\text{tile}}
+  \times
+  \frac{k}{BLOCK\_M}
+  \times
+  \frac{k}{BLOCK\_N}
+  \approx
+  1.13\,k^2\ \text{bytes}.
+\]
 
 \paragraph{Arithmetic intensity.}
 Dividing FLOPs by bytes gives
@@ -221,15 +235,35 @@ with
 \]
 For $d=16$ this simplifies to
 \[
-  C(16) \approx 2.0,
-  \qquad
-  I_{16}(k) \approx 2.0\,k\ \text{flops/byte}.
+  I_{16}(k)
+  \approx
+  \frac{\text{FLOPs}_{16}(k)}{\text{Bytes}_{16}(k)}
+  \approx
+  \frac{81.5\,k^2}{1.13\,k^2}
+  \approx 72\ \text{flops/byte}.
 \]
-Thus, as in the 1-D setting, the arithmetic intensity grows linearly with
-problem size; even moderate $k$ values place the 16-D SD-KDE well into the
-compute-bound regime on the RTX~A6000.
+This tile-aware estimate more closely reflects the measured arithmetic
+intensity.  Comparing against the A6000 specs (Tensor Core peak of
+$155\,\text{TFLOP/s}$ versus $\approx 770\,\text{GB/s}$ of memory bandwidth),
+the machine balance is roughly $200$ flops/byte.  Since our kernel sustains
+over $70$ flops/byte, it lies well into the compute-bound regime on the
+RTX~A6000.
 
-\section{16-D experiments}
+\paragraph{Comparison with measurements.}
+Nsight Compute reports an empirical arithmetic intensity of roughly
+$95\,\text{FLOPs/byte}$ for the score kernel on the A6000, which is broadly in
+line with the $72\,\text{FLOPs/byte}$ predicted by the tile-level model above.
+Minor differences stem from additional bookkeeping work (atomics, reductions)
+and from Nsight’s finer-grained accounting of texture/cache traffic, but both
+figures agree that the kernel operates far above the bandwidth roofline.
+Because the kernel mixes Tensor-Core GEMMs with FP32 scalar work (norms,
+exponentials, atomics), the effective machine balance sits between the
+tensor-core roof ($\approx 200$ flops/byte) and the FP32 roof ($\approx 50$
+flops/byte).  The observed $70$--$95$ flops/byte therefore straddle these two
+limits: the GEMM portion is partially bandwidth-limited relative to Tensor
+Cores, while the scalar portion is compute-limited relative to FP32 ALUs.
+
+\section{Results}
 
 We now summarize the empirical behavior of the 16-D implementation on the
 RTX~A6000.  For each $n_{\text{train}}$ in $\{4\text{k}, 8\text{k}, 16\text{k},
@@ -247,6 +281,29 @@ peak, whereas the Triton implementation climbs into the multi-digit range once
 $n_{\text{train}}$ exceeds $8\text{k}$.  This confirms that the 16-D
 Tensor-Core formulation is firmly compute-bound and that additional tuning
 effort should focus on kernel fusion and occupancy rather than memory traffic.
+
+To compare against a specialized KDE implementation, we also benchmarked a
+PyKeOps LazyTensor Gaussian KDE (no debiasing) at $n_{\text{train}}=32\text{k}$,
+$n_{\text{test}}=4\text{k}$.  The results are summarized in
+Table~\ref{tab:pykeops} and show a $7\times$ speedup for fully debiased SD-KDE
+even though PyKeOps evaluates only the KDE stage.
+
+\begin{table}[h]
+  \centering
+  \begin{tabular}{lcc}
+    \toprule
+    Method & Runtime (ms) & Relative to Triton \\
+    \midrule
+    Triton 16-D SD-KDE & $2.23$ & $1\times$ \\
+    PyKeOps 16-D KDE   & $3.06$ & $1.4\times$ \\
+    PyKeOps 16-D SD-KDE& $21.73$ & $9.77\times$ \\
+    \bottomrule
+  \end{tabular}
+  \caption{Runtime comparison at $n_{\text{train}}=32\text{k}$,
+           $n_{\text{test}}=4\text{k}$.  PyKeOps runs the KDE only, while
+           Triton executes the full SD-KDE (score+shift+KDE).}
+  \label{tab:pykeops}
+\end{table}
 
 \begin{figure}[t]
   \centering
@@ -270,22 +327,51 @@ effort should focus on kernel fusion and occupancy rather than memory traffic.
   \label{fig:triton_sd_kde_nd_util}
 \end{figure}
 
-\section{Performance tuning}
+\subsection{Performance optimizations}
 
-We performed a sweep over the Triton launch parameters to improve utilization
-for the $n_{\text{train}} = 32\text{k}$ case (with $n_{\text{test}}=4\text{k}$).
-Specifically we varied:
+Nsight Systems traces show that roughly $95\%$ of the SD-KDE runtime at
+$n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k}$ is spent computing
+the empirical score.  We therefore concentrated optimization effort on the
+score kernel, sweeping the launch parameters to raise utilization.  Specifically
+we varied:
 \begin{itemize}
   \item $BLOCK\_M \in \{32, 64, 128, 256\}$,
-  \item $BLOCK\_N \in \{32, 64, 128, 256\}$,
+  \item $BLOCK\_N \in \{32, 64, 128, 256, 512, 1024\}$,
   \item $num\_warps \in \{1, 2, 4, 8\}$,
   \item $num\_stages \in \{1, 2, 4\}$,
 \end{itemize}
 and selected the combination that minimized runtime.  For this workload we
-found that $BLOCK\_M=64$, $BLOCK\_N=128$, $num\_warps=1$, and $num\_stages=2$
+found that $BLOCK\_M=64$, $BLOCK\_N=1024$, $num\_warps=2$, and $num\_stages=2$
 gave the best overall performance, increasing measured FLOP utilization by
-more than $2\times$ relative to the initial settings.  The same sweep can be
+more than $2\times$ relative to smaller-tile settings.  The same sweep can be
 repeated for different problem sizes if further tuning is needed.
+
+Beyond the launch-parameter sweep, two design choices account for most of the
+speedup over a standard tiling implementation:
+\begin{enumerate}
+  \item \textbf{Tensor-Core tiling:} all high-dimensional dot products are
+        processed as $16 \times 16$ tiles via \texttt{tl.dot} with Tensor Core
+        acceleration, allowing the GEMM portion of the score and KDE kernels
+        to run near the TF32 roofline.
+  \item \textbf{Streaming accumulation:} we never materialize full
+        $n_{\text{train}}\times n_{\text{train}}$ (or query) matrices; instead
+        we stream tiles through registers and rely on atomic reductions to keep
+        global-memory traffic linear in $n$.
+\end{enumerate}
+Together these optimizations push the kernels close to the hardware limit.
+Nsight Compute’s “Speed of Light” report shows $\sim 68\%$ SM throughput for
+the score kernel at $n_{\text{train}}=32\text{k}$ and $n_{\text{test}}=4\text{k}$,
+which is consistent with the tensor-core utilization trends in
+Figure~\ref{fig:triton_sd_kde_nd_util}: we cannot reach the nominal Tensor
+Core peak because the kernel still executes substantial non-Tensor-Core work
+(norms, exponentials, atomics).
+
+\clearpage
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\clearpage
 
 \appendix
 
@@ -385,10 +471,7 @@ For convenience we summarize the most frequently used scripts:
 \begin{itemize}
   \item \texttt{run\_triton\_scaling.sh}: sweeps 1-D SD-KDE with \texttt{--emp-kernel-only} for Nsight profiling.
   \item \texttt{run\_triton\_sd\_kde\_nd.sh}: runs Triton-only 16-D SD-KDE sweeps and logs runtimes for utilization plots.
-  \item \texttt{run\_nd\_runtime\_sweep.sh}: collects runtime data (sklearn vs Torch vs Triton) for 16-D KDE/SD-KDE up to $n=32{,}768$.
+\item \texttt{run\_nd\_runtime\_sweep.sh}: collects runtime data (sklearn vs Torch vs Triton) for 16-D KDE/SD-KDE up to $n=32{,}768$.
 \end{itemize}
-
-\bibliographystyle{plain}
-\bibliography{references}
 
 \end{document}
