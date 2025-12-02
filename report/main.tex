@@ -1,5 +1,6 @@
 \documentclass[11pt]{article}
 \usepackage{amsmath}
+\usepackage{comment}
 \usepackage{amsfonts}
 \usepackage{amssymb}
 \usepackage{booktabs}
@@ -372,9 +373,8 @@ Core peak because the kernel still executes substantial non-Tensor-Core work
 \bibliography{references}
 
 \clearpage
-
+\begin{comment}
 \appendix
-
 \section{1-D SD-KDE baseline}
 
 For completeness we briefly summarize the 1-D SD-KDE arithmetic intensity and
@@ -464,14 +464,5 @@ feed to Nsight Systems when examining the multi-million-sample kernels.
            because a single seed is used per point.}
   \label{fig:triton_large_util}
 \end{figure}
-
-\section{Additional commands}
-
-For convenience we summarize the most frequently used scripts:
-\begin{itemize}
-  \item \texttt{run\_triton\_scaling.sh}: sweeps 1-D SD-KDE with \texttt{--emp-kernel-only} for Nsight profiling.
-  \item \texttt{run\_triton\_sd\_kde\_nd.sh}: runs Triton-only 16-D SD-KDE sweeps and logs runtimes for utilization plots.
-\item \texttt{run\_nd\_runtime\_sweep.sh}: collects runtime data (sklearn vs Torch vs Triton) for 16-D KDE/SD-KDE up to $n=32{,}768$.
-\end{itemize}
-
+\end{comment}
 \end{document}
