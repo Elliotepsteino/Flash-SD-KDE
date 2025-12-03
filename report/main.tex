@@ -11,7 +11,7 @@
 
 \title{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
 \author{Elliot L. Epstein}
-\date{Programming Assignment 5, CS 149, epsteine}
+%\date{Programming Assignment 5, CS 149, epsteine}
 
 \begin{document}
 \maketitle
@@ -353,12 +353,15 @@ speedup over a standard tiling implementation:
         global-memory traffic linear in $n$.
 \end{enumerate}
 Together these optimizations push the kernels close to the hardware limit.
-Nsight Compute’s “Speed of Light” report shows $\sim 68\%$ SM throughput for
-the score kernel at $n_{\text{train}}=32\text{k}$ and $n_{\text{test}}=4\text{k}$,
-which is consistent with the tensor-core utilization trends in
+Nsight Compute’s “Speed of Light” report shows $\sim 68\%$ SM throughput and
+roughly $90\%$ L1 throughput for the score kernel at
+$n_{\text{train}}=32\text{k}$ and $n_{\text{test}}=4\text{k}$, which is
+consistent with the tensor-core utilization trends in
 Figure~\ref{fig:triton_sd_kde_nd_util}: we cannot reach the nominal Tensor
 Core peak because the kernel still executes substantial non-Tensor-Core work
-(norms, exponentials, atomics).
+(norms, exponentials, atomics).  At these utilization levels we stopped
+further low-level tuning, since additional optimizations would likely yield
+only modest incremental gains.
 
 
 \begin{figure}[t]
@@ -370,6 +373,13 @@ Core peak because the kernel still executes substantial non-Tensor-Core work
            runtimes (ms).}
   \label{fig:triton_sd_kde_nd_util}
 \end{figure}
+
+\section{LLM usage}
+
+Large language models (LLMs) were used to assist both the implementation and
+the preparation of this report.  LLMs helped with kernel prototyping,
+refactoring, and drafting and editing text, substantially accelerating overall
+progress.
 
 \bibliographystyle{plain}
 \bibliography{references}
