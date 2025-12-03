@@ -11,19 +11,21 @@
 
 \title{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
 \author{Elliot L. Epstein}
-\date{}
+\date{Programming Assignment 5, CS 149, epsteine}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-Score-debiased kernel density estimation (SD-KDE) offers superior statistical
-accuracy compared to classical KDE, but the cubic-like workload of the
-empirical score has hindered GPU-scale deployments.  We show that a Triton
-implementation exploiting Tensor Cores achieves up to $2{,}500\times$ speedup
-over scikit-learn's KDE and $35\times$ speedup over a strong Torch baseline on
-32k-sample 16-D problems, removing the practical bottleneck for SD-KDE in
-modern pipelines.  Code available at \url{https://github.com/Elliotepsteino/Flash-SD-KDE}.
+Score-debiased kernel density estimation (SD-KDE) enjoys a better asymptotic
+convergence rate than classical KDE, but the additional empirical score
+computation has made it significantly slower in practice.  We show that a
+Triton implementation exploiting Tensor Cores runs SD-KDE up to $40\times$
+faster than a strong Torch SD-KDE baseline and $2{,}800\times$ faster than
+scikit-learn's KDE on a 32k-sample 16-D problem, and that a 1M-sample 16-D
+SD-KDE evaluated on 131k queries completes in $2.4\,\text{s}$ on a single
+RTX~A6000, removing the practical bottleneck for SD-KDE on large problems.
+Code available at \url{https://github.com/Elliotepsteino/Flash-SD-KDE}.
 \end{abstract}
 
 \section{Introduction}
@@ -89,6 +91,7 @@ CPUs reported by \texttt{lscpu}).  The processors boost up to
 modern ISA extensions (AVX/AVX2, FMA, BMI1/2, SHA, VAES, etc.).
 
 \section{Method}
+\label{sec:method}
 
 Our goal is to take $n_{\text{train}}$ samples in $d$ dimensions, form the
 empirical SD-KDE (score + shift), and evaluate the resulting density on
@@ -148,8 +151,7 @@ we can decompose the numerator into a second GEMM:
 Thus both the KDE evaluation and the SD-KDE score numerator reduce to
 Tensor-Core-accelerable matrix multiplies, plus $O(n^2)$ scalar work for the
 norms and exponentials.  In this note we focus on the $d=16$ case, which
-aligns naturally with the Tensor Core tile sizes on the RTX~A6000 and offers a
-clean contrast to the 1-D baseline (summarized in the appendix).
+aligns naturally with the Tensor Core tile sizes on the RTX~A6000.
 
 \subsection{Arithmetic intensity in $d$ dimensions}
 
@@ -250,10 +252,7 @@ intensity.  Comparing against the A6000 specs (Tensor Core peak of
 $155\,\text{TFLOP/s}$ versus $\approx 770\,\text{GB/s}$ of memory bandwidth),
 the machine balance is roughly $200$ flops/byte.  Since our kernel sustains
 over $70$ flops/byte, it lies well into the compute-bound regime on the
-RTX~A6000.
-
-\paragraph{Comparison with measurements.}
-Nsight Compute reports an empirical arithmetic intensity of roughly
+RTX~A6000.  Nsight Compute reports an empirical arithmetic intensity of roughly
 $95\,\text{FLOPs/byte}$ for the score kernel on the A6000, which is broadly in
 line with the $72\,\text{FLOPs/byte}$ predicted by the tile-level model above.
 Minor differences stem from additional bookkeeping work (atomics, reductions)
@@ -285,13 +284,13 @@ $n_{\text{train}}$ exceeds $8\text{k}$.  This confirms that the 16-D
 Tensor-Core formulation is firmly compute-bound and that additional tuning
 effort should focus on kernel fusion and occupancy rather than memory traffic.
 
-To compare against a specialized KDE implementation, we also benchmarked a
-PyKeOps LazyTensor Gaussian KDE (no debiasing) at $n_{\text{train}}=32\text{k}$,
-$n_{\text{test}}=4\text{k}$.  PyKeOps currently represents the state of the art
-for large-scale kernel reductions, so matching or exceeding its throughput is a
-useful sanity check.  The results are summarized in Table~\ref{tab:pykeops} and
-show a $7\times$ speedup for fully debiased SD-KDE even though PyKeOps
-evaluates only the KDE stage.
+To compare against a specialized KDE implementation, we also benchmarked PyKeOps
+LazyTensor operators at $n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k}$.
+PyKeOps currently represents the state of the art for large-scale kernel
+reductions, so we report both its Gaussian KDE runtime and its SD-KDE runtime as
+a reference point.  Table~\ref{tab:pykeops} shows that Triton SD-KDE runs
+$1.4\times$ faster than the PyKeOps 16-D KDE baseline and $9.8\times$ faster
+than the PyKeOps 16-D SD-KDE implementation.
 
 \begin{table}[h]
   \centering
@@ -305,8 +304,9 @@ evaluates only the KDE stage.
     \bottomrule
   \end{tabular}
   \caption{Runtime comparison at $n_{\text{train}}=32\text{k}$,
-           $n_{\text{test}}=4\text{k}$.  PyKeOps runs the KDE only, while
-           Triton executes the full SD-KDE (score+shift+KDE).}
+           $n_{\text{test}}=4\text{k}$.  PyKeOps rows report Gaussian KDE and
+           SD-KDE (LazyTensor) runtimes, while Triton executes the full SD-KDE
+           pipeline.}
   \label{tab:pykeops}
 \end{table}
 
@@ -319,17 +319,6 @@ evaluates only the KDE stage.
            (relative to sklearn) and the GEMM-based score computation
            (relative to the Torch baseline).}
   \label{fig:nd_runtime}
-\end{figure}
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.8\linewidth]{../triton-sd-kde-nd-util.pdf}
-  \caption{Utilization (percentage of RTX A6000 Tensor Core peak, taken as
-           $155\,\text{TFLOP/s}$ FP32-equivalent) for the 16-D SD-KDE
-           pipeline, using the flop estimate
-           $4 d n^2 + (4+8) n^2 + 2 d m n + (4+8) m n$ with $d=16$ and
-           $m = n/8$.  Bars are annotated with the observed runtime (ms).}
-  \label{fig:triton_sd_kde_nd_util}
 \end{figure}
 
 \subsection{Performance optimizations}
@@ -371,6 +360,16 @@ Figure~\ref{fig:triton_sd_kde_nd_util}: we cannot reach the nominal Tensor
 Core peak because the kernel still executes substantial non-Tensor-Core work
 (norms, exponentials, atomics).
 
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\linewidth]{../triton-sd-kde-nd-util.pdf}
+  \caption{Utilization (percentage of RTX A6000 Tensor Core peak) for the 16-D
+           SD-KDE pipeline, computed via the flop model from
+           Section~\ref{sec:method}; bars are annotated with the observed
+           runtimes (ms).}
+  \label{fig:triton_sd_kde_nd_util}
+\end{figure}
 
 \bibliographystyle{plain}
 \bibliography{references}
