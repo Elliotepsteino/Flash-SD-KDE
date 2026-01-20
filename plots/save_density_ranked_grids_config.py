@@ -4,6 +4,8 @@ inject_repo_into_sys_path()
 
 from dataclasses import dataclass
 
+from globals import BACKEND_FLASH_SPLITK_SYM
+
 
 @dataclass(frozen=True)
 class DensityGridConfig:
@@ -11,3 +13,4 @@ class DensityGridConfig:
     output_subdir: str = "grids"
     top_k: int = 25
     dpi: int = 200
+    backend_name: str = BACKEND_FLASH_SPLITK_SYM

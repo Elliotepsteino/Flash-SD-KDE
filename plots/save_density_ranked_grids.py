@@ -58,6 +58,13 @@ def _rank_indices(scores: np.ndarray, top_k: int) -> tuple[np.ndarray, np.ndarra
     return top_idx, low_idx
 
 
+def _select_density(densities: Dict[str, np.ndarray], backend_name: str, key: str) -> np.ndarray:
+    pref_key = f"{backend_name}_{key}"
+    if pref_key in densities:
+        return densities[pref_key]
+    return densities[key]
+
+
 def save_grids(config: DensityGridConfig) -> Path:
     results_dir = _resolve_results_dir(config)
     densities = _load_densities(results_dir)
@@ -67,18 +74,28 @@ def save_grids(config: DensityGridConfig) -> Path:
     mnist, fashion = _load_test_sets(data_root)
 
     for method in ["kde", "emp"]:
-        id_scores = densities[f"{method}_id"]
-        ood_scores = densities[f"{method}_ood"]
+        id_scores = _select_density(densities, config.backend_name, f"{method}_id")
+        ood_scores = _select_density(densities, config.backend_name, f"{method}_ood")
 
         id_top, id_low = _rank_indices(id_scores, config.top_k)
         ood_top, _ = _rank_indices(ood_scores, config.top_k)
 
-        _save_grid(mnist[id_top], output_dir / f"mnist_top_{method}.png", title=f"MNIST top {config.top_k} ({method})", dpi=config.dpi)
-        _save_grid(mnist[id_low], output_dir / f"mnist_low_{method}.png", title=f"MNIST low {config.top_k} ({method})", dpi=config.dpi)
+        _save_grid(
+            mnist[id_top],
+            output_dir / f"mnist_top_{method}.png",
+            title=f"MNIST top {config.top_k} ({method}, {config.backend_name})",
+            dpi=config.dpi,
+        )
+        _save_grid(
+            mnist[id_low],
+            output_dir / f"mnist_low_{method}.png",
+            title=f"MNIST low {config.top_k} ({method}, {config.backend_name})",
+            dpi=config.dpi,
+        )
         _save_grid(
             fashion[ood_top],
             output_dir / f"fashion_top_{method}.png",
-            title=f"Fashion top {config.top_k} ({method})",
+            title=f"Fashion top {config.top_k} ({method}, {config.backend_name})",
             dpi=config.dpi,
         )
 

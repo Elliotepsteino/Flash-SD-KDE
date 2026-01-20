@@ -51,11 +51,38 @@ def _save_fig(fig: plt.Figure, path: Path, dpi: int) -> None:
     fig.savefig(path, dpi=dpi, bbox_inches="tight")
 
 
-def plot_roc_curves(output_dir: Path, densities: Dict, *, dpi: int) -> None:
-    id_kde = densities["kde_id"]
-    ood_kde = densities["kde_ood"]
-    id_emp = densities["emp_id"]
-    ood_emp = densities["emp_ood"]
+def _select_density(densities: Dict, backend_name: str, key: str) -> np.ndarray:
+    pref_key = f"{backend_name}_{key}"
+    if pref_key in densities:
+        return densities[pref_key]
+    return densities[key]
+
+
+def _get_backend_metrics(results: Dict, backend_name: str) -> Dict:
+    if "backend_variants" in results:
+        return results["metrics"][backend_name]
+    return results["metrics"]
+
+
+def _get_backend_runtime(results: Dict, backend_name: str) -> Dict:
+    if "backend_variants" in results:
+        return results["runtime_sec"][backend_name]
+    return results["runtime_sec"]
+
+
+def _resolve_backend_names(results: Dict, config: MnistFashionOodPlotConfig) -> list[str]:
+    if config.compare_backend_names is not None:
+        return list(config.compare_backend_names)
+    if "backend_variants" in results:
+        return list(results["backend_variants"].keys())
+    return ["default"]
+
+
+def plot_roc_curves(output_dir: Path, densities: Dict, *, backend_name: str, dpi: int) -> None:
+    id_kde = _select_density(densities, backend_name, "kde_id")
+    ood_kde = _select_density(densities, backend_name, "kde_ood")
+    id_emp = _select_density(densities, backend_name, "emp_id")
+    ood_emp = _select_density(densities, backend_name, "emp_ood")
 
     labels = np.concatenate([np.ones_like(id_kde), np.zeros_like(ood_kde)])
     scores_kde = np.concatenate([id_kde, ood_kde])
@@ -70,7 +97,7 @@ def plot_roc_curves(output_dir: Path, densities: Dict, *, dpi: int) -> None:
     ax.plot([0, 1], [0, 1], "--", color="0.6", lw=1)
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
-    ax.set_title("OOD ROC (MNIST vs Fashion-MNIST)")
+    ax.set_title(f"OOD ROC (MNIST vs Fashion-MNIST) [{backend_name}]")
     ax.legend(frameon=False)
     ax.grid(alpha=0.2, linestyle="--")
     _save_fig(fig, output_dir / "fig_roc_curves.pdf", dpi)
@@ -78,11 +105,13 @@ def plot_roc_curves(output_dir: Path, densities: Dict, *, dpi: int) -> None:
     plt.close(fig)
 
 
-def plot_log_density_hist(output_dir: Path, densities: Dict, *, dpi: int, bins: int) -> None:
-    kde_id = np.log(densities["kde_id"] + DEFAULT_EPS)
-    kde_ood = np.log(densities["kde_ood"] + DEFAULT_EPS)
-    emp_id = np.log(densities["emp_id"] + DEFAULT_EPS)
-    emp_ood = np.log(densities["emp_ood"] + DEFAULT_EPS)
+def plot_log_density_hist(
+    output_dir: Path, densities: Dict, *, backend_name: str, dpi: int, bins: int
+) -> None:
+    kde_id = np.log(_select_density(densities, backend_name, "kde_id") + DEFAULT_EPS)
+    kde_ood = np.log(_select_density(densities, backend_name, "kde_ood") + DEFAULT_EPS)
+    emp_id = np.log(_select_density(densities, backend_name, "emp_id") + DEFAULT_EPS)
+    emp_ood = np.log(_select_density(densities, backend_name, "emp_ood") + DEFAULT_EPS)
 
     fig, axes = plt.subplots(1, 2, figsize=(7.6, 3.2), sharey=True)
     for ax, title, id_vals, ood_vals in [
@@ -97,20 +126,21 @@ def plot_log_density_hist(output_dir: Path, densities: Dict, *, dpi: int, bins: 
         ax.grid(alpha=0.2, linestyle="--")
     axes[0].set_ylabel("count")
     axes[0].legend(frameon=False)
-    fig.suptitle("Log-density histograms (largest n_train)")
+    fig.suptitle(f"Log-density histograms (largest n_train) [{backend_name}]")
     _save_fig(fig, output_dir / "fig_log_density_hist.pdf", dpi)
     _save_fig(fig, output_dir / "fig_log_density_hist.png", dpi)
     plt.close(fig)
 
 
-def plot_auc_vs_n_train(output_dir: Path, results: Dict, *, dpi: int) -> None:
+def plot_auc_vs_n_train(output_dir: Path, results: Dict, *, backend_name: str, dpi: int) -> None:
     n_train = [int(n) for n in results["n_train_list"]]
     n_train_sorted = sorted(n_train)
 
-    roc_kde = [results["metrics"][str(n)]["kde"]["roc_auc"] for n in n_train_sorted]
-    roc_emp = [results["metrics"][str(n)]["emp_sd_kde"]["roc_auc"] for n in n_train_sorted]
-    pr_kde = [results["metrics"][str(n)]["kde"]["pr_auc"] for n in n_train_sorted]
-    pr_emp = [results["metrics"][str(n)]["emp_sd_kde"]["pr_auc"] for n in n_train_sorted]
+    metrics = _get_backend_metrics(results, backend_name)
+    roc_kde = [metrics[str(n)]["kde"]["roc_auc"] for n in n_train_sorted]
+    roc_emp = [metrics[str(n)]["emp_sd_kde"]["roc_auc"] for n in n_train_sorted]
+    pr_kde = [metrics[str(n)]["kde"]["pr_auc"] for n in n_train_sorted]
+    pr_emp = [metrics[str(n)]["emp_sd_kde"]["pr_auc"] for n in n_train_sorted]
 
     fig, axes = plt.subplots(1, 2, figsize=(7.2, 3.2))
     axes[0].plot(n_train_sorted, roc_kde, marker="o", label="KDE", lw=2)
@@ -118,7 +148,7 @@ def plot_auc_vs_n_train(output_dir: Path, results: Dict, *, dpi: int) -> None:
     axes[0].set_xscale("log")
     axes[0].set_xlabel("n_train")
     axes[0].set_ylabel("ROC AUC")
-    axes[0].set_title("ROC AUC vs n_train")
+    axes[0].set_title(f"ROC AUC vs n_train [{backend_name}]")
     axes[0].grid(alpha=0.2, linestyle="--")
 
     axes[1].plot(n_train_sorted, pr_kde, marker="o", label="KDE", lw=2)
@@ -126,7 +156,7 @@ def plot_auc_vs_n_train(output_dir: Path, results: Dict, *, dpi: int) -> None:
     axes[1].set_xscale("log")
     axes[1].set_xlabel("n_train")
     axes[1].set_ylabel("PR AUC")
-    axes[1].set_title("PR AUC vs n_train")
+    axes[1].set_title(f"PR AUC vs n_train [{backend_name}]")
     axes[1].grid(alpha=0.2, linestyle="--")
 
     axes[0].legend(frameon=False)
@@ -135,17 +165,18 @@ def plot_auc_vs_n_train(output_dir: Path, results: Dict, *, dpi: int) -> None:
     plt.close(fig)
 
 
-def plot_runtime_vs_n_train(output_dir: Path, results: Dict, *, dpi: int) -> None:
+def plot_runtime_vs_n_train(output_dir: Path, results: Dict, *, backend_name: str, dpi: int) -> None:
     n_train = [int(n) for n in results["n_train_list"]]
     n_train_sorted = sorted(n_train)
 
-    kde_eval_id = [results["runtime_sec"][str(n)]["kde"]["eval_id_sec"] for n in n_train_sorted]
-    kde_eval_ood = [results["runtime_sec"][str(n)]["kde"]["eval_ood_sec"] for n in n_train_sorted]
+    runtime = _get_backend_runtime(results, backend_name)
+    kde_eval_id = [runtime[str(n)]["kde"]["eval_id_sec"] for n in n_train_sorted]
+    kde_eval_ood = [runtime[str(n)]["kde"]["eval_ood_sec"] for n in n_train_sorted]
 
-    emp_score = [results["runtime_sec"][str(n)]["emp_sd_kde"]["score_sec"] for n in n_train_sorted]
-    emp_shift = [results["runtime_sec"][str(n)]["emp_sd_kde"]["shift_sec"] for n in n_train_sorted]
-    emp_eval_id = [results["runtime_sec"][str(n)]["emp_sd_kde"]["eval_id_sec"] for n in n_train_sorted]
-    emp_eval_ood = [results["runtime_sec"][str(n)]["emp_sd_kde"]["eval_ood_sec"] for n in n_train_sorted]
+    emp_score = [runtime[str(n)]["emp_sd_kde"]["score_sec"] for n in n_train_sorted]
+    emp_shift = [runtime[str(n)]["emp_sd_kde"]["shift_sec"] for n in n_train_sorted]
+    emp_eval_id = [runtime[str(n)]["emp_sd_kde"]["eval_id_sec"] for n in n_train_sorted]
+    emp_eval_ood = [runtime[str(n)]["emp_sd_kde"]["eval_ood_sec"] for n in n_train_sorted]
 
     x = np.arange(len(n_train_sorted))
     width = 0.35
@@ -167,11 +198,61 @@ def plot_runtime_vs_n_train(output_dir: Path, results: Dict, *, dpi: int) -> Non
     ax.set_xticks(x, [str(n) for n in n_train_sorted])
     ax.set_xlabel("n_train")
     ax.set_ylabel("runtime (s)")
-    ax.set_title("Runtime breakdown vs n_train")
+    ax.set_title(f"Runtime breakdown vs n_train [{backend_name}]")
     ax.legend(frameon=False, ncol=2)
     ax.grid(alpha=0.2, linestyle="--", axis="y")
     _save_fig(fig, output_dir / "fig_runtime_vs_n_train.pdf", dpi)
     _save_fig(fig, output_dir / "fig_runtime_vs_n_train.png", dpi)
+    plt.close(fig)
+
+
+def plot_backend_comparison(output_dir: Path, results: Dict, backend_names: list[str], *, dpi: int) -> None:
+    n_train_max = max(int(n) for n in results["n_train_list"])
+    key = str(n_train_max)
+
+    roc_kde = []
+    roc_emp = []
+    runtime_kde = []
+    runtime_emp = []
+
+    for backend_name in backend_names:
+        metrics = _get_backend_metrics(results, backend_name)
+        runtime = _get_backend_runtime(results, backend_name)
+        roc_kde.append(metrics[key]["kde"]["roc_auc"])
+        roc_emp.append(metrics[key]["emp_sd_kde"]["roc_auc"])
+
+        runtime_kde.append(runtime[key]["kde"]["eval_id_sec"] + runtime[key]["kde"]["eval_ood_sec"])
+        runtime_emp.append(
+            runtime[key]["emp_sd_kde"]["score_sec"]
+            + runtime[key]["emp_sd_kde"]["shift_sec"]
+            + runtime[key]["emp_sd_kde"]["eval_id_sec"]
+            + runtime[key]["emp_sd_kde"]["eval_ood_sec"]
+        )
+
+    x = np.arange(len(backend_names))
+    width = 0.35
+
+    fig, axes = plt.subplots(1, 2, figsize=(8.6, 3.4))
+
+    axes[0].bar(x - width / 2, roc_kde, width, label="KDE")
+    axes[0].bar(x + width / 2, roc_emp, width, label="Emp-SD-KDE")
+    axes[0].set_xticks(x, backend_names, rotation=30, ha="right")
+    axes[0].set_ylabel("ROC AUC")
+    axes[0].set_title(f"Backend ROC AUC (n_train={n_train_max})")
+    axes[0].legend(frameon=False)
+    axes[0].grid(alpha=0.2, linestyle="--", axis="y")
+
+    axes[1].bar(x - width / 2, runtime_kde, width, label="KDE total")
+    axes[1].bar(x + width / 2, runtime_emp, width, label="Emp total")
+    axes[1].set_xticks(x, backend_names, rotation=30, ha="right")
+    axes[1].set_ylabel("runtime (s)")
+    axes[1].set_title(f"Backend runtime (n_train={n_train_max})")
+    axes[1].legend(frameon=False)
+    axes[1].grid(alpha=0.2, linestyle="--", axis="y")
+
+    fig.tight_layout()
+    _save_fig(fig, output_dir / "fig_backend_comparison.pdf", dpi)
+    _save_fig(fig, output_dir / "fig_backend_comparison.png", dpi)
     plt.close(fig)
 
 
@@ -182,10 +263,19 @@ def main() -> None:
     results, densities = _load_results(results_dir)
     _setup_style()
 
-    plot_roc_curves(output_dir, densities, dpi=config.dpi)
-    plot_log_density_hist(output_dir, densities, dpi=config.dpi, bins=config.hist_bins)
-    plot_auc_vs_n_train(output_dir, results, dpi=config.dpi)
-    plot_runtime_vs_n_train(output_dir, results, dpi=config.dpi)
+    backend_names = _resolve_backend_names(results, config)
+    primary_backend = config.primary_backend_name
+    if primary_backend not in backend_names:
+        primary_backend = backend_names[0]
+
+    plot_roc_curves(output_dir, densities, backend_name=primary_backend, dpi=config.dpi)
+    plot_log_density_hist(
+        output_dir, densities, backend_name=primary_backend, dpi=config.dpi, bins=config.hist_bins
+    )
+    plot_auc_vs_n_train(output_dir, results, backend_name=primary_backend, dpi=config.dpi)
+    plot_runtime_vs_n_train(output_dir, results, backend_name=primary_backend, dpi=config.dpi)
+    if len(backend_names) > 1:
+        plot_backend_comparison(output_dir, results, backend_names, dpi=config.dpi)
 
     print(f"Plots saved to {output_dir}")
 
