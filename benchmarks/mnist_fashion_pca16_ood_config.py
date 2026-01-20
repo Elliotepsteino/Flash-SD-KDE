@@ -8,10 +8,13 @@ from typing import Sequence
 from globals import (
     BACKEND_FLASH_SPLITK_ORDERED,
     BACKEND_FLASH_SPLITK_SYM,
+    BACKEND_FLASH_SPLITK_SYM_LINEARIZED,
     BACKEND_NON_FLASH_ATOMIC_SYM,
     DEFAULT_EMP_SCORE_BACKEND,
     DEFAULT_KDE_BACKEND,
     DEFAULT_PRECISION_MODE,
+    EMP_SD_KDE_VARIANT_EXACT,
+    EMP_SD_KDE_VARIANT_LINEARIZED,
     EMP_SCORE_BACKEND_ORDERED_SPLITK,
     KDE_BACKEND_ATOMIC,
     ND_FEATURES,
@@ -23,6 +26,7 @@ class BackendVariant:
     name: str
     kde_backend: str
     emp_score_backend: str
+    emp_sd_kde_variant: str = EMP_SD_KDE_VARIANT_EXACT
     precision_mode: str = DEFAULT_PRECISION_MODE
     use_precomputed_norms: bool = True
     autotune: bool = True
@@ -42,6 +46,12 @@ class MnistFashionOodConfig:
             name=BACKEND_FLASH_SPLITK_SYM,
             kde_backend=DEFAULT_KDE_BACKEND,
             emp_score_backend=DEFAULT_EMP_SCORE_BACKEND,
+        ),
+        BackendVariant(
+            name=BACKEND_FLASH_SPLITK_SYM_LINEARIZED,
+            kde_backend=DEFAULT_KDE_BACKEND,
+            emp_score_backend=DEFAULT_EMP_SCORE_BACKEND,
+            emp_sd_kde_variant=EMP_SD_KDE_VARIANT_LINEARIZED,
         ),
         BackendVariant(
             name=BACKEND_FLASH_SPLITK_ORDERED,

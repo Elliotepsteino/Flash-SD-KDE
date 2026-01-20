@@ -5,7 +5,12 @@ inject_repo_into_sys_path()
 from dataclasses import dataclass
 from typing import Sequence
 
-from globals import BACKEND_FLASH_SPLITK_ORDERED, BACKEND_FLASH_SPLITK_SYM, BACKEND_NON_FLASH_ATOMIC_SYM
+from globals import (
+    BACKEND_FLASH_SPLITK_ORDERED,
+    BACKEND_FLASH_SPLITK_SYM,
+    BACKEND_FLASH_SPLITK_SYM_LINEARIZED,
+    BACKEND_NON_FLASH_ATOMIC_SYM,
+)
 
 
 @dataclass(frozen=True)
@@ -20,4 +25,5 @@ class MnistFashionOodPlotConfig:
     speedup_backend_names: Sequence[str] = (
         BACKEND_FLASH_SPLITK_SYM,
         BACKEND_FLASH_SPLITK_ORDERED,
+        BACKEND_FLASH_SPLITK_SYM_LINEARIZED,
     )

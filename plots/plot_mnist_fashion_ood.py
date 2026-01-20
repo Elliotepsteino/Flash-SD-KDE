@@ -117,10 +117,10 @@ def plot_roc_curves(output_dir: Path, densities: Dict, *, backend_name: str, dpi
 def plot_log_density_hist(
     output_dir: Path, densities: Dict, *, backend_name: str, dpi: int, bins: int
 ) -> None:
-    kde_id = np.log(_select_density(densities, backend_name, "kde_id") + DEFAULT_EPS)
-    kde_ood = np.log(_select_density(densities, backend_name, "kde_ood") + DEFAULT_EPS)
-    emp_id = np.log(_select_density(densities, backend_name, "emp_id") + DEFAULT_EPS)
-    emp_ood = np.log(_select_density(densities, backend_name, "emp_ood") + DEFAULT_EPS)
+    kde_id = np.log(np.maximum(_select_density(densities, backend_name, "kde_id"), DEFAULT_EPS))
+    kde_ood = np.log(np.maximum(_select_density(densities, backend_name, "kde_ood"), DEFAULT_EPS))
+    emp_id = np.log(np.maximum(_select_density(densities, backend_name, "emp_id"), DEFAULT_EPS))
+    emp_ood = np.log(np.maximum(_select_density(densities, backend_name, "emp_ood"), DEFAULT_EPS))
 
     fig, axes = plt.subplots(1, 2, figsize=(7.6, 3.2), sharey=True)
     for ax, title, id_vals, ood_vals in [

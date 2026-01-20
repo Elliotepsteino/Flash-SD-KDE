@@ -14,11 +14,13 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from torchvision import datasets
 
 from benchmarks.mnist_fashion_pca16_ood_config import BackendVariant, MnistFashionOodConfig
-from flash_sd_kde.kde import kde_eval
+from flash_sd_kde.kde import kde_eval, kde_eval_linearized
 from flash_sd_kde.reference import silverman_bandwidth_nd
 from flash_sd_kde.utils import get_repo_state, make_run_dir, write_json
 from globals import (
     DEFAULT_EPS,
+    EMP_SD_KDE_VARIANT_EXACT,
+    EMP_SD_KDE_VARIANT_LINEARIZED,
     EMP_SCORE_BACKEND_ORDERED_SPLITK,
     EMP_SCORE_BACKEND_SYMMETRIC_ATOMIC,
     ND_FEATURES,
@@ -92,7 +94,8 @@ def _compute_metrics(id_scores: np.ndarray, ood_scores: np.ndarray) -> Dict[str,
     scores = np.concatenate([id_scores, ood_scores])
     roc_auc = float(roc_auc_score(labels, scores))
     pr_auc = float(average_precision_score(labels, scores))
-    mean_ll = float(np.mean(np.log(id_scores + DEFAULT_EPS)))
+    safe_id_scores = np.maximum(id_scores, DEFAULT_EPS)
+    mean_ll = float(np.mean(np.log(safe_id_scores)))
     return {"roc_auc": roc_auc, "pr_auc": pr_auc, "mean_log_likelihood": mean_ll}
 
 
@@ -103,6 +106,12 @@ def _collect_backend_variants(config: MnistFashionOodConfig) -> Dict[str, Backen
     names = [variant.name for variant in variants]
     if len(set(names)) != len(names):
         raise ValueError("backend_variants names must be unique.")
+    valid_variants = {EMP_SD_KDE_VARIANT_EXACT, EMP_SD_KDE_VARIANT_LINEARIZED}
+    for variant in variants:
+        if variant.emp_sd_kde_variant not in valid_variants:
+            raise ValueError(
+                f"emp_sd_kde_variant must be one of {sorted(valid_variants)}, got {variant.emp_sd_kde_variant}."
+            )
     return {variant.name: variant for variant in variants}
 
 
@@ -132,6 +141,26 @@ def _emp_score_backend(
             autotune=backend.autotune,
         )
     raise ValueError(f"unsupported emp_score_backend: {backend.emp_score_backend}")
+
+
+def _kde_eval_emp_linearized(
+    backend: BackendVariant,
+    train: np.ndarray,
+    queries: np.ndarray,
+    bandwidth: float,
+    *,
+    device: torch.device,
+) -> torch.Tensor:
+    return kde_eval_linearized(
+        train,
+        queries,
+        bandwidth,
+        device=device,
+        precision_mode=backend.precision_mode,
+        kde_backend=backend.kde_backend,
+        use_precomputed_norms=backend.use_precomputed_norms,
+        autotune=backend.autotune,
+    )
 
 
 def run_benchmark(config: MnistFashionOodConfig) -> Path:
@@ -230,7 +259,10 @@ def run_benchmark(config: MnistFashionOodConfig) -> Path:
                 use_precomputed_norms=backend.use_precomputed_norms,
                 autotune=backend.autotune,
             )
-            _ = _emp_score_backend(backend, train_subset, h, device=device)
+            if backend.emp_sd_kde_variant == EMP_SD_KDE_VARIANT_LINEARIZED:
+                _ = _kde_eval_emp_linearized(backend, train_subset, x_id_16, h, device=device)
+            else:
+                _ = _emp_score_backend(backend, train_subset, h, device=device)
             torch.cuda.synchronize(device)
 
             def kde_eval_id():
@@ -265,47 +297,59 @@ def run_benchmark(config: MnistFashionOodConfig) -> Path:
             metrics_kde = _compute_metrics(dens_id_np, dens_ood_np)
             runtime_kde = {"eval_id_sec": t_eval_id, "eval_ood_sec": t_eval_ood}
 
-            def score_kernel():
-                return _emp_score_backend(backend, train_subset, h, device=device)
+            if backend.emp_sd_kde_variant == EMP_SD_KDE_VARIANT_LINEARIZED:
+                def emp_eval_id():
+                    return _kde_eval_emp_linearized(backend, train_subset, x_id_16, h, device=device)
 
-            (pdf_sum, weighted_sum), t_score = _time_call(score_kernel, device=device)
+                def emp_eval_ood():
+                    return _kde_eval_emp_linearized(backend, train_subset, x_ood_16, h, device=device)
 
-            train_tensor = torch.as_tensor(train_subset, device=device, dtype=torch.float32)
+                dens_id_emp, t_eval_id_emp = _time_call(emp_eval_id, device=device)
+                dens_ood_emp, t_eval_ood_emp = _time_call(emp_eval_ood, device=device)
+                t_score = 0.0
+                t_shift = 0.0
+            else:
+                def score_kernel():
+                    return _emp_score_backend(backend, train_subset, h, device=device)
 
-            def shift_data():
-                inv_h2 = 1.0 / (h * h)
-                score = (weighted_sum / (pdf_sum[:, None] + DEFAULT_EPS) - train_tensor) * inv_h2
-                delta = 0.5 * (h * h)
-                return train_tensor + delta * score
+                (pdf_sum, weighted_sum), t_score = _time_call(score_kernel, device=device)
 
-            debiased, t_shift = _time_call(shift_data, device=device)
+                train_tensor = torch.as_tensor(train_subset, device=device, dtype=torch.float32)
 
-            def emp_eval_id():
-                return kde_eval(
-                    debiased,
-                    x_id_16,
-                    h,
-                    device=device,
-                    precision_mode=backend.precision_mode,
-                    kde_backend=backend.kde_backend,
-                    use_precomputed_norms=backend.use_precomputed_norms,
-                    autotune=backend.autotune,
-                )
+                def shift_data():
+                    inv_h2 = 1.0 / (h * h)
+                    score = (weighted_sum / (pdf_sum[:, None] + DEFAULT_EPS) - train_tensor) * inv_h2
+                    delta = 0.5 * (h * h)
+                    return train_tensor + delta * score
 
-            def emp_eval_ood():
-                return kde_eval(
-                    debiased,
-                    x_ood_16,
-                    h,
-                    device=device,
-                    precision_mode=backend.precision_mode,
-                    kde_backend=backend.kde_backend,
-                    use_precomputed_norms=backend.use_precomputed_norms,
-                    autotune=backend.autotune,
-                )
+                debiased, t_shift = _time_call(shift_data, device=device)
 
-            dens_id_emp, t_eval_id_emp = _time_call(emp_eval_id, device=device)
-            dens_ood_emp, t_eval_ood_emp = _time_call(emp_eval_ood, device=device)
+                def emp_eval_id():
+                    return kde_eval(
+                        debiased,
+                        x_id_16,
+                        h,
+                        device=device,
+                        precision_mode=backend.precision_mode,
+                        kde_backend=backend.kde_backend,
+                        use_precomputed_norms=backend.use_precomputed_norms,
+                        autotune=backend.autotune,
+                    )
+
+                def emp_eval_ood():
+                    return kde_eval(
+                        debiased,
+                        x_ood_16,
+                        h,
+                        device=device,
+                        precision_mode=backend.precision_mode,
+                        kde_backend=backend.kde_backend,
+                        use_precomputed_norms=backend.use_precomputed_norms,
+                        autotune=backend.autotune,
+                    )
+
+                dens_id_emp, t_eval_id_emp = _time_call(emp_eval_id, device=device)
+                dens_ood_emp, t_eval_ood_emp = _time_call(emp_eval_ood, device=device)
             dens_id_emp_np = dens_id_emp.detach().cpu().numpy()
             dens_ood_emp_np = dens_ood_emp.detach().cpu().numpy()
 
