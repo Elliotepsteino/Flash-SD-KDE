@@ -245,8 +245,8 @@ def plot_backend_comparison(output_dir: Path, results: Dict, backend_names: list
     axes[0].legend(frameon=False)
     axes[0].grid(alpha=0.2, linestyle="--", axis="y")
 
-    axes[1].bar(x - width / 2, runtime_kde, width, label="KDE total")
-    axes[1].bar(x + width / 2, runtime_emp, width, label="Emp total")
+    axes[1].bar(x - width / 2, runtime_kde, width, label="KDE total (eval)")
+    axes[1].bar(x + width / 2, runtime_emp, width, label="Emp total (score+shift+KDE)")
     axes[1].set_xticks(x, backend_names, rotation=30, ha="right")
     axes[1].set_ylabel("runtime (s)")
     axes[1].set_title(f"Backend runtime (n_train={n_train_max})")
@@ -292,7 +292,10 @@ def plot_speedup_vs_n_train(
         axes[0].plot(n_train_sorted, kde_speedup, marker="o", label=backend_name)
         axes[1].plot(n_train_sorted, emp_speedup, marker="o", label=backend_name)
 
-    for ax, title in zip(axes, ["KDE total speedup", "Emp-SD-KDE total speedup"]):
+    for ax, title in zip(
+        axes,
+        ["KDE total speedup (eval)", "Emp-SD-KDE total speedup (score+shift+KDE)"],
+    ):
         ax.set_xscale("log")
         ax.set_xlabel("n_train")
         ax.set_ylabel("speedup vs baseline")
