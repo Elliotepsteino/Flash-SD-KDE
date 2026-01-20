@@ -27,7 +27,7 @@ requirements and then re-run `uv pip install -r requirements.txt`.
 ## Running the benchmark
 
 Edit `benchmarks/mnist_fashion_pca16_ood_config.py` to change seeds, sizes,
-or backends. Then run:
+or backend variants (all backends run by default). Then run:
 
 ```bash
 make bench.mnist_ood
