@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+
+# Outputs
+file_storage
+paper/build/
+external_kernels/
+
+# OS
+.DS_Store
+
+AGENTS.md
+GITBUD.md
+KEY_PRINCIPLES.md
+LATEX_PAPER_GUIDE.md
+PLOTTING_GUIDE.md
+SLACK_RESULTS.md
