@@ -129,6 +129,7 @@ def _emp_score_backend(
             device=device,
             precision_mode=backend.precision_mode,
             use_precomputed_norms=backend.use_precomputed_norms,
+            autotune=backend.autotune,
         )
     raise ValueError(f"unsupported emp_score_backend: {backend.emp_score_backend}")
 

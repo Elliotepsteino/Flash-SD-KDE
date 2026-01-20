@@ -8,7 +8,6 @@ from typing import Sequence
 from globals import (
     BACKEND_FLASH_SPLITK_ORDERED,
     BACKEND_FLASH_SPLITK_SYM,
-    BACKEND_NON_FLASH_ATOMIC_ORDERED,
     BACKEND_NON_FLASH_ATOMIC_SYM,
     DEFAULT_EMP_SCORE_BACKEND,
     DEFAULT_KDE_BACKEND,
@@ -53,11 +52,6 @@ class MnistFashionOodConfig:
             name=BACKEND_NON_FLASH_ATOMIC_SYM,
             kde_backend=KDE_BACKEND_ATOMIC,
             emp_score_backend=DEFAULT_EMP_SCORE_BACKEND,
-        ),
-        BackendVariant(
-            name=BACKEND_NON_FLASH_ATOMIC_ORDERED,
-            kde_backend=KDE_BACKEND_ATOMIC,
-            emp_score_backend=EMP_SCORE_BACKEND_ORDERED_SPLITK,
         ),
     )
     primary_backend_name: str = BACKEND_FLASH_SPLITK_SYM
