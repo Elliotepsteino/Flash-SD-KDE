@@ -107,6 +107,51 @@ def _emp_score_16d_symmetric_atomic_kernel(
         tl.atomic_add(w_ptrs, w_vals, mask=mask_i[:, None])
 
 
+@triton.autotune(
+    configs=[
+        triton.Config({"BLOCK_M": 32}, num_warps=2, num_stages=2),
+        triton.Config({"BLOCK_M": 64}, num_warps=4, num_stages=2),
+        triton.Config({"BLOCK_M": 128}, num_warps=4, num_stages=2),
+        triton.Config({"BLOCK_M": 64}, num_warps=8, num_stages=3),
+        triton.Config({"BLOCK_M": 128}, num_warps=8, num_stages=3),
+    ],
+    key=["n_data"],
+)
+@triton.jit
+def _emp_score_16d_symmetric_atomic_kernel_autotune(
+    data_ptr,
+    pdf_ptr,
+    weighted_ptr,
+    data_norms_ptr,
+    n_data,
+    stride_data,
+    stride_weighted_query,
+    stride_weighted_k,
+    inv_h2,
+    USE_PRECOMPUTED_NORMS: tl.constexpr,
+    USE_IEEE: tl.constexpr,
+    ALLOW_TF32: tl.constexpr,
+    BLOCK_M: tl.constexpr,
+    BLOCK_K: tl.constexpr,
+):
+    _emp_score_16d_symmetric_atomic_kernel(
+        data_ptr,
+        pdf_ptr,
+        weighted_ptr,
+        data_norms_ptr,
+        n_data,
+        stride_data,
+        stride_weighted_query,
+        stride_weighted_k,
+        inv_h2,
+        USE_PRECOMPUTED_NORMS=USE_PRECOMPUTED_NORMS,
+        USE_IEEE=USE_IEEE,
+        ALLOW_TF32=ALLOW_TF32,
+        BLOCK_M=BLOCK_M,
+        BLOCK_K=BLOCK_K,
+    )
+
+
 def _to_matrix_tensor(
     array_like: Sequence[Sequence[float]] | torch.Tensor, device: torch.device
 ) -> torch.Tensor:
@@ -127,6 +172,7 @@ def emp_score_16d_symmetric_atomic(
     precision_mode: str,
     use_precomputed_norms: bool,
     block_size: int = 64,
+    autotune: bool = False,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
@@ -151,21 +197,42 @@ def emp_score_16d_symmetric_atomic(
     use_ieee = precision_mode == PRECISION_FP32_IEEE
     allow_tf32 = precision_mode == PRECISION_FAST_TF32
 
-    grid = (triton.cdiv(n_data, block_size), triton.cdiv(n_data, block_size))
-    _emp_score_16d_symmetric_atomic_kernel[grid](
-        train,
-        pdf_sum,
-        weighted_sum,
-        data_norms,
-        n_data,
-        train.stride(0),
-        weighted_sum.stride(0),
-        weighted_sum.stride(1),
-        inv_h2,
-        USE_PRECOMPUTED_NORMS=use_precomputed_norms,
-        USE_IEEE=use_ieee,
-        ALLOW_TF32=allow_tf32,
-        BLOCK_M=block_size,
-        BLOCK_K=ND_FEATURES,
-    )
+    if autotune:
+        grid = lambda meta: (
+            triton.cdiv(n_data, meta["BLOCK_M"]),
+            triton.cdiv(n_data, meta["BLOCK_M"]),
+        )
+        _emp_score_16d_symmetric_atomic_kernel_autotune[grid](
+            train,
+            pdf_sum,
+            weighted_sum,
+            data_norms,
+            n_data,
+            train.stride(0),
+            weighted_sum.stride(0),
+            weighted_sum.stride(1),
+            inv_h2,
+            USE_PRECOMPUTED_NORMS=use_precomputed_norms,
+            USE_IEEE=use_ieee,
+            ALLOW_TF32=allow_tf32,
+            BLOCK_K=ND_FEATURES,
+        )
+    else:
+        grid = (triton.cdiv(n_data, block_size), triton.cdiv(n_data, block_size))
+        _emp_score_16d_symmetric_atomic_kernel[grid](
+            train,
+            pdf_sum,
+            weighted_sum,
+            data_norms,
+            n_data,
+            train.stride(0),
+            weighted_sum.stride(0),
+            weighted_sum.stride(1),
+            inv_h2,
+            USE_PRECOMPUTED_NORMS=use_precomputed_norms,
+            USE_IEEE=use_ieee,
+            ALLOW_TF32=allow_tf32,
+            BLOCK_M=block_size,
+            BLOCK_K=ND_FEATURES,
+        )
     return pdf_sum, weighted_sum

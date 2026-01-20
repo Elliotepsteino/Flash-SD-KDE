@@ -190,6 +190,56 @@ def _kde_eval_16d_atomic_kernel(
     tl.atomic_add(out_ptr + offs_m, acc, mask=mask_m)
 
 
+@triton.autotune(
+    configs=[
+        triton.Config({"BLOCK_M": 64, "BLOCK_N": 64}, num_warps=4, num_stages=2),
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 64}, num_warps=4, num_stages=2),
+        triton.Config({"BLOCK_M": 64, "BLOCK_N": 128}, num_warps=4, num_stages=2),
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 128}, num_warps=4, num_stages=2),
+        triton.Config({"BLOCK_M": 64, "BLOCK_N": 128}, num_warps=8, num_stages=3),
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 64}, num_warps=8, num_stages=3),
+    ],
+    key=["n_data", "n_query"],
+)
+@triton.jit
+def _kde_eval_16d_atomic_kernel_autotune(
+    data_ptr,
+    query_ptr,
+    out_ptr,
+    data_norms_ptr,
+    query_norms_ptr,
+    n_data,
+    n_query,
+    stride_data,
+    stride_query,
+    inv_h2,
+    USE_PRECOMPUTED_NORMS: tl.constexpr,
+    USE_IEEE: tl.constexpr,
+    ALLOW_TF32: tl.constexpr,
+    BLOCK_M: tl.constexpr,
+    BLOCK_N: tl.constexpr,
+    BLOCK_K: tl.constexpr,
+):
+    _kde_eval_16d_atomic_kernel(
+        data_ptr,
+        query_ptr,
+        out_ptr,
+        data_norms_ptr,
+        query_norms_ptr,
+        n_data,
+        n_query,
+        stride_data,
+        stride_query,
+        inv_h2,
+        USE_PRECOMPUTED_NORMS=USE_PRECOMPUTED_NORMS,
+        USE_IEEE=USE_IEEE,
+        ALLOW_TF32=ALLOW_TF32,
+        BLOCK_M=BLOCK_M,
+        BLOCK_N=BLOCK_N,
+        BLOCK_K=BLOCK_K,
+    )
+
+
 def _to_matrix_tensor(
     array_like: Sequence[Sequence[float]] | torch.Tensor, device: torch.device
 ) -> torch.Tensor:
@@ -319,6 +369,7 @@ def kde_eval_16d_atomic(
     use_precomputed_norms: bool,
     block_m: int = 64,
     block_n: int = 64,
+    autotune: bool = False,
 ) -> torch.Tensor:
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
@@ -343,23 +394,45 @@ def kde_eval_16d_atomic(
     use_ieee = precision_mode == PRECISION_FP32_IEEE
     allow_tf32 = precision_mode == PRECISION_FAST_TF32
 
-    grid = (triton.cdiv(n_query, block_m), triton.cdiv(n_data, block_n))
-    _kde_eval_16d_atomic_kernel[grid](
-        train,
-        query,
-        output,
-        data_norms,
-        query_norms,
-        n_data,
-        n_query,
-        train.stride(0),
-        query.stride(0),
-        inv_h2,
-        USE_PRECOMPUTED_NORMS=use_precomputed_norms,
-        USE_IEEE=use_ieee,
-        ALLOW_TF32=allow_tf32,
-        BLOCK_M=block_m,
-        BLOCK_N=block_n,
-        BLOCK_K=ND_FEATURES,
-    )
+    if autotune:
+        grid = lambda meta: (
+            triton.cdiv(n_query, meta["BLOCK_M"]),
+            triton.cdiv(n_data, meta["BLOCK_N"]),
+        )
+        _kde_eval_16d_atomic_kernel_autotune[grid](
+            train,
+            query,
+            output,
+            data_norms,
+            query_norms,
+            n_data,
+            n_query,
+            train.stride(0),
+            query.stride(0),
+            inv_h2,
+            USE_PRECOMPUTED_NORMS=use_precomputed_norms,
+            USE_IEEE=use_ieee,
+            ALLOW_TF32=allow_tf32,
+            BLOCK_K=ND_FEATURES,
+        )
+    else:
+        grid = (triton.cdiv(n_query, block_m), triton.cdiv(n_data, block_n))
+        _kde_eval_16d_atomic_kernel[grid](
+            train,
+            query,
+            output,
+            data_norms,
+            query_norms,
+            n_data,
+            n_query,
+            train.stride(0),
+            query.stride(0),
+            inv_h2,
+            USE_PRECOMPUTED_NORMS=use_precomputed_norms,
+            USE_IEEE=use_ieee,
+            ALLOW_TF32=allow_tf32,
+            BLOCK_M=block_m,
+            BLOCK_N=block_n,
+            BLOCK_K=ND_FEATURES,
+        )
     return output

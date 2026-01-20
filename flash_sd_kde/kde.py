@@ -110,6 +110,7 @@ def kde_eval(
                 device=device,
                 precision_mode=precision_mode,
                 use_precomputed_norms=use_precomputed_norms,
+                autotune=autotune,
             )
         n_data = data.shape[0] if isinstance(data, torch.Tensor) else len(data)
         dim = ND_FEATURES
@@ -164,6 +165,7 @@ def emp_sd_kde_fit_transform(
             device=device,
             precision_mode=precision_mode,
             use_precomputed_norms=use_precomputed_norms,
+            autotune=autotune,
         )
 
     if isinstance(data, torch.Tensor):
