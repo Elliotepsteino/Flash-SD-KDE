@@ -6,11 +6,12 @@ import numpy as np
 import pytest
 import torch
 
-from flash_sd_kde.kde import emp_sd_kde_fit_transform, kde_eval
+from flash_sd_kde.kde import emp_sd_kde_fit_transform, kde_eval, kde_eval_linearized
 from flash_sd_kde.reference import (
     empirical_score_nd_numpy,
     kde_eval_1d_numpy,
     kde_eval_nd_numpy,
+    kde_eval_nd_linearized_numpy,
 )
 from globals import PRECISION_FP32_IEEE
 from kernels.emp_score_16d_ordered_splitk import emp_score_16d_ordered_splitk
@@ -49,6 +50,20 @@ def test_kde_eval_16d_matches_numpy():
     kde_cpu = kde_eval_nd_numpy(queries, train, h)
 
     np.testing.assert_allclose(kde_gpu.detach().cpu().numpy(), kde_cpu, rtol=1e-3, atol=1e-3)
+
+
+@pytest.mark.small
+def test_kde_eval_16d_linearized_matches_numpy():
+    _require_cuda()
+    rng = np.random.default_rng(5)
+    train = rng.normal(size=(192, 16)).astype(np.float32)
+    queries = rng.normal(size=(48, 16)).astype(np.float32)
+    h = 1.05
+
+    kde_gpu = kde_eval_linearized(train, queries, h, device="cuda", precision_mode=PRECISION_FP32_IEEE)
+    kde_cpu = kde_eval_nd_linearized_numpy(queries, train, h)
+
+    np.testing.assert_allclose(kde_gpu.detach().cpu().numpy(), kde_cpu, rtol=2e-3, atol=2e-3)
 
 
 @pytest.mark.small

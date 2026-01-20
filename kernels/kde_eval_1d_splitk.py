@@ -24,6 +24,8 @@ def _kde_eval_1d_splitk_pass_a(
     inv_bandwidth,
     stride_partial_split,
     stride_partial_query,
+    APPLY_LAPLACIAN: tl.constexpr,
+    DIM: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N_ITER: tl.constexpr,
     ITERS_PER_SPLIT: tl.constexpr,
@@ -43,7 +45,10 @@ def _kde_eval_1d_splitk_pass_a(
         mask_n = offs_n < n_data
         d = tl.load(data_ptr + offs_n, mask=mask_n, other=0.0)
         diff = (q[:, None] - d[None, :]) * inv_bandwidth
-        phi = tl.exp(-0.5 * diff * diff)
+        scaled = diff * diff
+        phi = tl.exp(-0.5 * scaled)
+        if APPLY_LAPLACIAN:
+            phi = phi * (1.0 + 0.5 * DIM - 0.5 * scaled)
         phi = tl.where(mask_n[None, :], phi, 0.0)
         acc += tl.sum(phi, axis=1)
 
@@ -71,6 +76,8 @@ def _kde_eval_1d_splitk_pass_a_autotune(
     inv_bandwidth,
     stride_partial_split,
     stride_partial_query,
+    APPLY_LAPLACIAN: tl.constexpr,
+    DIM: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N_ITER: tl.constexpr,
     ITERS_PER_SPLIT: tl.constexpr,
@@ -84,6 +91,8 @@ def _kde_eval_1d_splitk_pass_a_autotune(
         inv_bandwidth,
         stride_partial_split,
         stride_partial_query,
+        APPLY_LAPLACIAN=APPLY_LAPLACIAN,
+        DIM=DIM,
         BLOCK_M=BLOCK_M,
         BLOCK_N_ITER=BLOCK_N_ITER,
         ITERS_PER_SPLIT=ITERS_PER_SPLIT,
@@ -98,6 +107,8 @@ def _kde_eval_1d_atomic_kernel(
     n_data,
     n_query,
     inv_bandwidth,
+    APPLY_LAPLACIAN: tl.constexpr,
+    DIM: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
 ):
@@ -112,7 +123,10 @@ def _kde_eval_1d_atomic_kernel(
     q = tl.load(query_ptr + offs_m, mask=mask_m, other=0.0)
     d = tl.load(data_ptr + offs_n, mask=mask_n, other=0.0)
     diff = (q[:, None] - d[None, :]) * inv_bandwidth
-    phi = tl.exp(-0.5 * diff * diff)
+    scaled = diff * diff
+    phi = tl.exp(-0.5 * scaled)
+    if APPLY_LAPLACIAN:
+        phi = phi * (1.0 + 0.5 * DIM - 0.5 * scaled)
     phi = tl.where(mask_n[None, :], phi, 0.0)
     acc = tl.sum(phi, axis=1)
     tl.atomic_add(out_ptr + offs_m, acc, mask=mask_m)
@@ -135,6 +149,7 @@ def kde_eval_1d_splitk(
     *,
     device: torch.device,
     autotune: bool,
+    apply_laplacian_correction: bool = False,
 ) -> torch.Tensor:
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
@@ -181,6 +196,8 @@ def kde_eval_1d_splitk(
                 inv_bandwidth,
                 partials_chunk.stride(0),
                 partials_chunk.stride(1),
+                APPLY_LAPLACIAN=apply_laplacian_correction,
+                DIM=1,
             )
         else:
             block_m, block_n_iter, iters_per_split = default_config
@@ -193,6 +210,8 @@ def kde_eval_1d_splitk(
                 inv_bandwidth,
                 partials_chunk.stride(0),
                 partials_chunk.stride(1),
+                APPLY_LAPLACIAN=apply_laplacian_correction,
+                DIM=1,
                 BLOCK_M=block_m,
                 BLOCK_N_ITER=block_n_iter,
                 ITERS_PER_SPLIT=iters_per_split,
@@ -212,6 +231,7 @@ def kde_eval_1d_atomic(
     device: torch.device,
     block_m: int = 128,
     block_n: int = 128,
+    apply_laplacian_correction: bool = False,
 ) -> torch.Tensor:
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
@@ -232,6 +252,8 @@ def kde_eval_1d_atomic(
         n_data,
         n_query,
         inv_bandwidth,
+        APPLY_LAPLACIAN=apply_laplacian_correction,
+        DIM=1,
         BLOCK_M=block_m,
         BLOCK_N=block_n,
     )

@@ -32,6 +32,7 @@ def _kde_eval_16d_splitk_pass_a(
     USE_PRECOMPUTED_NORMS: tl.constexpr,
     USE_IEEE: tl.constexpr,
     ALLOW_TF32: tl.constexpr,
+    APPLY_LAPLACIAN: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N_ITER: tl.constexpr,
     ITERS_PER_SPLIT: tl.constexpr,
@@ -73,7 +74,10 @@ def _kde_eval_16d_splitk_pass_a(
 
         dist = q_norm[:, None] + d_norm[None, :] - 2.0 * dot
         dist = tl.maximum(dist, 0.0)
-        phi = tl.exp(-0.5 * dist * inv_h2)
+        scaled = dist * inv_h2
+        phi = tl.exp(-0.5 * scaled)
+        if APPLY_LAPLACIAN:
+            phi = phi * (1.0 + 0.5 * BLOCK_K - 0.5 * scaled)
         phi = tl.where(mask_n[None, :], phi, 0.0)
         acc += tl.sum(phi, axis=1)
 
@@ -108,6 +112,7 @@ def _kde_eval_16d_splitk_pass_a_autotune(
     USE_PRECOMPUTED_NORMS: tl.constexpr,
     USE_IEEE: tl.constexpr,
     ALLOW_TF32: tl.constexpr,
+    APPLY_LAPLACIAN: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N_ITER: tl.constexpr,
     ITERS_PER_SPLIT: tl.constexpr,
@@ -129,6 +134,7 @@ def _kde_eval_16d_splitk_pass_a_autotune(
         USE_PRECOMPUTED_NORMS=USE_PRECOMPUTED_NORMS,
         USE_IEEE=USE_IEEE,
         ALLOW_TF32=ALLOW_TF32,
+        APPLY_LAPLACIAN=APPLY_LAPLACIAN,
         BLOCK_M=BLOCK_M,
         BLOCK_N_ITER=BLOCK_N_ITER,
         ITERS_PER_SPLIT=ITERS_PER_SPLIT,
@@ -151,6 +157,7 @@ def _kde_eval_16d_atomic_kernel(
     USE_PRECOMPUTED_NORMS: tl.constexpr,
     USE_IEEE: tl.constexpr,
     ALLOW_TF32: tl.constexpr,
+    APPLY_LAPLACIAN: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
     BLOCK_K: tl.constexpr,
@@ -184,7 +191,10 @@ def _kde_eval_16d_atomic_kernel(
 
     dist = q_norm[:, None] + d_norm[None, :] - 2.0 * dot
     dist = tl.maximum(dist, 0.0)
-    phi = tl.exp(-0.5 * dist * inv_h2)
+    scaled = dist * inv_h2
+    phi = tl.exp(-0.5 * scaled)
+    if APPLY_LAPLACIAN:
+        phi = phi * (1.0 + 0.5 * BLOCK_K - 0.5 * scaled)
     phi = tl.where(mask_n[None, :], phi, 0.0)
     acc = tl.sum(phi, axis=1)
     tl.atomic_add(out_ptr + offs_m, acc, mask=mask_m)
@@ -216,6 +226,7 @@ def _kde_eval_16d_atomic_kernel_autotune(
     USE_PRECOMPUTED_NORMS: tl.constexpr,
     USE_IEEE: tl.constexpr,
     ALLOW_TF32: tl.constexpr,
+    APPLY_LAPLACIAN: tl.constexpr,
     BLOCK_M: tl.constexpr,
     BLOCK_N: tl.constexpr,
     BLOCK_K: tl.constexpr,
@@ -234,6 +245,7 @@ def _kde_eval_16d_atomic_kernel_autotune(
         USE_PRECOMPUTED_NORMS=USE_PRECOMPUTED_NORMS,
         USE_IEEE=USE_IEEE,
         ALLOW_TF32=ALLOW_TF32,
+        APPLY_LAPLACIAN=APPLY_LAPLACIAN,
         BLOCK_M=BLOCK_M,
         BLOCK_N=BLOCK_N,
         BLOCK_K=BLOCK_K,
@@ -261,6 +273,7 @@ def kde_eval_16d_splitk(
     precision_mode: str,
     use_precomputed_norms: bool,
     autotune: bool,
+    apply_laplacian_correction: bool = False,
 ) -> torch.Tensor:
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
@@ -327,6 +340,7 @@ def kde_eval_16d_splitk(
                 USE_PRECOMPUTED_NORMS=use_precomputed_norms,
                 USE_IEEE=use_ieee,
                 ALLOW_TF32=allow_tf32,
+                APPLY_LAPLACIAN=apply_laplacian_correction,
                 BLOCK_K=ND_FEATURES,
             )
         else:
@@ -347,6 +361,7 @@ def kde_eval_16d_splitk(
                 USE_PRECOMPUTED_NORMS=use_precomputed_norms,
                 USE_IEEE=use_ieee,
                 ALLOW_TF32=allow_tf32,
+                APPLY_LAPLACIAN=apply_laplacian_correction,
                 BLOCK_M=block_m,
                 BLOCK_N_ITER=block_n_iter,
                 ITERS_PER_SPLIT=iters_per_split,
@@ -370,6 +385,7 @@ def kde_eval_16d_atomic(
     block_m: int = 64,
     block_n: int = 64,
     autotune: bool = False,
+    apply_laplacian_correction: bool = False,
 ) -> torch.Tensor:
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
@@ -413,6 +429,7 @@ def kde_eval_16d_atomic(
             USE_PRECOMPUTED_NORMS=use_precomputed_norms,
             USE_IEEE=use_ieee,
             ALLOW_TF32=allow_tf32,
+            APPLY_LAPLACIAN=apply_laplacian_correction,
             BLOCK_K=ND_FEATURES,
         )
     else:
@@ -431,6 +448,7 @@ def kde_eval_16d_atomic(
             USE_PRECOMPUTED_NORMS=use_precomputed_norms,
             USE_IEEE=use_ieee,
             ALLOW_TF32=allow_tf32,
+            APPLY_LAPLACIAN=apply_laplacian_correction,
             BLOCK_M=block_m,
             BLOCK_N=block_n,
             BLOCK_K=ND_FEATURES,

@@ -54,6 +54,22 @@ def kde_eval_1d_numpy(queries: np.ndarray, data: np.ndarray, bandwidth: float) -
     return inv_norm * phi.sum(axis=1)
 
 
+def kde_eval_1d_linearized_numpy(queries: np.ndarray, data: np.ndarray, bandwidth: float) -> np.ndarray:
+    """Linearized Emp-SD-KDE approximation using K - (h^2/2) ΔK for 1D."""
+    x = np.asarray(queries, dtype=np.float32)
+    d = np.asarray(data, dtype=np.float32)
+    if bandwidth <= 0:
+        raise ValueError("bandwidth must be positive.")
+    if d.size == 0:
+        raise ValueError("data must contain at least one element.")
+    diff = (x[:, None] - d[None, :]) / np.float32(bandwidth)
+    scaled = diff * diff
+    phi = np.exp(-0.5 * scaled)
+    phi = phi * (1.0 + 0.5 - 0.5 * scaled)
+    inv_norm = 1.0 / (math.sqrt(2.0 * math.pi) * d.size * bandwidth)
+    return inv_norm * phi.sum(axis=1)
+
+
 def kde_eval_nd_numpy(queries: np.ndarray, data: np.ndarray, bandwidth: float) -> np.ndarray:
     x = np.asarray(queries, dtype=np.float32)
     d = np.asarray(data, dtype=np.float32)
@@ -72,6 +88,31 @@ def kde_eval_nd_numpy(queries: np.ndarray, data: np.ndarray, bandwidth: float) -
     dist = np.maximum(dist, 0.0)
     phi = np.exp(-0.5 * dist * inv_h2)
     dim = d.shape[1]
+    norm = 1.0 / ((2.0 * math.pi) ** (dim / 2.0) * (bandwidth ** dim) * d.shape[0])
+    return norm * phi.sum(axis=1)
+
+
+def kde_eval_nd_linearized_numpy(queries: np.ndarray, data: np.ndarray, bandwidth: float) -> np.ndarray:
+    """Linearized Emp-SD-KDE approximation using K - (h^2/2) ΔK for ND."""
+    x = np.asarray(queries, dtype=np.float32)
+    d = np.asarray(data, dtype=np.float32)
+    if x.ndim != 2 or d.ndim != 2:
+        raise ValueError("queries and data must be 2D arrays.")
+    if x.shape[1] != d.shape[1]:
+        raise ValueError("queries and data must share feature dimension.")
+    if bandwidth <= 0:
+        raise ValueError("bandwidth must be positive.")
+    if d.shape[0] == 0:
+        raise ValueError("data must contain at least one element.")
+    inv_h2 = 1.0 / (bandwidth * bandwidth)
+    x_norm = (x * x).sum(axis=1, keepdims=True)
+    d_norm = (d * d).sum(axis=1, keepdims=True).T
+    dist = x_norm + d_norm - 2.0 * (x @ d.T)
+    dist = np.maximum(dist, 0.0)
+    scaled = dist * inv_h2
+    phi = np.exp(-0.5 * scaled)
+    dim = d.shape[1]
+    phi = phi * (1.0 + 0.5 * dim - 0.5 * scaled)
     norm = 1.0 / ((2.0 * math.pi) ** (dim / 2.0) * (bandwidth ** dim) * d.shape[0])
     return norm * phi.sum(axis=1)
 

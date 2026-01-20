@@ -12,11 +12,15 @@ KDE_BACKEND_ATOMIC = "atomic"
 EMP_SCORE_BACKEND_ORDERED_SPLITK = "ordered_splitk"
 EMP_SCORE_BACKEND_SYMMETRIC_ATOMIC = "symmetric_atomic"
 
+EMP_SD_KDE_VARIANT_EXACT = "emp_sd_kde_exact"
+EMP_SD_KDE_VARIANT_LINEARIZED = "emp_sd_kde_linearized"
+
 DATASET_MNIST = "mnist"
 DATASET_FASHION_MNIST = "fashion_mnist"
 
 BACKEND_FLASH_SPLITK_SYM = "flash_splitk_sym"
 BACKEND_FLASH_SPLITK_ORDERED = "flash_splitk_ordered"
+BACKEND_FLASH_SPLITK_SYM_LINEARIZED = "flash_splitk_sym_linearized"
 BACKEND_NON_FLASH_ATOMIC_SYM = "non_flash_atomic_sym"
 BACKEND_NON_FLASH_ATOMIC_ORDERED = "non_flash_atomic_ordered"
 

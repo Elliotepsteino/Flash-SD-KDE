@@ -2,6 +2,6 @@ from gitbud.gitbud import inject_repo_into_sys_path
 
 inject_repo_into_sys_path()
 
-from flash_sd_kde.kde import emp_sd_kde_fit_transform, kde_eval
+from flash_sd_kde.kde import emp_sd_kde_fit_transform, kde_eval, kde_eval_linearized
 
-__all__ = ["emp_sd_kde_fit_transform", "kde_eval"]
+__all__ = ["emp_sd_kde_fit_transform", "kde_eval", "kde_eval_linearized"]

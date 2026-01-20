@@ -58,7 +58,9 @@ def kde_eval(
     kde_backend: str = DEFAULT_KDE_BACKEND,
     use_precomputed_norms: bool = True,
     autotune: bool = True,
+    apply_laplacian_correction: bool = False,
 ) -> torch.Tensor:
+    """Evaluate a Gaussian KDE or its Laplacian-corrected linearized variant."""
     validate_precision_mode(precision_mode)
     validate_kde_backend(kde_backend)
     if bandwidth <= 0:
@@ -80,6 +82,7 @@ def kde_eval(
                 bandwidth,
                 device=device,
                 autotune=autotune,
+                apply_laplacian_correction=apply_laplacian_correction,
             )
         else:
             pdf_sum = kde_eval_1d_atomic(
@@ -87,6 +90,7 @@ def kde_eval(
                 queries,
                 bandwidth,
                 device=device,
+                apply_laplacian_correction=apply_laplacian_correction,
             )
         norm = 1.0 / (math.sqrt(2.0 * math.pi) * bandwidth)
         return pdf_sum * (norm / n_data)
@@ -101,6 +105,7 @@ def kde_eval(
                 precision_mode=precision_mode,
                 use_precomputed_norms=use_precomputed_norms,
                 autotune=autotune,
+                apply_laplacian_correction=apply_laplacian_correction,
             )
         else:
             pdf_sum = kde_eval_16d_atomic(
@@ -111,6 +116,7 @@ def kde_eval(
                 precision_mode=precision_mode,
                 use_precomputed_norms=use_precomputed_norms,
                 autotune=autotune,
+                apply_laplacian_correction=apply_laplacian_correction,
             )
         n_data = data.shape[0] if isinstance(data, torch.Tensor) else len(data)
         dim = ND_FEATURES
@@ -118,6 +124,31 @@ def kde_eval(
         return pdf_sum * norm
 
     raise ValueError("data must be 1D or 2D.")
+
+
+def kde_eval_linearized(
+    data: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
+    queries: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
+    bandwidth: float,
+    *,
+    device: str | torch.device = "cuda",
+    precision_mode: str = DEFAULT_PRECISION_MODE,
+    kde_backend: str = DEFAULT_KDE_BACKEND,
+    use_precomputed_norms: bool = True,
+    autotune: bool = True,
+) -> torch.Tensor:
+    """Evaluate the linearized Emp-SD-KDE approximation using K - (h^2/2) ΔK."""
+    return kde_eval(
+        data,
+        queries,
+        bandwidth,
+        device=device,
+        precision_mode=precision_mode,
+        kde_backend=kde_backend,
+        use_precomputed_norms=use_precomputed_norms,
+        autotune=autotune,
+        apply_laplacian_correction=True,
+    )
 
 
 def emp_sd_kde_fit_transform(
