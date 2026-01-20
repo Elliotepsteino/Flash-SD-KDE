@@ -15,6 +15,11 @@ EMP_SCORE_BACKEND_SYMMETRIC_ATOMIC = "symmetric_atomic"
 DATASET_MNIST = "mnist"
 DATASET_FASHION_MNIST = "fashion_mnist"
 
+BACKEND_FLASH_SPLITK_SYM = "flash_splitk_sym"
+BACKEND_FLASH_SPLITK_ORDERED = "flash_splitk_ordered"
+BACKEND_NON_FLASH_ATOMIC_SYM = "non_flash_atomic_sym"
+BACKEND_NON_FLASH_ATOMIC_ORDERED = "non_flash_atomic_ordered"
+
 # Global numeric constants
 ND_FEATURES = 16
 DEFAULT_EPS = 1e-12
