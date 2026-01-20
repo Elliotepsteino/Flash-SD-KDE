@@ -78,6 +78,15 @@ def _resolve_backend_names(results: Dict, config: MnistFashionOodPlotConfig) -> 
     return ["default"]
 
 
+def _total_kde_runtime(runtime_entry: Dict) -> float:
+    return runtime_entry["kde"]["eval_id_sec"] + runtime_entry["kde"]["eval_ood_sec"]
+
+
+def _total_emp_runtime(runtime_entry: Dict) -> float:
+    emp = runtime_entry["emp_sd_kde"]
+    return emp["score_sec"] + emp["shift_sec"] + emp["eval_id_sec"] + emp["eval_ood_sec"]
+
+
 def plot_roc_curves(output_dir: Path, densities: Dict, *, backend_name: str, dpi: int) -> None:
     id_kde = _select_density(densities, backend_name, "kde_id")
     ood_kde = _select_density(densities, backend_name, "kde_ood")
@@ -220,14 +229,8 @@ def plot_backend_comparison(output_dir: Path, results: Dict, backend_names: list
         runtime = _get_backend_runtime(results, backend_name)
         roc_kde.append(metrics[key]["kde"]["roc_auc"])
         roc_emp.append(metrics[key]["emp_sd_kde"]["roc_auc"])
-
-        runtime_kde.append(runtime[key]["kde"]["eval_id_sec"] + runtime[key]["kde"]["eval_ood_sec"])
-        runtime_emp.append(
-            runtime[key]["emp_sd_kde"]["score_sec"]
-            + runtime[key]["emp_sd_kde"]["shift_sec"]
-            + runtime[key]["emp_sd_kde"]["eval_id_sec"]
-            + runtime[key]["emp_sd_kde"]["eval_ood_sec"]
-        )
+        runtime_kde.append(_total_kde_runtime(runtime[key]))
+        runtime_emp.append(_total_emp_runtime(runtime[key]))
 
     x = np.arange(len(backend_names))
     width = 0.35
@@ -256,6 +259,53 @@ def plot_backend_comparison(output_dir: Path, results: Dict, backend_names: list
     plt.close(fig)
 
 
+def plot_speedup_vs_n_train(
+    output_dir: Path,
+    results: Dict,
+    *,
+    baseline_name: str,
+    compare_names: list[str],
+    dpi: int,
+) -> None:
+    if baseline_name not in compare_names:
+        compare_names = [baseline_name] + compare_names
+
+    n_train_sorted = sorted(int(n) for n in results["n_train_list"])
+    runtime_base = _get_backend_runtime(results, baseline_name)
+
+    fig, axes = plt.subplots(1, 2, figsize=(8.4, 3.2))
+    for backend_name in compare_names:
+        if backend_name == baseline_name:
+            continue
+        runtime = _get_backend_runtime(results, backend_name)
+        kde_speedup = []
+        emp_speedup = []
+        for n in n_train_sorted:
+            key = str(n)
+            base_kde = _total_kde_runtime(runtime_base[key])
+            base_emp = _total_emp_runtime(runtime_base[key])
+            this_kde = _total_kde_runtime(runtime[key])
+            this_emp = _total_emp_runtime(runtime[key])
+            kde_speedup.append(base_kde / max(this_kde, 1e-12))
+            emp_speedup.append(base_emp / max(this_emp, 1e-12))
+
+        axes[0].plot(n_train_sorted, kde_speedup, marker="o", label=backend_name)
+        axes[1].plot(n_train_sorted, emp_speedup, marker="o", label=backend_name)
+
+    for ax, title in zip(axes, ["KDE total speedup", "Emp-SD-KDE total speedup"]):
+        ax.set_xscale("log")
+        ax.set_xlabel("n_train")
+        ax.set_ylabel("speedup vs baseline")
+        ax.set_title(f\"{title} (baseline={baseline_name})\")
+        ax.grid(alpha=0.2, linestyle="--")
+
+    axes[0].legend(frameon=False)
+    fig.tight_layout()
+    _save_fig(fig, output_dir / "fig_speedup_vs_n_train.pdf", dpi)
+    _save_fig(fig, output_dir / "fig_speedup_vs_n_train.png", dpi)
+    plt.close(fig)
+
+
 def main() -> None:
     config = MnistFashionOodPlotConfig()
     results_dir = _resolve_results_dir(config)
@@ -276,6 +326,18 @@ def main() -> None:
     plot_runtime_vs_n_train(output_dir, results, backend_name=primary_backend, dpi=config.dpi)
     if len(backend_names) > 1:
         plot_backend_comparison(output_dir, results, backend_names, dpi=config.dpi)
+        if config.speedup_baseline_name not in backend_names:
+            raise ValueError("speedup_baseline_name not found in backend results.")
+        missing = [name for name in config.speedup_backend_names if name not in backend_names]
+        if missing:
+            raise ValueError(f"speedup_backend_names missing in backend results: {missing}")
+        plot_speedup_vs_n_train(
+            output_dir,
+            results,
+            baseline_name=config.speedup_baseline_name,
+            compare_names=list(config.speedup_backend_names),
+            dpi=config.dpi,
+        )
 
     print(f"Plots saved to {output_dir}")
 
