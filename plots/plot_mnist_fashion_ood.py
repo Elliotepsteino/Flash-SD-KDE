@@ -296,7 +296,7 @@ def plot_speedup_vs_n_train(
         ax.set_xscale("log")
         ax.set_xlabel("n_train")
         ax.set_ylabel("speedup vs baseline")
-        ax.set_title(f\"{title} (baseline={baseline_name})\")
+        ax.set_title(f"{title} (baseline={baseline_name})")
         ax.grid(alpha=0.2, linestyle="--")
 
     axes[0].legend(frameon=False)
