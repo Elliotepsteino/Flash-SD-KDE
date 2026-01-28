@@ -1,31 +1,64 @@
-\documentclass[11pt]{article}
+\documentclass{article}
+
+% Recommended packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+% Attempt to make hyperref and algorithmic work together better:
+\newcommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Ensure LaTeX finds ICML-provided style dependencies in ./icml2026/.
+\makeatletter
+\def\input@path{{icml2026/}}
+\makeatother
+
+% Use the following line for the initial blind version submitted for review:
+\usepackage{icml2026}
+
+% For preprint, use:
+% \usepackage[preprint]{icml2026}
+
+% If accepted, instead use the following line for the camera-ready submission:
+% \usepackage[accepted]{icml2026}
+
 \usepackage{amsmath}
-\usepackage{comment}
 \usepackage{amsfonts}
 \usepackage{amssymb}
-\usepackage{booktabs}
-\usepackage{geometry}
-\usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
-\usepackage{graphicx}
-\geometry{margin=1in}
+\usepackage{comment}
 
-\title{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
-\author{Elliot L. Epstein}
-%\date{Programming Assignment 5, CS 149, epsteine}
+% natbib's automatic mode detection keys off \bibliographystyle{...}. Since we
+% use a relative path for the ICML bst, tell natbib it's author-year.
+\makeatletter
+\expandafter\def\csname bibstyle@icml2026/icml2026\endcsname{\bibpunct{(}{)}{;}{a}{,}{,}}
+\makeatother
+
+\icmltitlerunning{Flash-SD-KDE}
 
 \begin{document}
-\maketitle
+
+\twocolumn[
+  \icmltitle{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
+
+  \begin{icmlauthorlist}
+    \icmlauthor{Elliot L. Epstein}{stanford}
+  \end{icmlauthorlist}
+
+  \icmlaffiliation{stanford}{Affiliation withheld for blind review.}
+  \icmlcorrespondingauthor{Elliot L. Epstein}{anon.email@domain.com}
+
+  \icmlkeywords{kernel density estimation, GPU acceleration, Triton, Tensor Cores}
+
+  \vskip 0.3in
+]
+
+\printAffiliationsAndNotice{}  % required even if empty
 
 \begin{abstract}
-Score-debiased kernel density estimation (SD-KDE) enjoys a better asymptotic
-convergence rate than classical KDE, but the additional empirical score
-computation has made it significantly slower in practice.  We show that a
-Triton implementation exploiting Tensor Cores runs SD-KDE up to $40\times$
-faster than a strong Torch SD-KDE baseline and $2{,}800\times$ faster than
-scikit-learn's KDE on a 32k-sample 16-D problem, and that a 1M-sample 16-D
-SD-KDE evaluated on 131k queries completes in $2.4\,\text{s}$ on a single
-RTX~A6000, removing the practical bottleneck for SD-KDE on large problems.
-Code available at \url{https://github.com/Elliotepsteino/Flash-SD-KDE}.
+Score-debiased kernel density estimation (SD-KDE) achieves improved asymptotic convergence rates over classical KDE, but its use of an empirical score has made it significantly slower in practice. We show that by re-ordering the SD-KDE computation to expose matrix-multiplication structure, Tensor Cores can be used to accelerate the GPU implementation. On a 32k-sample 16-dimensional problem, our approach runs up to $40\times$ faster than a strong SD-KDE GPU baseline and $2{,}800\times$ faster than scikit-learn’s KDE. On a larger 1M-sample 16-dimensional task evaluated on 131k queries, SD-KDE completes in $2.4,\mathrm{s}$ on a single GPU, making score-debiased density estimation practical at previously infeasible scales.
+\ificmlshowauthors Code available at \url{https://github.com/Elliotepsteino/Flash-SD-KDE}.\else Code available in supplementary material.\fi
 \end{abstract}
 
 \section{Introduction}
@@ -175,11 +208,13 @@ The 16-D implementation consists of three main matrix-multiply stages:
 \end{enumerate}
 Aggregating these terms yields
 \[
-  \text{FLOPs}_d(k)
-  \approx
-  4 d k^2 + 12 k^2 + 2 d \frac{k^2}{8} + 12 \frac{k^2}{8}
-  =
-  \Bigl(4 d + 12 + \tfrac{d}{4} + \tfrac{3}{2}\Bigr) k^2.
+  \begin{aligned}
+    \text{FLOPs}_d(k)
+    &\approx
+    4 d k^2 + 12 k^2 + 2 d \frac{k^2}{8} + 12 \frac{k^2}{8} \\
+    &=
+    \Bigl(4 d + 12 + \tfrac{d}{4} + \tfrac{3}{2}\Bigr) k^2.
+  \end{aligned}
 \]
 Substituting $d=16$ gives
 \[
@@ -198,37 +233,46 @@ $BLOCK\_N = 1024$).  Each tile loads $64\times d$ query values once
 ($4\,BLOCK\_M$ and $4\,BLOCK\_M d$ bytes).  All of this traffic goes to and from
 GDDR6, so for $d=16$ a tile moves roughly
 \[
-  \text{Bytes}_{\text{tile}}
-  \approx
-  4\bigl(BLOCK\_M d + BLOCK\_N d + BLOCK\_M + BLOCK\_M d\bigr)
-  \approx 7.4\times 10^4\ \text{bytes}.
+  \begin{aligned}
+    \text{Bytes}_{\text{tile}}
+    &\approx
+    4\bigl(BLOCK\_M d + BLOCK\_N d \\
+    &\qquad + BLOCK\_M + BLOCK\_M d\bigr) \\
+    &= 4\bigl(2\,BLOCK\_M d + BLOCK\_N d \\
+    &\qquad + BLOCK\_M\bigr) \\
+    &\approx 7.4\times 10^4\ \text{bytes}.
+  \end{aligned}
 \]
 The full problem processes $(k / BLOCK\_M)\times(k / BLOCK\_N)$ such tiles,
 so the total GDDR6 traffic is
 \[
-  \text{Bytes}_{16}(k)
-  \approx
-  \text{Bytes}_{\text{tile}}
-  \times
-  \frac{k}{BLOCK\_M}
-  \times
-  \frac{k}{BLOCK\_N}
-  \approx
-  1.13\,k^2\ \text{bytes}.
+  \begin{aligned}
+    \text{Bytes}_{16}(k)
+    &\approx
+    \text{Bytes}_{\text{tile}}
+    \times
+    \frac{k}{BLOCK\_M}
+    \times
+    \frac{k}{BLOCK\_N} \\
+    &\approx
+    1.13\,k^2\ \text{bytes}.
+  \end{aligned}
 \]
 
 \paragraph{Arithmetic intensity.}
 Dividing FLOPs by bytes gives
 \[
-  I_d(k)
-  =
-  \frac{\text{FLOPs}_d(k)}{\text{Bytes}_d(k)}
-  \approx
-  \frac{\bigl(4 d + 12 + \tfrac{d}{4} + \tfrac{3}{2}\bigr) k^2}
-       {4\bigl(\tfrac{9}{8} d k + \tfrac{k}{8}\bigr)}
-  \sim
-  C(d)\,k
-  \quad\text{for large }k,
+  \begin{aligned}
+    I_d(k)
+    &=
+    \frac{\text{FLOPs}_d(k)}{\text{Bytes}_d(k)} \\
+    &\approx
+    \frac{\bigl(4 d + 12 + \tfrac{d}{4} + \tfrac{3}{2}\bigr) k^2}
+         {4\bigl(\tfrac{9}{8} d k + \tfrac{k}{8}\bigr)} \\
+    &\sim
+    C(d)\,k
+    \quad\text{for large }k,
+  \end{aligned}
 \]
 with
 \[
@@ -294,9 +338,11 @@ than the PyKeOps 16-D SD-KDE implementation.
 
 \begin{table}[h]
   \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
   \begin{tabular}{lcc}
     \toprule
-    Method & Runtime (ms) & Relative to Triton \\
+    Method & Runtime (ms) & Rel to Triton \\
     \midrule
     Triton 16-D SD-KDE & $2.23$ & $1\times$ \\
     PyKeOps 16-D KDE   & $3.06$ & $1.4\times$ \\
@@ -310,16 +356,13 @@ than the PyKeOps 16-D SD-KDE implementation.
   \label{tab:pykeops}
 \end{table}
 
-\begin{figure}[t]
+\begin{figure*}[t]
   \centering
-  \includegraphics[width=0.8\linewidth]{../nd-runtime.pdf}
+  \includegraphics[width=\textwidth]{../nd-runtime.pdf}
   \caption{Runtime comparison for 16-D KDE/SD-KDE across $n_{\text{train}}$
-           up to $32{,}768$ ($n_{\text{test}} = n_{\text{train}}/8$).
-           The Triton SD-KDE enjoys both the Tensor-Core acceleration
-           (relative to sklearn) and the GEMM-based score computation
-           (relative to the Torch baseline).}
+           up to $32{,}768$ ($n_{\text{test}} = n_{\text{train}}/8$).}
   \label{fig:nd_runtime}
-\end{figure}
+\end{figure*}
 
 \subsection{Performance optimizations}
 
@@ -364,24 +407,33 @@ further low-level tuning, since additional optimizations would likely yield
 only modest incremental gains.
 
 
-\begin{figure}[t]
+\begin{figure*}[t]
   \centering
-  \includegraphics[width=0.8\linewidth]{../triton-sd-kde-nd-util.pdf}
+  \includegraphics[width=\textwidth]{../triton-sd-kde-nd-util.pdf}
   \caption{Utilization (percentage of RTX A6000 Tensor Core peak) for the 16-D
            SD-KDE pipeline, computed via the flop model from
            Section~\ref{sec:method}; bars are annotated with the observed
            runtimes (ms).}
   \label{fig:triton_sd_kde_nd_util}
-\end{figure}
+\end{figure*}
 
-\section{LLM usage}
+\ificmlshowauthors
+\section*{Acknowledgements}
 
 Large language models (LLMs) were used to assist both the implementation and
-the preparation of this report.  LLMs helped with kernel prototyping,
-refactoring, and drafting and editing text, substantially accelerating overall
-progress.
+the preparation of this paper. LLMs helped with kernel prototyping,
+refactoring, and drafting and editing text.
+\fi
 
-\bibliographystyle{plain}
+\section*{Impact Statement}
+
+This paper presents work whose goal is to accelerate SD-KDE and KDE kernels on
+GPUs. We expect the primary impact to be enabling practitioners to apply these
+estimators to larger datasets; we do not foresee unique societal consequences
+outside the usual considerations for density estimation applications.
+
+\clearpage
+\bibliographystyle{icml2026/icml2026}
 \bibliography{references}
 
 \begin{comment}
