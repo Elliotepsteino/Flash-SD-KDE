@@ -1,0 +1,51 @@
+\section{Laplace-corrected KDE}
+\label{sec:laplace_corrected}
+
+Score-debiased KDE offers better asymptotic error rates, but its empirical score step adds a full quadratic pass over the data.
+A natural approximation is to replace the explicit debiasing with a correction to the kernel itself.
+This yields a Laplace-corrected KDE that captures the leading-order bias reduction of SD-KDE while avoiding the empirical score computation.
+
+Let $K_h(x)$ denote the isotropic Gaussian kernel in $d$ dimensions.
+\[
+  K_h(x)
+  =
+  \frac{1}{(2\pi)^{d/2} h^d}
+  \exp\!\left(-\frac{\lVert x \rVert^2}{2h^2}\right),
+\]
+Let $\hat p(x) = \tfrac{1}{n} \sum_i K_h(x - x_i)$ be the corresponding KDE.
+The Laplace-corrected kernel is defined by
+\[
+  K_h^{\text{LC}}(x)
+  =
+  K_h(x) - \frac{h^2}{2} \Delta K_h(x).
+\]
+For the Gaussian kernel, the Laplacian has a closed form.
+\[
+  K_h^{\text{LC}}(x)
+  =
+  K_h(x)\left(1 + \frac{d}{2} - \frac{\lVert x \rVert^2}{2h^2}\right),
+\]
+The estimator becomes
+\[
+  \hat p_{\text{LC}}(x)
+  =
+  \frac{1}{n} \sum_{i=1}^n K_h^{\text{LC}}(x - x_i).
+\]
+
+\paragraph{Connection to SD-KDE.}
+SD-KDE forms debiased samples $x_i^{\text{SD}} = x_i + \tfrac{h^2}{2}\,\hat s(x_i)$ using an empirical score $\hat s$.
+Evaluating a KDE on the shifted samples and linearizing in $h^2$ yields a correction proportional to $\Delta K_h$.
+When $\hat s$ is taken to be the KDE score, this linearized estimator coincides with the Laplace-corrected kernel above.
+Thus $\hat p_{\text{LC}}$ can be viewed as a first-order approximation to SD-KDE that preserves its leading bias reduction while avoiding an explicit score pass.
+
+\paragraph{Why we consider this correction.}
+The Laplace-corrected estimator is appealing when the full SD-KDE score is too expensive or when a fast bias-reduction surrogate is sufficient.
+It requires only the same pairwise distances and exponentials as standard KDE, plus a simple affine factor in the kernel value.
+The correction can be negative for large $\lVert x - x_i \rVert$, so $\hat p_{\text{LC}}$ is not guaranteed to be nonnegative, which we account for in our experiments.
+
+\paragraph{Kernel fusion opportunity.}
+Computing $K_h^{\text{LC}}$ reuses the same scaled distances used to compute $K_h$.
+A fused kernel can compute $\phi = \exp(-\tfrac{1}{2}\,\text{scaled})$ and apply the Laplace factor inside the same pass.
+A non-fused implementation must either recompute distances or materialize intermediates in a second kernel.
+This increases memory traffic and kernel launches.
+We therefore treat the fused Laplace-corrected kernel as a distinct fast path and refer to it as \emph{Flash-SD-KDE}.
