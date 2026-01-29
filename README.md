@@ -44,6 +44,19 @@ Edit `plots/plot_mnist_fashion_ood_config.py` or
 make plot
 ```
 
+## Legacy sweep scripts (deprecated)
+
+The root-level `run_*.sh` scripts are deprecated in this refactor. We keep
+Makefile targets with matching names for compatibility; they exit with a
+message pointing you to the supported `bench.*` and `plot.*` targets.
+
+```bash
+make run.sweep
+make run.nd_runtime_sweep
+make run.triton_scaling
+make run.triton_sd_kde_nd
+```
+
 ## Tests
 
 ```bash
