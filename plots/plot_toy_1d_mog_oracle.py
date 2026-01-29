@@ -3,6 +3,7 @@ from gitbud.gitbud import inject_repo_into_sys_path
 inject_repo_into_sys_path()
 
 from pathlib import Path
+import shutil
 from typing import Dict
 
 import numpy as np
@@ -14,9 +15,9 @@ from plots.plot_toy_1d_mog_oracle_config import Toy1dMoGOraclePlotConfig
 
 _METHODS = (
     ("kde", "KDE", "C0", "-"),
-    ("linearized", "Flash-SD-KDE", "C1", "--"),
+    ("linearized", "Flash-Laplace-KDE", "C1", "--"),
     ("linearized_nonfused", "Laplace-corrected KDE (non-fused)", "C3", ":"),
-    ("emp_sd_kde", "Emp-SD-KDE", "C2", "-."),
+    ("emp_sd_kde", "Flash-SD-KDE", "C2", "-."),
 )
 
 _POS_EPS = 1e-12
@@ -95,20 +96,31 @@ def plot_error_vs_n(output_dir: Path, results: Dict, *, dpi: int) -> None:
         axes[1].fill_between(n_train, iae_lo, iae_hi, color=color, alpha=0.15)
 
     for ax, title, ylabel in [
-        (axes[0], "Mean Integrated Squared Error", "MISE"),
-        (axes[1], "Mean Integrated Absolute Error", "MIAE"),
+        (axes[0], "MISE", "MISE"),
+        (axes[1], "MIAE", "MIAE"),
     ]:
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_xlabel("n_train")
         ax.set_ylabel(ylabel)
-        ax.set_title(f"Oracle error vs n_train: {title}")
+        ax.set_title(title)
         ax.grid(alpha=0.2, linestyle="--")
 
-    axes[0].legend(frameon=False, ncol=2)
-    fig.tight_layout()
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        ncol=2,
+        frameon=False,
+        bbox_to_anchor=(0.5, -0.06),
+    )
+    fig.tight_layout(rect=(0, 0.12, 1, 1))
     _save_fig(fig, output_dir / "fig_oracle_error_vs_n.pdf", dpi)
     _save_fig(fig, output_dir / "fig_oracle_error_vs_n.png", dpi)
+    paper_fig = Path(ensure_repo()) / "paper" / "figures" / "fig_oracle_error_vs_n.pdf"
+    paper_fig.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(output_dir / "fig_oracle_error_vs_n.pdf", paper_fig)
     plt.close(fig)
 
 
@@ -151,16 +163,16 @@ def plot_density_curves(output_dir: Path, densities: Dict, *, dpi: int) -> None:
     fig, ax = plt.subplots(figsize=(6.0, 3.4))
     ax.plot(x_grid, true_density, color="black", lw=2, label="True density")
     ax.plot(x_grid, kde_density, color="C0", lw=1.8, label="KDE")
-    ax.plot(x_grid, lin_density, color="C1", lw=1.8, label="Flash-SD-KDE")
+    ax.plot(x_grid, lin_density, color="C1", lw=1.8, label="Flash-Laplace-KDE")
     ax.plot(x_grid, lin_nf_density, color="C3", lw=1.8, label="Laplace-corrected KDE (non-fused)")
-    ax.plot(x_grid, emp_density, color="C2", lw=1.8, label="Emp-SD-KDE")
+    ax.plot(x_grid, emp_density, color="C2", lw=1.8, label="Flash-SD-KDE")
     ax.set_xlabel("x")
     ax.set_ylabel("density")
     ax.set_title(f"Density estimates at n_train={n_train}")
     ax.grid(alpha=0.2, linestyle="--")
-    ax.legend(frameon=False, ncol=2)
+    ax.legend(frameon=False, ncol=2, loc="lower center", bbox_to_anchor=(0.5, -0.25))
 
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0.12, 1, 1))
     _save_fig(fig, output_dir / "fig_density_curves.pdf", dpi)
     _save_fig(fig, output_dir / "fig_density_curves.png", dpi)
     plt.close(fig)
@@ -197,7 +209,7 @@ def plot_fused_vs_nonfused_runtime(output_dir: Path, results: Dict, *, dpi: int)
 
     fig, axes = plt.subplots(1, 2, figsize=(7.6, 3.2))
 
-    axes[0].plot(n_train, fused_rt, marker="o", color="C1", label="Flash-SD-KDE")
+    axes[0].plot(n_train, fused_rt, marker="o", color="C1", label="Flash-Laplace-KDE")
     axes[0].fill_between(
         n_train,
         np.maximum(fused_rt - fused_err, _POS_EPS),
@@ -215,33 +227,13 @@ def plot_fused_vs_nonfused_runtime(output_dir: Path, results: Dict, *, dpi: int)
     )
     speedup = nf_rt / np.maximum(fused_rt, _POS_EPS)
     speedup_emp = emp_rt / np.maximum(fused_rt, _POS_EPS)
-    for n_val, rt, sp in zip(n_train, fused_rt, speedup):
-        axes[0].text(
-            n_val,
-            rt * 1.12,
-            f"{sp:.2f}x",
-            fontsize=8,
-            color="C1",
-            ha="center",
-            va="bottom",
-        )
-    for n_val, rt, sp_emp in zip(n_train, fused_rt, speedup_emp):
-        axes[0].text(
-            n_val,
-            rt * 1.28,
-            f"{sp_emp:.2f}x (Emp)",
-            fontsize=7,
-            color="C2",
-            ha="center",
-            va="bottom",
-        )
     axes[0].set_xscale("log")
     axes[0].set_yscale("log")
     axes[0].set_xlabel("n_train")
     axes[0].set_ylabel("runtime (s)")
     axes[0].set_title("Fused vs non-fused runtime")
     axes[0].grid(alpha=0.2, linestyle="--")
-    axes[0].legend(frameon=False)
+    axes[0].legend().remove()
 
     axes[1].plot(n_train, speedup, marker="o", color="C2")
     axes[1].plot(n_train, speedup_emp, marker="o", color="C4")
@@ -250,13 +242,20 @@ def plot_fused_vs_nonfused_runtime(output_dir: Path, results: Dict, *, dpi: int)
     axes[1].set_ylabel("runtime ratio")
     axes[1].set_title("Speedup from fusion")
     axes[1].grid(alpha=0.2, linestyle="--")
-    axes[1].legend(
-        ["Non-fused / Flash-SD-KDE", "Emp-SD-KDE / Flash-SD-KDE"],
+    handles, labels = axes[0].get_legend_handles_labels()
+    handles += axes[1].get_lines()
+    labels += ["Flash-Laplace-KDE / Non-fused", "Flash-Laplace-KDE / Flash-SD-KDE"]
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        ncol=2,
         frameon=False,
+        bbox_to_anchor=(0.5, -0.05),
         fontsize=8,
     )
 
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0.1, 1, 1))
     _save_fig(fig, output_dir / "fig_fused_vs_nonfused_runtime.pdf", dpi)
     _save_fig(fig, output_dir / "fig_fused_vs_nonfused_runtime.png", dpi)
     plt.close(fig)

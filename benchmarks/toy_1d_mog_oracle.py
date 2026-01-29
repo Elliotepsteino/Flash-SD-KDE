@@ -37,10 +37,11 @@ def _mog_pdf(x: np.ndarray, weights: np.ndarray, means: np.ndarray, stds: np.nda
 
 def _oracle_errors(x_grid: np.ndarray, est: np.ndarray, true: np.ndarray) -> Dict[str, float]:
     diff = est - true
-    ise = float(np.trapezoid(diff * diff, x_grid))
-    iae = float(np.trapezoid(np.abs(diff), x_grid))
+    trapz = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+    ise = float(trapz(diff * diff, x_grid))
+    iae = float(trapz(np.abs(diff), x_grid))
     max_abs = float(np.max(np.abs(diff)))
-    neg_mass = float(np.trapezoid(np.abs(np.minimum(est, 0.0)), x_grid))
+    neg_mass = float(trapz(np.abs(np.minimum(est, 0.0)), x_grid))
     return {
         "ise": ise,
         "iae": iae,

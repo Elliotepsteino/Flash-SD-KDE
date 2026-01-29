@@ -57,7 +57,7 @@ than the PyKeOps 16-D SD-KDE implementation.
 
 We evaluate Laplace-corrected KDE on a 1D oracle density benchmark with a known ground-truth mixture distribution.
 We report mean integrated squared error (MISE) and mean integrated absolute error (MIAE) versus $n_{\text{train}}$.
-Figure~\ref{fig:oracle_error_1d} compares KDE, Flash-SD-KDE (fused Laplace correction), non-fused Laplace correction, and Emp-SD-KDE.
+Figure~\ref{fig:oracle_error_1d} compares KDE, Flash-SD-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE.
 The Laplace-corrected estimators can take small negative values for large $\lVert x - x_i \rVert$.
 We therefore compute errors on the signed density, and we report the negative-mass diagnostics separately in the benchmark logs.
 
@@ -69,7 +69,7 @@ For context, the same plot also reports the Emp-SD-KDE to Flash-SD-KDE runtime r
   \centering
   \includegraphics[width=\textwidth]{figures/fig_oracle_error_vs_n.pdf}
   \caption{Oracle error on a 1D mixture-of-Gaussians benchmark.
-           We report MISE and MIAE versus $n_{\text{train}}$ for KDE, Flash-SD-KDE (fused Laplace correction), non-fused Laplace correction, and Emp-SD-KDE.
+          We report MISE and MIAE versus $n_{\text{train}}$ for KDE, Flash-SD-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE.
            The Laplace-corrected estimators can be slightly negative, so error is computed on the signed density.}
   \label{fig:oracle_error_1d}
 \end{figure*}
@@ -79,6 +79,6 @@ For context, the same plot also reports the Emp-SD-KDE to Flash-SD-KDE runtime r
   \includegraphics[width=\textwidth]{figures/fig_fused_vs_nonfused_runtime.pdf}
   \caption{Runtime and speedup for Laplace correction in 1D.
            The left panel shows total runtime for the fused Flash-SD-KDE kernel and a non-fused implementation.
-           The right panel reports speedup ratios, including Emp-SD-KDE relative to Flash-SD-KDE for context.}
+          The right panel reports speedup ratios, including Flash-SD-KDE relative to Flash-SD-KDE for context.}
   \label{fig:laplace_speedup_1d}
 \end{figure*}
