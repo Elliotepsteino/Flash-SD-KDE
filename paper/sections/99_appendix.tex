@@ -56,7 +56,7 @@ order-of-magnitude speedup relative to the sklearn baseline.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.8\linewidth]{figures/flash-sd-kde.pdf}
+  \includegraphics[width=0.8\linewidth]{figures/legacy/runtime_1d_kde_sdkde.pdf}
   \caption{Average runtime (log-scale $y$-axis) of scikit-learn KDE and
            SD-KDE GPU across $n_{\text{train}}$ in 1-D; annotations show
            the SD-KDE GPU speedup relative to sklearn.}
@@ -65,7 +65,7 @@ order-of-magnitude speedup relative to the sklearn baseline.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.8\linewidth]{figures/emp-sd-kde-util.pdf}
+  \includegraphics[width=0.8\linewidth]{figures/legacy/util_1d_empirical_sdkde.pdf}
   \caption{Estimated GPU utilization (as a percentage of A6000 FP32 peak)
            for 1-D SD-KDE implemented in Triton and optimized Torch,
            computed from the 1-D flop model and the measured runtimes.}
@@ -81,7 +81,7 @@ feed to Nsight Systems when examining the multi-million-sample kernels.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.8\linewidth]{figures/triton-large-util.pdf}
+  \includegraphics[width=0.8\linewidth]{figures/legacy/util_1d_triton_scaling.pdf}
   \caption{Utilization of the 1-D Triton SD-KDE kernel for large
            $n_{\text{train}}$ (powers of two up to $2^{22}$).  Labels show
            the observed runtime for each data size; error bars are omitted
