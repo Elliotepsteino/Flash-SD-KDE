@@ -1,0 +1,45 @@
+\section{Introduction}
+
+Score-debiased kernel density estimation (SD-KDE)~\cite{epstein2025sdkde}
+improves the statistical efficiency of standard kernel density estimators:
+for sufficiently smooth densities, SD-KDE attains better bias and mean-squared
+error rates than vanilla KDE while retaining a simple, nonparametric form.
+In particular, SD-KDE achieves an asymptotic mean integrated squared error
+(AMISE) of order $O(n^{-8/(d+8)})$, improving the convergence exponent
+relative to the $O(n^{-4/(d+4)})$ rate of classical KDE tuned with
+Silverman's rule of thumb.
+These accuracy gains come with a significant computational drawback: the
+empirical score used for debiasing introduces an additional $O(n^2)$ pass
+over the data, so a naive implementation has roughly the same quadratic cost
+as KDE itself but with a larger constant factor.
+
+Given samples $x_i$ and a bandwidth $h$, a Gaussian KDE is
+\[
+  \hat p(x)
+  =
+  \frac{1}{n h}
+  \sum_{i=1}^n
+  \varphi\!\left(\frac{x - x_i}{h}\right),
+\]
+and SD-KDE forms debiased samples
+$x_i^{\mathrm{SD}} = x_i + \tfrac{h^2}{2}\,\hat s(x_i)$ where
+$\hat s$ is an estimate of the score.  In this work we always use an
+empirical score computed from the KDE itself, i.e.\ no parametric model
+for the underlying density is assumed.  Writing the KDE explicitly in terms
+of the samples,
+\[
+  \hat p(x)
+  =
+  \frac{1}{n h}
+  \sum_{i=1}^n
+  \varphi\!\left(\frac{x - x_i}{h}\right),
+\]
+we estimate the score as
+\[
+  \hat s(x)
+  =
+  \frac{\partial_x \hat p(x)}{\hat p(x)}
+  =
+  \frac{\sum_{i=1}^n \bigl[-\tfrac{x - x_i}{h}\,\varphi\!\left(\tfrac{x - x_i}{h}\right)\bigr]}
+       {h^2 \sum_{i=1}^n \varphi\!\left(\tfrac{x - x_i}{h}\right)}.
+\]

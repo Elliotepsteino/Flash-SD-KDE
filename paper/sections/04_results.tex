@@ -1,0 +1,54 @@
+\section{Results}
+
+We now summarize the empirical behavior of the 16-D implementation on the
+RTX~A6000.  For each $n_{\text{train}}$ in $\{4\text{k}, 8\text{k}, 16\text{k},
+32\text{k}\}$ we set $n_{\text{test}} = n_{\text{train}}/8$, draw data from a
+simple 16-D Gaussian mixture, and run three baselines: scikit-learn KDE,
+Torch SD-KDE (GEMM-based), and Triton SD-KDE (Tensor-Core GEMMs for both KDE
+and score).  Figure~\ref{fig:nd_runtime} shows that the Triton SD-KDE rapidly
+outpaces both baselines as $n$ grows, while remaining numerically close to the
+Torch SD-KDE reference.
+
+We also measure utilization by combining the flop model above with the
+measured runtimes.  As shown in Figure~\ref{fig:triton_sd_kde_nd_util}, the
+Torch SD-KDE baseline reaches only a few percent of the A6000 Tensor Core
+peak, whereas the Triton implementation climbs into the multi-digit range once
+$n_{\text{train}}$ exceeds $8\text{k}$.  This confirms that the 16-D
+Tensor-Core formulation is firmly compute-bound and that additional tuning
+effort should focus on kernel fusion and occupancy rather than memory traffic.
+
+To compare against a specialized KDE implementation, we also benchmarked PyKeOps
+LazyTensor operators at $n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k}$.
+PyKeOps currently represents the state of the art for large-scale kernel
+reductions, so we report both its Gaussian KDE runtime and its SD-KDE runtime as
+a reference point.  Table~\ref{tab:pykeops} shows that Triton SD-KDE runs
+$1.4\times$ faster than the PyKeOps 16-D KDE baseline and $9.8\times$ faster
+than the PyKeOps 16-D SD-KDE implementation.
+
+\begin{table}[h]
+  \centering
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lcc}
+    \toprule
+    Method & Runtime (ms) & Rel to Triton \\
+    \midrule
+    Triton 16-D SD-KDE & $2.23$ & $1\times$ \\
+    PyKeOps 16-D KDE   & $3.06$ & $1.4\times$ \\
+    PyKeOps 16-D SD-KDE& $21.73$ & $9.77\times$ \\
+    \bottomrule
+  \end{tabular}
+  \caption{Runtime comparison at $n_{\text{train}}=32\text{k}$,
+           $n_{\text{test}}=4\text{k}$.  PyKeOps rows report Gaussian KDE and
+           SD-KDE (LazyTensor) runtimes, while Triton executes the full SD-KDE
+           pipeline.}
+  \label{tab:pykeops}
+\end{table}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/nd-runtime.pdf}
+  \caption{Runtime comparison for 16-D KDE/SD-KDE across $n_{\text{train}}$
+           up to $32{,}768$ ($n_{\text{test}} = n_{\text{train}}/8$).}
+  \label{fig:nd_runtime}
+\end{figure*}
