@@ -40,10 +40,10 @@ PAPER_MAIN := $(PAPER_DIR)/main.tex
 
 paper:
 	mkdir -p $(PAPER_BUILD)
-	pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory $(PAPER_BUILD) $(PAPER_MAIN)
-	bibtex $(PAPER_BUILD)/main
-	pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory $(PAPER_BUILD) $(PAPER_MAIN)
-	pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory $(PAPER_BUILD) $(PAPER_MAIN)
+	cd $(PAPER_DIR) && pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory build main.tex
+	cd $(PAPER_DIR) && bibtex build/main
+	cd $(PAPER_DIR) && pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory build main.tex
+	cd $(PAPER_DIR) && pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory build main.tex
 
 paper.clean:
 	rm -rf $(PAPER_BUILD)
