@@ -1,6 +1,10 @@
 PY ?= python
 
-.PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration bench bench.mnist_ood bench.toy_1d_oracle plot plot.mnist_ood plot.grids plot.toy_1d_oracle paper paper.clean
+.PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration \
+	bench bench.mnist_ood bench.toy_1d_oracle \
+	plot plot.mnist_ood plot.grids plot.toy_1d_oracle \
+	paper paper.clean \
+	run.sweep run.nd_runtime_sweep run.triton_scaling run.triton_sd_kde_nd
 
 test: test.small test.large
 test.all: test.small test.large
@@ -33,6 +37,22 @@ plot.grids:
 
 plot.toy_1d_oracle:
 	$(PY) plots/plot_toy_1d_mog_oracle.py
+
+run.sweep:
+	@echo "Deprecated script. Use Makefile targets (bench.*, plot.*) in this refactored repo." >&2
+	@exit 1
+
+run.nd_runtime_sweep:
+	@echo "Deprecated script. Use Makefile targets (bench.*, plot.*) in this refactored repo." >&2
+	@exit 1
+
+run.triton_scaling:
+	@echo "Deprecated script. Use Makefile targets (bench.*, plot.*) in this refactored repo." >&2
+	@exit 1
+
+run.triton_sd_kde_nd:
+	@echo "Deprecated script. Use Makefile targets (bench.*, plot.*) in this refactored repo." >&2
+	@exit 1
 
 PAPER_DIR := paper
 PAPER_BUILD := $(PAPER_DIR)/build
