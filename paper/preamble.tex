@@ -25,7 +25,7 @@
 \usepackage{comment}
 
 % Attempt to make hyperref and algorithmic work together better:
-\newcommand{\theHalgorithm}{\arabic{algorithm}}
+\providecommand{\theHalgorithm}{\arabic{algorithm}}
 
 % natbib's automatic mode detection keys off \bibliographystyle{...}. Since we
 % use a relative path for the ICML bst, tell natbib it's author-year.
