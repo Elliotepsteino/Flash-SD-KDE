@@ -1,0 +1,66 @@
+ICML 2026 Position Papers
+We invite the submission of position papers to be published at the ICML 2026 conference. Position papers make an argument for a viewpoint or perspective about what should be done, in contrast to main track papers, which report on advances that have already been accomplished.  Position papers also generally adopt a meta-level perspective on the field of machine learning, with wider scope than any individual area.
+
+The review criteria for position papers differs from those of the main track.  Submissions to the main ICML conference track emphasize original research and novel results.  In contrast, submissions to the position paper track will be judged primarily on whether they present a compelling position that warrants greater exposure within the machine learning community (regardless of whether a reviewer agrees with the position).  The goal of this track is to highlight papers that stimulate constructive, civil discussion on timely topics that need our community’s attention.  Controversial topics are welcome.
+
+Position papers should meet standard ICML expectations for scholarship, including the use of evidence and reasoning to support all claims, inclusion of relevant background and context, and the attribution of others’ work via appropriate citations.  To constitute a proper scientific contribution, a position must be non-obvious, falsifiable and defendable against credible alternatives.  We discourage technical papers that have a minor persuasive element, as well as nontechnical papers that promote unsupported opinion.  Accepted position papers will be presented at the conference (as oral talks or posters) and included in the conference proceedings.  
+
+We want to hear your positions. What is the field getting right?  Getting wrong?  Position papers may address any aspect relevant to machine learning (ML), including but not limited to:
+
+Concerns about data legality, copyright, and intellectual property in ML
+The role of privacy in ML training and deployment
+The role of open-source versus closed-source ML models for research 
+Regulation of ML technology (licensing, evaluation, disclosures, post-deployment monitoring, etc.)
+Ethical considerations when conducting ML research and deploying ML systems
+User guidance for responsible use of ML tools, services, applications, etc.
+What the next generation of ML researchers needs to know
+How we can improve the beneficial impact of our community’s work
+We encourage you to browse the position papers that were published at ICML 2025 for examples (and ideas to build on, or from which to offer an alternative position).
+
+Policies and Requirements
+All requirements and policies are identical to those of the main conference (see the main track Call for Papers), with the following exceptions:
+
+The Title should state the position and start with “Position:”.
+The paper must include an “Alternative Views” section in the main body of the paper (not an appendix) that describes and addresses one or more credible (not strawmen) positions that are opposed to the paper’s position.
+The following are not required for position papers:
+Impact Statements (the position paper itself should explain the impact)
+Lay Summaries (the position paper itself should be accessible to the public)
+The reciprocal reviewing requirement
+The self-ranking requirement.
+Helpful tips on writing position papers:
+
+Make sure the Title states the position.
+These hypothetical paper titles do state a position:
+"Position: Quantum Atelic Learning Methods Should Employ Psychic Insights"
+"Position: Stop Research on Psychic Properties of Machine Learning"
+while these versions do not:
+"Position: Psychic Quantum Atelic Learning"
+"Position: A Perspective on Psychic Quantum Atelic Learning"
+The Abstract should identify the paper as a position paper and briefly state the position (e.g., “This position paper argues that <statement of the position>.”)
+The Introduction should state the position, using bold text.
+We encourage the inclusion of a "Call to Action" section that identifies plausible steps to realizing the aims of the stated position.  By the end of the paper the reader should know what steps should be taken by whom to bring about these desired outcomes.
+Papers that describe technical research without advocating a real position (e.g. “everyone should use my new and better learning algorithm”) are not responsive to this call and should instead be submitted to the main paper track.
+Important Dates and Submission Site
+Submission site opens: January 8, 2026.
+Suggested OpenReview account creation deadline: January 8, 2026. (If you do not already have an OpenReview account, please register by this date, otherwise we cannot guarantee that your account will be activated in time.**)
+Abstract submission deadline: January 23, 2026 AoE (Jan 24, 2026, 12 Noon UTC-0).
+Full paper submission deadline: January 28, 2026 AoE (Jan 29, 2026, 12 Noon UTC-0).
+Position papers should be submitted through a special Position Paper Track OpenReview site: https://openreview.net/group?id=ICML.cc/2026/Position_Paper_Track
+
+Note: regular research papers should be submitted through a separate OpenReview site, as outlined in the main track Call for Papers.
+
+**OpenReview: All authors must have an OpenReview account. It is strongly recommended that you sign up for OpenReview (or associate your existing account) with an institutional email. If you sign up for OpenReview with an institutional email, your account will be activated immediately; otherwise it can take up to two weeks for your account to be activated.
+
+Reviewing Criteria
+Position papers will be reviewed according to the following criteria, which differ from those employed by the main track.
+
+Position: The paper clearly states a position on machine learning, see example aspects listed earlier in this CFP. Papers that describe technical research without advocating a position are not responsive to this call and should instead be submitted to the main paper track.
+Support: The paper supports its position with clear reasoning and evidence where appropriate.
+Significance: The paper demonstrates that the position is important, in terms of scope, impact, timeliness, risks, benefits, etc.
+Discussion potential: The position is likely to inspire constructive, civil discussion within the ICML community. The reviewer need not agree with the stated position.
+Alternative views: The paper describes and addresses one or more credible (not strawmen) positions that are opposed to the paper’s position.
+Call to Action: The paper identifies plausible steps to realizing the aims of the stated position.  By the end of the paper the reader should know what steps should be taken by whom to bring about these desired outcomes.
+Communication quality: The paper is well organized and clearly written.
+Context: The paper includes a discussion of (and citations to) literature and events relevant to the stated position.
+Questions?
+Please select "Position Paper Chairs" on the help form and submit your questions here: https://icml.cc/Help/Contact 

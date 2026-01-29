@@ -1,0 +1,49 @@
+\documentclass[11pt]{article}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\geometry{margin=1in}
+
+\newcommand{\todo}{\item[$\square$]}
+
+\title{Flash-SD-KDE TODOs}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Paper}
+\begin{itemize}
+  \todo Ensure Figures 1--2 placement is acceptable (float pages / captions).
+  \todo Tighten motivation in Introduction (one clear paragraph on the bottleneck).
+  \todo Add/verify Related Work positioning vs.\ prior GPU KDE / SD-KDE implementations.
+  \todo Clarify method: explicitly show the re-ordered computation and where GEMMs appear.
+  \todo Include limitations / when Tensor Cores do not help (small $d$, small $n$, non-multiple-of-16).
+  \todo Proofread for consistent terminology (SD-KDE vs.\ score-debiased KDE, 16-D vs.\ 16-dimensional).
+\end{itemize}
+
+\section*{Experiments}
+\begin{itemize}
+  \todo Re-check headline speedups and the exact hardware/software stack.
+  \todo Add a numerical-accuracy comparison table/plot vs.\ baselines (relative error / ranking).
+  \todo Add scaling sweep (vary $n$, $d$, and $n_{\text{test}}$) and summarize trends.
+  \todo Confirm timing methodology (warmup, sync points, median over trials, confidence intervals).
+\end{itemize}
+
+\section*{Artifacts}
+\begin{itemize}
+  \todo Ensure code release instructions reproduce all figures from a clean checkout.
+  \todo Add a minimal ``quickstart'' in the repo README (env, commands, expected outputs).
+  \todo Record exact commit hashes / versions for Torch, Triton, CUDA, driver.
+\end{itemize}
+
+\section*{Submission}
+\begin{itemize}
+  \todo Confirm bibliography formatting and citation completeness.
+  \todo Run a final compile pass and check for overfull boxes / missing refs.
+  \todo Double-check author/affiliation and anonymization requirements (if any).
+\end{itemize}
+
+\end{document}
