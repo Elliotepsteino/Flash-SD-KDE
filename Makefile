@@ -1,6 +1,6 @@
 PY ?= python
 
-.PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration bench bench.mnist_ood bench.toy_1d_oracle plot plot.mnist_ood plot.grids plot.toy_1d_oracle
+.PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration bench bench.mnist_ood bench.toy_1d_oracle plot plot.mnist_ood plot.grids plot.toy_1d_oracle paper paper.clean
 
 test: test.small test.large
 test.all: test.small test.large
@@ -33,3 +33,17 @@ plot.grids:
 
 plot.toy_1d_oracle:
 	$(PY) plots/plot_toy_1d_mog_oracle.py
+
+PAPER_DIR := paper
+PAPER_BUILD := $(PAPER_DIR)/build
+PAPER_MAIN := $(PAPER_DIR)/main.tex
+
+paper:
+	mkdir -p $(PAPER_BUILD)
+	pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory $(PAPER_BUILD) $(PAPER_MAIN)
+	bibtex $(PAPER_BUILD)/main
+	pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory $(PAPER_BUILD) $(PAPER_MAIN)
+	pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory $(PAPER_BUILD) $(PAPER_MAIN)
+
+paper.clean:
+	rm -rf $(PAPER_BUILD)
