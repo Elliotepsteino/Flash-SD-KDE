@@ -151,6 +151,112 @@ def kde_eval_linearized(
     )
 
 
+def kde_eval_linearized_nonfused(
+    data: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
+    queries: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
+    bandwidth: float,
+    *,
+    device: str | torch.device = "cuda",
+    precision_mode: str = DEFAULT_PRECISION_MODE,
+    kde_backend: str = DEFAULT_KDE_BACKEND,
+    use_precomputed_norms: bool = True,
+    autotune: bool = True,
+    chunk_size: int | None = None,
+) -> torch.Tensor:
+    """Evaluate the linearized KDE using a non-fused correction pass.
+
+    This computes the base KDE via the chosen backend, then applies the
+    Laplacian correction using explicit Torch ops in a separate pass.
+    Intended for benchmarking the benefit of fused kernels.
+    """
+    if bandwidth <= 0:
+        raise ValueError("bandwidth must be positive.")
+
+    device = torch.device(device)
+
+    base = kde_eval(
+        data,
+        queries,
+        bandwidth,
+        device=device,
+        precision_mode=precision_mode,
+        kde_backend=kde_backend,
+        use_precomputed_norms=use_precomputed_norms,
+        autotune=autotune,
+        apply_laplacian_correction=False,
+    )
+
+    def _to_1d_tensor(array_like) -> torch.Tensor:
+        if isinstance(array_like, torch.Tensor):
+            tensor = array_like.to(device=device, dtype=torch.float32, copy=False)
+        else:
+            tensor = torch.as_tensor(array_like, dtype=torch.float32, device=device)
+        if tensor.ndim != 1:
+            raise ValueError("expected 1D data for KDE eval.")
+        return tensor.contiguous()
+
+    def _to_2d_tensor(array_like) -> torch.Tensor:
+        if isinstance(array_like, torch.Tensor):
+            tensor = array_like.to(device=device, dtype=torch.float32, copy=False)
+        else:
+            tensor = torch.as_tensor(array_like, dtype=torch.float32, device=device)
+        if tensor.ndim != 2 or tensor.shape[1] != ND_FEATURES:
+            raise ValueError(f"expected data shape (n, {ND_FEATURES}).")
+        return tensor.contiguous()
+
+    ndim = _infer_ndim(data)
+    if ndim == 1:
+        train = _to_1d_tensor(data)
+        query = _to_1d_tensor(queries)
+        n_data = train.numel()
+        if n_data == 0:
+            raise ValueError("data must be non-empty.")
+
+        inv_h = 1.0 / bandwidth
+        chunk = n_data if chunk_size is None else max(int(chunk_size), 1)
+        sum_phi_scaled = torch.zeros((query.numel(),), device=device, dtype=torch.float32)
+
+        for start in range(0, n_data, chunk):
+            end = min(n_data, start + chunk)
+            data_chunk = train[start:end]
+            diff = (query[:, None] - data_chunk[None, :]) * inv_h
+            scaled = diff * diff
+            phi = torch.exp(-0.5 * scaled)
+            sum_phi_scaled += (phi * scaled).sum(dim=1)
+
+        norm = 1.0 / (math.sqrt(2.0 * math.pi) * bandwidth * n_data)
+        dim = 1.0
+        return base * (1.0 + 0.5 * dim) - 0.5 * norm * sum_phi_scaled
+
+    if ndim == 2:
+        train = _to_2d_tensor(data)
+        query = _to_2d_tensor(queries)
+        n_data = train.shape[0]
+        if n_data == 0:
+            raise ValueError("data must be non-empty.")
+
+        inv_h2 = 1.0 / (bandwidth * bandwidth)
+        q_norm = (query * query).sum(dim=1, keepdim=True)
+        chunk = n_data if chunk_size is None else max(int(chunk_size), 1)
+        sum_phi_scaled = torch.zeros((query.shape[0],), device=device, dtype=torch.float32)
+
+        for start in range(0, n_data, chunk):
+            end = min(n_data, start + chunk)
+            data_chunk = train[start:end]
+            d_norm = (data_chunk * data_chunk).sum(dim=1, keepdim=True).T
+            dist = q_norm + d_norm - 2.0 * (query @ data_chunk.T)
+            dist = torch.clamp(dist, min=0.0)
+            scaled = dist * inv_h2
+            phi = torch.exp(-0.5 * scaled)
+            sum_phi_scaled += (phi * scaled).sum(dim=1)
+
+        dim = float(ND_FEATURES)
+        norm = 1.0 / ((2.0 * math.pi) ** (dim / 2.0) * (bandwidth ** dim) * n_data)
+        return base * (1.0 + 0.5 * dim) - 0.5 * norm * sum_phi_scaled
+
+    raise ValueError("data must be 1D or 2D.")
+
+
 def emp_sd_kde_fit_transform(
     data: Sequence[Sequence[float]] | torch.Tensor,
     bandwidth: float,

@@ -28,5 +28,6 @@ class Toy1dMoGOracleConfig:
     timing_repeats: int = 3
     timing_warmup: int = 1
     emp_chunk_size: int = 1024
+    laplace_chunk_size: int = 1024
     save_density_curves: bool = True
     output_tag: str = "benchmarks/toy_1d_mog_oracle"

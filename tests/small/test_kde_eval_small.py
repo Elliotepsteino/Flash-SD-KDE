@@ -6,9 +6,15 @@ import numpy as np
 import pytest
 import torch
 
-from flash_sd_kde.kde import emp_sd_kde_fit_transform, kde_eval, kde_eval_linearized
+from flash_sd_kde.kde import (
+    emp_sd_kde_fit_transform,
+    kde_eval,
+    kde_eval_linearized,
+    kde_eval_linearized_nonfused,
+)
 from flash_sd_kde.reference import (
     empirical_score_nd_numpy,
+    kde_eval_1d_linearized_numpy,
     kde_eval_1d_numpy,
     kde_eval_nd_numpy,
     kde_eval_nd_linearized_numpy,
@@ -61,6 +67,47 @@ def test_kde_eval_16d_linearized_matches_numpy():
     h = 1.05
 
     kde_gpu = kde_eval_linearized(train, queries, h, device="cuda", precision_mode=PRECISION_FP32_IEEE)
+    kde_cpu = kde_eval_nd_linearized_numpy(queries, train, h)
+
+    np.testing.assert_allclose(kde_gpu.detach().cpu().numpy(), kde_cpu, rtol=2e-3, atol=2e-3)
+
+
+@pytest.mark.small
+def test_kde_eval_1d_linearized_nonfused_matches_numpy():
+    _require_cuda()
+    rng = np.random.default_rng(6)
+    train = rng.normal(size=128).astype(np.float32)
+    queries = rng.normal(size=64).astype(np.float32)
+    h = 0.85
+
+    kde_gpu = kde_eval_linearized_nonfused(
+        train,
+        queries,
+        h,
+        device="cuda",
+        chunk_size=64,
+    )
+    kde_cpu = kde_eval_1d_linearized_numpy(queries, train, h)
+
+    np.testing.assert_allclose(kde_gpu.detach().cpu().numpy(), kde_cpu, rtol=2e-3, atol=2e-3)
+
+
+@pytest.mark.small
+def test_kde_eval_16d_linearized_nonfused_matches_numpy():
+    _require_cuda()
+    rng = np.random.default_rng(7)
+    train = rng.normal(size=(128, 16)).astype(np.float32)
+    queries = rng.normal(size=(32, 16)).astype(np.float32)
+    h = 1.15
+
+    kde_gpu = kde_eval_linearized_nonfused(
+        train,
+        queries,
+        h,
+        device="cuda",
+        precision_mode=PRECISION_FP32_IEEE,
+        chunk_size=64,
+    )
     kde_cpu = kde_eval_nd_linearized_numpy(queries, train, h)
 
     np.testing.assert_allclose(kde_gpu.detach().cpu().numpy(), kde_cpu, rtol=2e-3, atol=2e-3)

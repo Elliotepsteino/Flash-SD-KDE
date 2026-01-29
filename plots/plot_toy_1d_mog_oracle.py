@@ -13,9 +13,10 @@ from globals import FILE_STORAGE_ROOT
 from plots.plot_toy_1d_mog_oracle_config import Toy1dMoGOraclePlotConfig
 
 _METHODS = (
-    ("kde", "KDE", "C0"),
-    ("linearized", "Laplace-corrected KDE", "C1"),
-    ("emp_sd_kde", "Emp-SD-KDE", "C2"),
+    ("kde", "KDE", "C0", "-"),
+    ("linearized", "Flash-SD-KDE", "C1", "--"),
+    ("linearized_nonfused", "Laplace-corrected KDE (non-fused)", "C3", ":"),
+    ("emp_sd_kde", "Emp-SD-KDE", "C2", "-."),
 )
 
 _POS_EPS = 1e-12
@@ -76,11 +77,15 @@ def plot_error_vs_n(output_dir: Path, results: Dict, *, dpi: int) -> None:
     n_train = sorted(int(n) for n in results["n_train_list"])
 
     fig, axes = plt.subplots(1, 2, figsize=(8.2, 3.4))
-    for method, label, color in _METHODS:
+    for method, label, color, linestyle in _METHODS:
         ise, ise_err = _extract_metric(results, method, "ise", n_train)
         iae, iae_err = _extract_metric(results, method, "iae", n_train)
-        axes[0].plot(n_train, ise, marker="o", label=label, color=color, lw=2)
-        axes[1].plot(n_train, iae, marker="o", label=label, color=color, lw=2)
+        axes[0].plot(
+            n_train, ise, marker="o", label=label, color=color, lw=2, linestyle=linestyle
+        )
+        axes[1].plot(
+            n_train, iae, marker="o", label=label, color=color, lw=2, linestyle=linestyle
+        )
 
         ise_lo = np.maximum(ise - ise_err, _POS_EPS)
         ise_hi = np.maximum(ise + ise_err, _POS_EPS)
@@ -111,9 +116,11 @@ def plot_runtime_vs_n(output_dir: Path, results: Dict, *, dpi: int) -> None:
     n_train = sorted(int(n) for n in results["n_train_list"])
 
     fig, ax = plt.subplots(figsize=(4.6, 3.4))
-    for method, label, color in _METHODS:
+    for method, label, color, linestyle in _METHODS:
         runtime, runtime_err = _extract_runtime(results, method, n_train)
-        ax.plot(n_train, runtime, marker="o", label=label, color=color, lw=2)
+        ax.plot(
+            n_train, runtime, marker="o", label=label, color=color, lw=2, linestyle=linestyle
+        )
         rt_lo = np.maximum(runtime - runtime_err, _POS_EPS)
         rt_hi = np.maximum(runtime + runtime_err, _POS_EPS)
         ax.fill_between(n_train, rt_lo, rt_hi, color=color, alpha=0.15)
@@ -137,13 +144,15 @@ def plot_density_curves(output_dir: Path, densities: Dict, *, dpi: int) -> None:
     true_density = densities["true_density"]
     kde_density = densities["kde_density"]
     lin_density = densities["linearized_density"]
+    lin_nf_density = densities["linearized_nonfused_density"]
     emp_density = densities["emp_sd_kde_density"]
     n_train = int(densities["n_train"][0])
 
     fig, ax = plt.subplots(figsize=(6.0, 3.4))
     ax.plot(x_grid, true_density, color="black", lw=2, label="True density")
     ax.plot(x_grid, kde_density, color="C0", lw=1.8, label="KDE")
-    ax.plot(x_grid, lin_density, color="C1", lw=1.8, label="Linearized KDE")
+    ax.plot(x_grid, lin_density, color="C1", lw=1.8, label="Flash-SD-KDE")
+    ax.plot(x_grid, lin_nf_density, color="C3", lw=1.8, label="Laplace-corrected KDE (non-fused)")
     ax.plot(x_grid, emp_density, color="C2", lw=1.8, label="Emp-SD-KDE")
     ax.set_xlabel("x")
     ax.set_ylabel("density")
@@ -161,7 +170,7 @@ def plot_error_runtime_tradeoff(output_dir: Path, results: Dict, *, dpi: int) ->
     n_train = max(int(n) for n in results["n_train_list"])
 
     fig, ax = plt.subplots(figsize=(4.2, 3.4))
-    for method, label, color in _METHODS:
+    for method, label, color, _linestyle in _METHODS:
         metric = results["metrics"][method][str(n_train)]["ise_mean"]
         runtime = results["runtime_sec"][method][str(n_train)]["mean"]
         ax.scatter(runtime, metric, s=60, color=color, label=label)
@@ -177,6 +186,79 @@ def plot_error_runtime_tradeoff(output_dir: Path, results: Dict, *, dpi: int) ->
     fig.tight_layout()
     _save_fig(fig, output_dir / "fig_error_runtime_tradeoff.pdf", dpi)
     _save_fig(fig, output_dir / "fig_error_runtime_tradeoff.png", dpi)
+    plt.close(fig)
+
+
+def plot_fused_vs_nonfused_runtime(output_dir: Path, results: Dict, *, dpi: int) -> None:
+    n_train = sorted(int(n) for n in results["n_train_list"])
+    fused_rt, fused_err = _extract_runtime(results, "linearized", n_train)
+    nf_rt, nf_err = _extract_runtime(results, "linearized_nonfused", n_train)
+    emp_rt, emp_err = _extract_runtime(results, "emp_sd_kde", n_train)
+
+    fig, axes = plt.subplots(1, 2, figsize=(7.6, 3.2))
+
+    axes[0].plot(n_train, fused_rt, marker="o", color="C1", label="Flash-SD-KDE")
+    axes[0].fill_between(
+        n_train,
+        np.maximum(fused_rt - fused_err, _POS_EPS),
+        np.maximum(fused_rt + fused_err, _POS_EPS),
+        color="C1",
+        alpha=0.15,
+    )
+    axes[0].plot(n_train, nf_rt, marker="o", color="C3", label="Non-fused Laplace")
+    axes[0].fill_between(
+        n_train,
+        np.maximum(nf_rt - nf_err, _POS_EPS),
+        np.maximum(nf_rt + nf_err, _POS_EPS),
+        color="C3",
+        alpha=0.15,
+    )
+    speedup = nf_rt / np.maximum(fused_rt, _POS_EPS)
+    speedup_emp = emp_rt / np.maximum(fused_rt, _POS_EPS)
+    for n_val, rt, sp in zip(n_train, fused_rt, speedup):
+        axes[0].text(
+            n_val,
+            rt * 1.12,
+            f"{sp:.2f}x",
+            fontsize=8,
+            color="C1",
+            ha="center",
+            va="bottom",
+        )
+    for n_val, rt, sp_emp in zip(n_train, fused_rt, speedup_emp):
+        axes[0].text(
+            n_val,
+            rt * 1.28,
+            f"{sp_emp:.2f}x (Emp)",
+            fontsize=7,
+            color="C2",
+            ha="center",
+            va="bottom",
+        )
+    axes[0].set_xscale("log")
+    axes[0].set_yscale("log")
+    axes[0].set_xlabel("n_train")
+    axes[0].set_ylabel("runtime (s)")
+    axes[0].set_title("Fused vs non-fused runtime")
+    axes[0].grid(alpha=0.2, linestyle="--")
+    axes[0].legend(frameon=False)
+
+    axes[1].plot(n_train, speedup, marker="o", color="C2")
+    axes[1].plot(n_train, speedup_emp, marker="o", color="C4")
+    axes[1].set_xscale("log")
+    axes[1].set_xlabel("n_train")
+    axes[1].set_ylabel("runtime ratio")
+    axes[1].set_title("Speedup from fusion")
+    axes[1].grid(alpha=0.2, linestyle="--")
+    axes[1].legend(
+        ["Non-fused / Flash-SD-KDE", "Emp-SD-KDE / Flash-SD-KDE"],
+        frameon=False,
+        fontsize=8,
+    )
+
+    fig.tight_layout()
+    _save_fig(fig, output_dir / "fig_fused_vs_nonfused_runtime.pdf", dpi)
+    _save_fig(fig, output_dir / "fig_fused_vs_nonfused_runtime.png", dpi)
     plt.close(fig)
 
 
@@ -197,6 +279,7 @@ def main() -> None:
     if densities is not None:
         plot_density_curves(output_dir, densities, dpi=config.dpi)
     plot_error_runtime_tradeoff(output_dir, results, dpi=config.dpi)
+    plot_fused_vs_nonfused_runtime(output_dir, results, dpi=config.dpi)
 
     print(f"Plots saved to {output_dir}")
 

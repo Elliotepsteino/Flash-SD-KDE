@@ -12,12 +12,12 @@ import numpy as np
 import torch
 
 from benchmarks.toy_1d_mog_oracle_config import Toy1dMoGOracleConfig
-from flash_sd_kde.kde import kde_eval, kde_eval_linearized
+from flash_sd_kde.kde import kde_eval, kde_eval_linearized, kde_eval_linearized_nonfused
 from flash_sd_kde.reference import kde_eval_1d_linearized_numpy, kde_eval_1d_numpy, silverman_bandwidth_1d
 from flash_sd_kde.utils import get_repo_state, make_run_dir, write_json
 from globals import DEFAULT_EPS
 
-_METHODS = ("kde", "linearized", "emp_sd_kde")
+_METHODS = ("kde", "linearized", "linearized_nonfused", "emp_sd_kde")
 
 
 def _mog_sample(rng: np.random.Generator, n: int, weights: np.ndarray, means: np.ndarray, stds: np.ndarray) -> np.ndarray:
@@ -47,6 +47,31 @@ def _oracle_errors(x_grid: np.ndarray, est: np.ndarray, true: np.ndarray) -> Dic
         "max_abs": max_abs,
         "neg_mass": neg_mass,
     }
+
+
+def _kde_eval_1d_linearized_nonfused_numpy(
+    queries: np.ndarray,
+    data: np.ndarray,
+    bandwidth: float,
+    *,
+    chunk_size: int,
+) -> np.ndarray:
+    base = kde_eval_1d_numpy(queries, data, bandwidth)
+    n = data.size
+    if n == 0:
+        raise ValueError("data must contain at least one element.")
+    inv_h = 1.0 / bandwidth
+    sum_phi_scaled = np.zeros_like(queries, dtype=np.float32)
+    chunk = max(int(chunk_size), 1)
+    for start in range(0, n, chunk):
+        end = min(n, start + chunk)
+        data_chunk = data[start:end]
+        diff = (queries[:, None] - data_chunk[None, :]) * np.float32(inv_h)
+        scaled = diff * diff
+        phi = np.exp(-0.5 * scaled)
+        sum_phi_scaled += (phi * scaled).sum(axis=1)
+    norm = 1.0 / (math.sqrt(2.0 * math.pi) * bandwidth * n)
+    return base * (1.0 + 0.5) - 0.5 * norm * sum_phi_scaled
 
 
 def _time_call(fn, *, device: torch.device) -> Tuple[object, float]:
@@ -194,6 +219,19 @@ def run_benchmark(config: Toy1dMoGOracleConfig) -> Path:
                         autotune=config.autotune,
                     )
 
+                def lin_nf_fn():
+                    return kde_eval_linearized_nonfused(
+                        data_t,
+                        grid_t,
+                        h,
+                        device=device,
+                        precision_mode=config.precision_mode,
+                        kde_backend=config.kde_backend,
+                        use_precomputed_norms=config.use_precomputed_norms,
+                        autotune=config.autotune,
+                        chunk_size=config.laplace_chunk_size,
+                    )
+
                 def emp_score_shift():
                     return _emp_sd_kde_transform_1d_torch(
                         data_t, h, chunk_size=config.emp_chunk_size, eps=DEFAULT_EPS
@@ -213,10 +251,12 @@ def run_benchmark(config: Toy1dMoGOracleConfig) -> Path:
 
                 _time_repeated(kde_fn, device=device, warmup=config.timing_warmup, repeats=1)
                 _time_repeated(lin_fn, device=device, warmup=config.timing_warmup, repeats=1)
+                _time_repeated(lin_nf_fn, device=device, warmup=config.timing_warmup, repeats=1)
                 _time_repeated(emp_score_shift, device=device, warmup=config.timing_warmup, repeats=1)
 
                 dens_kde = kde_fn().detach().cpu().numpy()
                 dens_lin = lin_fn().detach().cpu().numpy()
+                dens_lin_nf = lin_nf_fn().detach().cpu().numpy()
                 debiased = emp_score_shift()
                 dens_emp = emp_eval(debiased).detach().cpu().numpy()
 
@@ -228,6 +268,12 @@ def run_benchmark(config: Toy1dMoGOracleConfig) -> Path:
                 )
                 lin_mean, lin_std = _time_repeated(
                     lin_fn,
+                    device=device,
+                    warmup=0,
+                    repeats=config.timing_repeats,
+                )
+                lin_nf_mean, lin_nf_std = _time_repeated(
+                    lin_nf_fn,
                     device=device,
                     warmup=0,
                     repeats=config.timing_repeats,
@@ -253,6 +299,9 @@ def run_benchmark(config: Toy1dMoGOracleConfig) -> Path:
             else:
                 dens_kde = kde_eval_1d_numpy(x_grid, data_np, h)
                 dens_lin = kde_eval_1d_linearized_numpy(x_grid, data_np, h)
+                dens_lin_nf = _kde_eval_1d_linearized_nonfused_numpy(
+                    x_grid, data_np, h, chunk_size=config.laplace_chunk_size
+                )
                 debiased = _emp_sd_kde_transform_1d_numpy(
                     data_np, h, chunk_size=config.emp_chunk_size
                 )
@@ -263,6 +312,11 @@ def run_benchmark(config: Toy1dMoGOracleConfig) -> Path:
 
                 def lin_fn():
                     return kde_eval_1d_linearized_numpy(x_grid, data_np, h)
+
+                def lin_nf_fn():
+                    return _kde_eval_1d_linearized_nonfused_numpy(
+                        x_grid, data_np, h, chunk_size=config.laplace_chunk_size
+                    )
 
                 def emp_score_shift():
                     return _emp_sd_kde_transform_1d_numpy(
@@ -285,6 +339,12 @@ def run_benchmark(config: Toy1dMoGOracleConfig) -> Path:
                     warmup=config.timing_warmup,
                     repeats=config.timing_repeats,
                 )
+                lin_nf_mean, lin_nf_std = _time_repeated(
+                    lin_nf_fn,
+                    device=device,
+                    warmup=config.timing_warmup,
+                    repeats=config.timing_repeats,
+                )
                 emp_score_mean, emp_score_std = _time_repeated(
                     emp_score_shift,
                     device=device,
@@ -300,7 +360,12 @@ def run_benchmark(config: Toy1dMoGOracleConfig) -> Path:
                 emp_eval_mean = max(emp_total_mean - emp_score_mean, 0.0)
                 emp_eval_std = emp_total_std
 
-            for method, dens in [("kde", dens_kde), ("linearized", dens_lin), ("emp_sd_kde", dens_emp)]:
+            for method, dens in [
+                ("kde", dens_kde),
+                ("linearized", dens_lin),
+                ("linearized_nonfused", dens_lin_nf),
+                ("emp_sd_kde", dens_emp),
+            ]:
                 metrics = _oracle_errors(x_grid, dens, true_density)
                 entry = results["metrics"][method].setdefault(n_key, {"repeat": []})
                 entry["repeat"].append(metrics)
@@ -309,6 +374,10 @@ def run_benchmark(config: Toy1dMoGOracleConfig) -> Path:
             runtime_entry["repeat"].append({"mean": kde_mean, "std": kde_std})
             runtime_entry = results["runtime_sec"]["linearized"].setdefault(n_key, {"repeat": []})
             runtime_entry["repeat"].append({"mean": lin_mean, "std": lin_std})
+            runtime_entry = results["runtime_sec"]["linearized_nonfused"].setdefault(
+                n_key, {"repeat": []}
+            )
+            runtime_entry["repeat"].append({"mean": lin_nf_mean, "std": lin_nf_std})
             runtime_entry = results["runtime_sec"]["emp_sd_kde"].setdefault(n_key, {"repeat": []})
             runtime_entry["repeat"].append({"mean": emp_total_mean, "std": emp_total_std})
             breakdown_entry = results["runtime_breakdown_sec"]["emp_sd_kde"].setdefault(
@@ -329,6 +398,7 @@ def run_benchmark(config: Toy1dMoGOracleConfig) -> Path:
                     "true_density": true_density,
                     "kde_density": dens_kde,
                     "linearized_density": dens_lin,
+                    "linearized_nonfused_density": dens_lin_nf,
                     "emp_sd_kde_density": dens_emp,
                     "n_train": np.asarray([n_train], dtype=np.int32),
                 }
