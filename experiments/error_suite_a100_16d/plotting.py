@@ -10,7 +10,7 @@ import csv
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import ScalarFormatter
+from matplotlib.ticker import LogFormatterMathtext, ScalarFormatter
 
 from experiments.error_suite_a100_16d.pareto import pareto_frontier
 
@@ -470,6 +470,7 @@ def plot_oracle_mise_miae_vs_n(rows: list[dict[str, Any]], output_dir: Path) -> 
         ax.set_ylabel(metric)
         ax.set_xscale("log")
         ax.set_yscale("log")
+        ax.yaxis.set_major_formatter(LogFormatterMathtext())
         ax.grid(alpha=0.2, linestyle="--")
         ax.set_title(title)
         tick_size = 7 if _DEFAULT_PLOT_CONFIG is None else max(6, _DEFAULT_PLOT_CONFIG.font_size - 2)
