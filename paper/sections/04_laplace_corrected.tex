@@ -88,7 +88,7 @@ The Laplace kernel deals with this leading term by using an operator $\left(I-\f
 
 The SD-KDE algorithm approaches this debias task differently by applying a \textbf{non-linear}\footnote{Even when the transportation kernel has a non-linear transportation. The kernel itself is linear.} transportation kernel $T_{\frac{t}{2}\nabla \log f}$ before applying a standard heat kernel $P_t$, making its bias
 \begin{align*}
-    &\mathbb{E}\left[\hat{f}^{\text{SD-KDE}}\right]-f\\ &= \left[P_tT_{\frac{t}{2}\nabla f}-I\right]f\\
+    &\mathbb{E}\left[\hat{f}^{\text{SD-KDE}}\right]-f\\ &= \left[P_tT_{\frac{t}{2}\nabla \log f}-I\right]f\\
     &=
     \left[P_t\left(f - \frac{t}{2}\nabla \cdot \left(f\nabla \log f\right) + O(t^2)\right)-f\right]\\
     &=
