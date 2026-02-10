@@ -1,0 +1,76 @@
+suite:
+  name: error_suite_a100_16d
+  out_dir: file_storage/error_suite_a100_16d/${timestamp}
+  seed: 0
+  device: cuda
+  require_gpu_name_contains: null
+  hard_fail_if_not_a100: false
+  deterministic: false
+  enable_tf32: false
+  matmul_precision: high
+  cudnn_benchmark: false
+
+experiment:
+  kind: kde_correctness_logspace
+  repeats: 1
+  warmup: 1
+  timing_repeats: 1
+
+data:
+  dataset: gm_diag_16d
+  dim: 16
+  standardize: true
+  n_train: 8192
+  n_test: 4096
+  distribution_params:
+    n_components: 4
+    component_std: 1.0
+    mean_scale: 2.0
+    weights: uniform
+
+kde:
+  kernel: gaussian
+  output: log_density
+  bandwidth:
+    mode: rule_times_scale
+    rule: silverman_diag
+    scale: 1.0
+  chunking:
+    enabled: true
+    query_chunk_size: 4096
+    sample_chunk_size: 8192
+
+flash_impl:
+  enabled: true
+  precision_mode: fp32_ieee
+  kde_backend: splitk_stream
+  use_precomputed_norms: true
+  autotune: false
+  params:
+    compute_dtype: fp32
+    accumulate_dtype: fp32
+    block_q: 128
+    block_n: 128
+    num_warps: 4
+    num_stages: 2
+
+reference_impl:
+  enabled: true
+  type: torch_chunked_fp64_logspace
+  params:
+    dtype: fp64
+    use_logsumexp: true
+    tier2_fp32_if_too_slow: false
+    tier1_subsample:
+      enabled: false
+
+statistical:
+  enabled: true
+  metrics:
+    compute_nll: true
+    compute_kl: true
+    compute_log_mse: true
+    compute_ise: false
+
+checks:
+  enabled: false

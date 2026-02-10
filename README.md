@@ -44,6 +44,29 @@ Edit `plots/plot_mnist_fashion_ood_config.py` or
 make plot
 ```
 
+## Paper plots (validation)
+
+To snapshot the current paper figures and regenerate what the repo can produce,
+run:
+
+```bash
+make full_paper
+```
+
+This creates `file_storage/paper_plots/<timestamp>/baseline` (a copy of
+`paper/figures`) and `file_storage/paper_plots/<timestamp>/generated` (newly
+generated plots).
+
+To run the experiments and then regenerate *everything needed for the paper*,
+including the 16D oracle sweep, run:
+
+```bash
+make full_paper_experiments_plots
+```
+
+This target is GPU-heavy and can take a long time. It writes all regenerated
+plots to `file_storage/paper_plots/<timestamp>/generated` (not `paper/figures`).
+
 ## Legacy sweep scripts (deprecated)
 
 The root-level `run_*.sh` scripts are deprecated in this refactor. We keep
