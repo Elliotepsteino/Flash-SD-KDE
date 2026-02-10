@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flash-sd-kde"
+version = "0.1.0"
+description = "Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "scipy",
+  "torch",
+  "torchvision",
+  "triton",
+  "scikit-learn",
+  "matplotlib",
+  "pytest",
+  "gitbud",
+  "slack-results",
+  "pyyaml",
+]
+
+[tool.setuptools]
+py-modules = ["globals"]
+
+[tool.setuptools.packages.find]
+include = ["flash_sd_kde*", "kernels*"]

@@ -1,3 +1,4 @@
+# Copyright (c) 2026, Elliot Epstein.
 from __future__ import annotations
 
 import math
@@ -155,7 +156,22 @@ def gaussian_kde_triton(
     device: str | torch.device = "cuda",
     synchronize: bool = True,
 ) -> torch.Tensor:
-    """Evaluate the Gaussian KDE on the GPU using Triton."""
+    """Evaluate 1D Gaussian KDE on CUDA using a Triton fused kernel.
+
+    Arguments:
+        data: Training samples with shape `(n_train,)`.
+        queries: Query points with shape `(n_query,)`.
+        bandwidth: Positive scalar bandwidth `h`.
+        block_m: Query tile size.
+        block_n: Training tile size.
+        num_warps: Triton launch parameter.
+        num_stages: Triton launch parameter.
+        device: CUDA device (for example `"cuda"` or `"cuda:0"`).
+        synchronize: If True, calls `torch.cuda.synchronize` before returning.
+
+    Return:
+        out: Tensor of shape `(n_query,)` with KDE density values.
+    """
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
 
@@ -235,7 +251,22 @@ def gaussian_kde_triton_nd(
     device: str | torch.device = "cuda",
     synchronize: bool = True,
 ) -> torch.Tensor:
-    """Evaluate 16-D Gaussian KDE using a Tensor-Core-friendly Triton kernel."""
+    """Evaluate 16D Gaussian KDE on CUDA using Tensor-Core-friendly Triton kernels.
+
+    Arguments:
+        data: Training samples with shape `(n_train, 16)`.
+        queries: Query points with shape `(n_query, 16)`.
+        bandwidth: Positive scalar bandwidth `h`.
+        block_m: Query tile size.
+        block_n: Training tile size.
+        num_warps: Triton launch parameter.
+        num_stages: Triton launch parameter.
+        device: CUDA device (for example `"cuda"` or `"cuda:0"`).
+        synchronize: If True, calls `torch.cuda.synchronize` before returning.
+
+    Return:
+        out: Tensor of shape `(n_query,)` with KDE density values.
+    """
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
 
@@ -326,7 +357,27 @@ def gaussian_kde_score_triton(
     device: str | torch.device = "cuda",
     synchronize: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Compute KDE scores (pdf + derivative) using Triton."""
+    """Compute 1D KDE score and intermediate density terms on CUDA.
+
+    This kernel computes KDE pdf and derivative terms in one pass and returns
+    the score `d/dx log p_hat(x)` for each query.
+
+    Arguments:
+        data: Training samples with shape `(n_train,)`.
+        queries: Query points with shape `(n_query,)`.
+        bandwidth: Positive scalar bandwidth `h`.
+        block_m: Query tile size.
+        block_n: Training tile size.
+        num_warps: Triton launch parameter.
+        num_stages: Triton launch parameter.
+        device: CUDA device (for example `"cuda"` or `"cuda:0"`).
+        synchronize: If True, calls `torch.cuda.synchronize` before returning.
+
+    Return:
+        score: Tensor `(n_query,)`, KDE score values.
+        pdf: Tensor `(n_query,)`, KDE densities.
+        deriv: Tensor `(n_query,)`, KDE derivatives.
+    """
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
 

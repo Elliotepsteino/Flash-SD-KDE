@@ -1,3 +1,4 @@
+# Copyright (c) 2026, Elliot Epstein.
 from __future__ import annotations
 
 import math

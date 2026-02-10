@@ -1,20 +1,26 @@
-# Flash-SD-KDE (v2)
+# Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores
 
-This repo contains the v2 refactor of Flash SD-KDE with split-K kernels, explicit
-precision modes, and a config-driven benchmark pipeline for MNIST vs Fashion-MNIST
-OOD detection in PCA-16 space.
+Official code release for the paper `Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores`.
 
-## Layout
+![Flash-SD-KDE 16D Runtime Banner](paper/figures/runtime/runtime_16d_kde_sdkde.png)
 
-- `flash_sd_kde/` — public API wrappers, configs, utilities, and references.
-- `kernels/` — Triton kernels (split-K, symmetric atomic, reductions).
-- `benchmarks/` — config-driven benchmark entrypoints (no CLI args).
-- `plots/` — config-driven plotting + image grid generators.
-- `experiments/` — experiment pipelines (oracle suite + runtime sweeps).
-- `tests/` — pytest suites (small + large).
-- `file_storage/` — benchmark outputs and artifacts.
+## Quick Links
 
-## Environment setup (uv)
+- Experiment reproduction guide: `EXPERIMENTS.md`
+- Paper source: `paper/main.tex`
+- Minimal runnable API demo: `example.py`
+
+## Repository Layout
+
+- `flash_sd_kde/`: public API, estimator wrapper, config helpers, and references
+- `kernels/`: Triton kernel implementations
+- `benchmarks/`: benchmark entrypoints
+- `plots/`: plotting scripts
+- `experiments/`: runtime and error-suite experiment pipelines
+- `tests/`: pytest suites
+- `file_storage/`: generated artifacts and experiment outputs
+
+## Environment Setup
 
 ```bash
 uv venv .venv
@@ -22,12 +28,35 @@ source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-If you need a specific CUDA-enabled PyTorch build, install it before the
-requirements and then re-run `uv pip install -r requirements.txt`.
+If you need a specific CUDA-enabled PyTorch build, install it first, then run:
 
-## Quick API usage (sklearn-style)
+```bash
+uv pip install -r requirements.txt
+```
 
-`flash_sd_kde` now exposes a sklearn-style estimator:
+## Fresh pip Install Test (Editable)
+
+To validate local packaging (`pip install -e .`) in a clean environment:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+pip install -e .
+
+python -c "from flash_sd_kde import FlashSDKDE; print('ok')"
+```
+
+If you only want to validate packaging metadata without installing heavy dependencies:
+
+```bash
+pip install -e . --no-deps
+```
+
+## sklearn-Style API
+
+`flash_sd_kde` exposes a sklearn-style estimator wrapper:
 
 ```python
 import numpy as np
@@ -41,105 +70,95 @@ est.fit(X_train)
 log_density = est.score_samples(X_query)
 ```
 
-To run a complete minimal demo (including a quick 16D timing comparison between
-`sklearn` KDE and Flash KDE), run:
+To run the end-to-end demo (including a quick 16D timing comparison against sklearn KDE):
 
 ```bash
 .venv/bin/python example.py
 ```
 
-## Paper plots (validation)
+## Core Kernel APIs
 
-To snapshot the current paper figures and regenerate what the repo can produce,
-run:
+The low-level CUDA/Triton kernels live under `kernels.flash_sd_kde`.
 
-```bash
-make full_paper
+```python
+gaussian_kde_triton_nd(data, queries, bandwidth, block_m=64, block_n=64,
+                       num_warps=4, num_stages=2, device="cuda", synchronize=True):
+"""Evaluate 16D Gaussian KDE on CUDA using Tensor-Core-friendly Triton kernels.
+Arguments:
+    data: (n_train, 16) training samples.
+    queries: (n_query, 16) query samples.
+    bandwidth: positive scalar KDE bandwidth.
+    block_m, block_n: query/data tile sizes.
+    num_warps, num_stages: Triton launch parameters.
+    device: CUDA device.
+    synchronize: whether to synchronize before returning.
+Return:
+    out: (n_query,) tensor of KDE density values.
+"""
 ```
 
-This creates `file_storage/paper_plots/<timestamp>/baseline` (a copy of
-`paper/figures`) and `file_storage/paper_plots/<timestamp>/generated` (newly
-generated plots).
+```python
+emp_score_16d_flash_sd_kde(data, bandwidth, block_m=64, block_n=2048,
+                           num_warps=2, num_stages=2, device="cuda", synchronize=True):
+"""Compute empirical-score accumulators for SD-KDE debiasing in 16D.
+Arguments:
+    data: (n_train, 16) training samples.
+    bandwidth: positive scalar KDE bandwidth.
+    block_m, block_n: query/data tile sizes.
+    num_warps, num_stages: Triton launch parameters.
+    device: CUDA device.
+    synchronize: whether to synchronize before returning.
+Return:
+    pdf_sum: (n_train,) tensor.
+    weighted_sum: (n_train, 16) tensor.
+"""
+```
 
-To run the experiments and then regenerate *everything needed for the paper*,
-including the 16D oracle sweep, run:
+```python
+empirical_sd_kde_triton_nd(data, bandwidth, block_m=64, block_n=2048,
+                           num_warps=2, num_stages=2, device="cuda",
+                           return_tensor=False, synchronize=True):
+"""Run one-step empirical SD-KDE debiasing in 16D.
+Arguments:
+    data: (n_train, 16) training samples.
+    bandwidth: positive scalar KDE bandwidth.
+    return_tensor: return CUDA tensor if True, else numpy array.
+    synchronize: whether to synchronize before returning.
+Return:
+    debiased_data: (n_train, 16), tensor or numpy array.
+    bandwidth: scalar bandwidth used.
+"""
+```
+
+## Paper Reproduction
+
+For full reproduction commands in paper figure order, see:
+
+- `EXPERIMENTS.md`
+
+One-command full run:
 
 ```bash
 make full_paper_experiments_plots
 ```
 
-This target is GPU-heavy and can take a long time. It writes only the plots
-used by the paper to `file_storage/paper_plots/<timestamp>/generated` (not
-`paper/figures`).
+## 16D Runtime Plot for README
 
-To copy the generated plots into `paper/figures`, run:
+The 16D runtime target now writes both PDF and PNG:
 
 ```bash
-make paper.figures.sync PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
-```
-
-## Paper figure commands (in order)
-
-The list below follows the LaTeX figure order in the paper. For each figure,
-replace `<ts>` with a timestamp of your choice (e.g., `20260210_120000`) to keep
-outputs together in `file_storage/paper_plots/<ts>/generated`.
-
-1. **Figure 1** — 16D runtime comparison (`runtime_16d_kde_sdkde.pdf`)
-```bash
-make run.nd_runtime_sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> RUNTIME_FIG_DIR=file_storage/paper_plots/<ts>/generated
-```
-2. **Figure 2** — 16D oracle error (`fig_oracle_error_vs_n_16d.pdf/png`)
-```bash
-make oracle_16d_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
-```
-3. **Figure 3** — 1D oracle error (`fig_oracle_error_vs_n_1d.pdf/png`)
-```bash
-make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
-```
-4. **Figure 4** — 1D fused vs non‑fused runtime (`fig_fused_vs_nonfused_runtime.pdf/png`)
-```bash
-make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
-```
-5. **Figure 5** — 16D utilization (`util_16d_sdkde_tensorcore.pdf`)
-```bash
-make run.triton_sd_kde_nd PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> RUNTIME_FIG_DIR=file_storage/paper_plots/<ts>/generated
-```
-6. **Figure 6** — 1D runtime appendix (`runtime_1d_kde_sdkde.pdf`)
-```bash
-make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> RUNTIME_FIG_DIR=file_storage/paper_plots/<ts>/generated
-```
-7. **Figure 7** — 1D utilization appendix (`util_1d_empirical_sdkde.pdf`)
-```bash
-make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> RUNTIME_FIG_DIR=file_storage/paper_plots/<ts>/generated
-```
-8. **Appendix oracle plot** — reuses Figure 2 (`fig_oracle_error_vs_n_16d.pdf/png`)
-```bash
-make oracle_16d_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
-```
-
-To generate all figures in one go, use:
-
-```bash
-make full_paper_experiments_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
-```
-
-## Runtime sweep scripts
-
-Runtime sweep scripts live under `experiments/configs/runtime/` and emit logs
-to `file_storage/runtime_sweeps/` (by default). The Makefile targets below call
-them and regenerate the corresponding plots.
-
-```bash
-make run.sweep
 make run.nd_runtime_sweep
-make run.triton_scaling
-make run.triton_sd_kde_nd
 ```
 
-To compare the 16D empirical score kernels at `n_train=32768`:
+Generated files:
 
-```bash
-make bench.emp_score_kernel_speed
+- `paper/figures/runtime/runtime_16d_kde_sdkde.pdf`
+- `paper/figures/runtime/runtime_16d_kde_sdkde.png`
+
+You can reference the PNG directly in markdown:
+
+```markdown
+![16D Runtime Plot](paper/figures/runtime/runtime_16d_kde_sdkde.png)
 ```
 
 ## Tests
@@ -148,26 +167,3 @@ make bench.emp_score_kernel_speed
 make test.small
 make test.large
 ```
-
-## Running the benchmark
-
-Edit `benchmarks/mnist_fashion_pca16_ood_config.py` to change seeds, sizes,
-or backend variants (all backends run by default). Then run:
-
-```bash
-make bench.mnist_ood
-```
-
-Outputs land in `file_storage/benchmarks/mnist_fashion_pca16_ood/<run_id>/`.
-
-## Plotting and grids
-
-Edit `plots/plot_mnist_fashion_ood_config.py` or
-`plots/save_density_ranked_grids_config.py`, then:
-
-```bash
-make plot
-```
-
-
-The large suite assumes CUDA is available; tests will skip if not.

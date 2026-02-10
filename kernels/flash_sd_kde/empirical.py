@@ -1,3 +1,4 @@
+# Copyright (c) 2026, Elliot Epstein.
 from __future__ import annotations
 
 from typing import Sequence
@@ -141,7 +142,26 @@ def emp_score_16d_flash_sd_kde(
     device: str | torch.device = "cuda",
     synchronize: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Compute empirical SD-KDE pdf and weighted sums using the flash kernel."""
+    """Compute 16D empirical-score accumulators used by SD-KDE debiasing.
+
+    For each training point `x_i`, this computes:
+    - `pdf_sum[i] = sum_j exp(-||x_i - x_j||^2 / (2 h^2))`
+    - `weighted_sum[i] = sum_j exp(-||x_i - x_j||^2 / (2 h^2)) * x_j`
+
+    Arguments:
+        data: Training samples with shape `(n_train, 16)`.
+        bandwidth: Positive scalar bandwidth `h`.
+        block_m: Query tile size.
+        block_n: Training tile size.
+        num_warps: Triton launch parameter.
+        num_stages: Triton launch parameter.
+        device: CUDA device.
+        synchronize: If True, calls `torch.cuda.synchronize` before returning.
+
+    Return:
+        pdf_sum: Tensor `(n_train,)`.
+        weighted_sum: Tensor `(n_train, 16)`.
+    """
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
 
@@ -215,7 +235,23 @@ def empirical_sd_kde_triton_nd(
     return_tensor: bool = False,
     synchronize: bool = True,
 ) -> tuple[torch.Tensor | np.ndarray, float]:
-    """Empirical SD-KDE debiasing in 16-D using flash SD-KDE kernels."""
+    """Run one-step 16D empirical SD-KDE debiasing on CUDA.
+
+    Arguments:
+        data: Training samples with shape `(n_train, 16)`.
+        bandwidth: Positive scalar bandwidth `h`.
+        block_m: Query tile size.
+        block_n: Training tile size.
+        num_warps: Triton launch parameter.
+        num_stages: Triton launch parameter.
+        device: CUDA device.
+        return_tensor: If True, return CUDA tensor output; else return numpy.
+        synchronize: If True, calls `torch.cuda.synchronize` before returning.
+
+    Return:
+        debiased_data: Shape `(n_train, 16)` as tensor or numpy array.
+        bandwidth: The same input bandwidth `h`.
+    """
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
 
@@ -262,7 +298,25 @@ def empirical_sd_kde_triton(
     return_tensor: bool = False,
     synchronize: bool = True,
 ) -> tuple[torch.Tensor | np.ndarray, float]:
-    """One-step empirical SD-KDE debiasing performed on the GPU."""
+    """Run one-step 1D empirical SD-KDE debiasing on CUDA.
+
+    This path estimates a 1D bandwidth from input data, computes KDE score at
+    training points, and applies the one-step SD correction.
+
+    Arguments:
+        data: Training samples with shape `(n_train,)`.
+        block_m: Query tile size.
+        block_n: Training tile size.
+        num_warps: Triton launch parameter.
+        num_stages: Triton launch parameter.
+        device: CUDA device.
+        return_tensor: If True, return CUDA tensor output; else return numpy.
+        synchronize: If True, calls `torch.cuda.synchronize` before returning.
+
+    Return:
+        debiased_data: Shape `(n_train,)` as tensor or numpy array.
+        bandwidth: Scalar Silverman-style bandwidth used internally.
+    """
     if isinstance(data, torch.Tensor):
         host_array = data.detach().cpu().numpy().astype(np.float32, copy=False)
     else:

@@ -63,6 +63,7 @@ run.nd_runtime_sweep:
 	mkdir -p $(RUNTIME_LOG_DIR) $(RUNTIME_FIG_DIR)
 	bash $(RUNTIME_CFG_DIR)/run_nd_runtime_sweep.sh $(RUNTIME_LOG_DIR)/nd_runtime.log
 	$(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(RUNTIME_FIG_DIR)/runtime_16d_kde_sdkde.pdf
+	$(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(RUNTIME_FIG_DIR)/runtime_16d_kde_sdkde.png
 
 run.triton_scaling:
 	mkdir -p $(RUNTIME_LOG_DIR) $(RUNTIME_FIG_DIR)
@@ -84,6 +85,7 @@ plots.runtime:
 	fi
 	@if [ -f $(RUNTIME_LOG_DIR)/nd_runtime.log ]; then \
 	  $(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(RUNTIME_FIG_DIR)/runtime_16d_kde_sdkde.pdf; \
+	  $(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(RUNTIME_FIG_DIR)/runtime_16d_kde_sdkde.png; \
 	else \
 	  echo "Missing $(RUNTIME_LOG_DIR)/nd_runtime.log; skipping 16D runtime plot."; \
 	fi
@@ -103,6 +105,7 @@ plots.runtime.from_logs:
 	$(PY) $(RUNTIME_DIR)/plot_flash_sd_kde.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(RUNTIME_FIG_DIR)/runtime_1d_kde_sdkde.pdf
 	$(PY) $(RUNTIME_DIR)/plot_emp_sd_kde_util.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(RUNTIME_FIG_DIR)/util_1d_empirical_sdkde.pdf
 	$(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(RUNTIME_FIG_DIR)/runtime_16d_kde_sdkde.pdf
+	$(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(RUNTIME_FIG_DIR)/runtime_16d_kde_sdkde.png
 	$(PY) $(RUNTIME_DIR)/plot_triton_large_util.py --log $(RUNTIME_LOG_DIR)/triton_scaling.log --output $(RUNTIME_FIG_DIR)/util_1d_triton_scaling.pdf
 	$(PY) $(RUNTIME_DIR)/plot_triton_sd_kde_nd_util.py --log $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log --output $(RUNTIME_FIG_DIR)/util_16d_sdkde_tensorcore.pdf
 
@@ -137,6 +140,7 @@ full_paper:
 	fi
 	@if [ -f $(RUNTIME_LOG_DIR)/nd_runtime.log ]; then \
 	  $(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(PAPER_PLOTS_OUT)/runtime_16d_kde_sdkde.pdf; \
+	  $(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(PAPER_PLOTS_OUT)/runtime_16d_kde_sdkde.png; \
 	else \
 	  echo "Missing $(RUNTIME_LOG_DIR)/nd_runtime.log; skipping 16D runtime plot."; \
 	fi

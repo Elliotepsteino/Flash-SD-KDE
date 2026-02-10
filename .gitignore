@@ -4,6 +4,8 @@ __pycache__/
 *.pyo
 *.pyd
 .venv/
+.venv-pip-test/
+*.egg-info/
 
 # Outputs
 file_storage
@@ -12,4 +14,3 @@ external_kernels/
 
 # OS
 .DS_Store
-
