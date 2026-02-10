@@ -83,7 +83,7 @@ def plot(rows: List[Dict[str, float]], output: Path):
     plt.xticks(idx, ticks, rotation=45, ha="right")
     plt.ylabel("Average runtime (ms, log scale)")
     plt.xlabel("$n_{\\text{train}}$ (samples)", fontsize=12)
-    plt.title("1-D KDE / SD-KDE Runtime Comparison")
+    plt.title("1-D KDE / Flash-SD-KDE Runtime Comparison")
     plt.legend()
     plt.tight_layout()
     plt.savefig(output, bbox_inches="tight")

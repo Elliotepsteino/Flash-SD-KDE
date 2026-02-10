@@ -130,7 +130,7 @@ def plot_runtime(rows: List[Dict[str, float]], output: Path):
     plt.xticks(idx, [f"{int(k):d}" for k in ks], rotation=45, ha="right")
     plt.xlabel("$n_{\\text{train}}$ (samples)", fontsize=12)
     plt.ylabel("Runtime (ms)")
-    plt.title("16-D KDE / SD-KDE Runtime Comparison")
+    plt.title("16-D KDE / Flash-SD-KDE Runtime Comparison")
     plt.yscale("log")
     plt.grid(True, axis="y", linestyle="--", alpha=0.4)
     plt.legend()
