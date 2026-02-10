@@ -2,7 +2,7 @@
 
 Official code release for the paper `Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores`.
 
-![Flash-SD-KDE 16D Runtime Banner](paper/figures/runtime/runtime_16d_kde_sdkde.png)
+![Flash-SD-KDE 16D Runtime Banner](https://raw.githubusercontent.com/Elliotepsteino/Flash-SD-KDE/main/paper/figures/runtime/runtime_16d_kde_sdkde.png)
 
 ## Quick Links
 

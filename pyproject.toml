@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flash-sd-kde"
-version = "0.1.0"
+version = "0.1.1"
 description = "Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores"
 readme = "README.md"
 requires-python = ">=3.10"
