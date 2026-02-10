@@ -483,9 +483,9 @@ def plot_oracle_mise_miae_vs_n(rows: list[dict[str, Any]], output_dir: Path) -> 
         ncol=2,
         fontsize=7 if _DEFAULT_PLOT_CONFIG is None else max(6, _DEFAULT_PLOT_CONFIG.font_size - 2),
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.02),
+        bbox_to_anchor=(0.5, -0.12),
     )
-    fig.subplots_adjust(bottom=0.28, top=0.84, wspace=0.3)
+    fig.subplots_adjust(bottom=0.38, top=0.84, wspace=0.3)
 
     path = output_dir / "fig_oracle_error_vs_n_16d"
     _save(fig, path.with_suffix(".pdf"))
