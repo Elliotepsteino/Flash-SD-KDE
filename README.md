@@ -10,6 +10,7 @@ OOD detection in PCA-16 space.
 - `kernels/` — Triton kernels (split-K, symmetric atomic, reductions).
 - `benchmarks/` — config-driven benchmark entrypoints (no CLI args).
 - `plots/` — config-driven plotting + image grid generators.
+- `experiments/` — experiment pipelines (oracle suite + runtime sweeps).
 - `tests/` — pytest suites (small + large).
 - `file_storage/` — benchmark outputs and artifacts.
 
@@ -23,6 +24,29 @@ uv pip install -r requirements.txt
 
 If you need a specific CUDA-enabled PyTorch build, install it before the
 requirements and then re-run `uv pip install -r requirements.txt`.
+
+## Quick API usage (sklearn-style)
+
+`flash_sd_kde` now exposes a sklearn-style estimator:
+
+```python
+import numpy as np
+from flash_sd_kde import FlashSDKDE
+
+X_train = np.random.randn(4096, 16).astype(np.float32)
+X_query = np.random.randn(1024, 16).astype(np.float32)
+
+est = FlashSDKDE(mode="kde", bandwidth="silverman", device="cuda")
+est.fit(X_train)
+log_density = est.score_samples(X_query)
+```
+
+To run a complete minimal demo (including a quick 16D timing comparison between
+`sklearn` KDE and Flash KDE), run:
+
+```bash
+.venv/bin/python example.py
+```
 
 ## Paper plots (validation)
 
@@ -62,7 +86,7 @@ outputs together in `file_storage/paper_plots/<ts>/generated`.
 
 1. **Figure 1** — 16D runtime comparison (`runtime_16d_kde_sdkde.pdf`)
 ```bash
-make run.nd_runtime_sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
+make run.nd_runtime_sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> RUNTIME_FIG_DIR=file_storage/paper_plots/<ts>/generated
 ```
 2. **Figure 2** — 16D oracle error (`fig_oracle_error_vs_n_16d.pdf/png`)
 ```bash
@@ -78,15 +102,15 @@ make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
 ```
 5. **Figure 5** — 16D utilization (`util_16d_sdkde_tensorcore.pdf`)
 ```bash
-make run.triton_sd_kde_nd PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
+make run.triton_sd_kde_nd PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> RUNTIME_FIG_DIR=file_storage/paper_plots/<ts>/generated
 ```
 6. **Figure 6** — 1D runtime appendix (`runtime_1d_kde_sdkde.pdf`)
 ```bash
-make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
+make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> RUNTIME_FIG_DIR=file_storage/paper_plots/<ts>/generated
 ```
 7. **Figure 7** — 1D utilization appendix (`util_1d_empirical_sdkde.pdf`)
 ```bash
-make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
+make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> RUNTIME_FIG_DIR=file_storage/paper_plots/<ts>/generated
 ```
 8. **Appendix oracle plot** — reuses Figure 2 (`fig_oracle_error_vs_n_16d.pdf/png`)
 ```bash
@@ -99,17 +123,23 @@ To generate all figures in one go, use:
 make full_paper_experiments_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
 ```
 
-## Legacy sweep scripts (deprecated)
+## Runtime sweep scripts
 
-The root-level `run_*.sh` scripts are deprecated in this refactor. We keep
-Makefile targets with matching names for compatibility; they exit with a
-message pointing you to the supported `bench.*` and `plot.*` targets.
+Runtime sweep scripts live under `experiments/configs/runtime/` and emit logs
+to `file_storage/runtime_sweeps/` (by default). The Makefile targets below call
+them and regenerate the corresponding plots.
 
 ```bash
 make run.sweep
 make run.nd_runtime_sweep
 make run.triton_scaling
 make run.triton_sd_kde_nd
+```
+
+To compare the 16D empirical score kernels at `n_train=32768`:
+
+```bash
+make bench.emp_score_kernel_speed
 ```
 
 ## Tests
