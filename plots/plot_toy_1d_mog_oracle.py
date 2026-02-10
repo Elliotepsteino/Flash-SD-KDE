@@ -2,7 +2,9 @@ from gitbud.gitbud import inject_repo_into_sys_path
 
 inject_repo_into_sys_path()
 
+from dataclasses import replace
 from pathlib import Path
+import os
 import shutil
 from typing import Dict
 
@@ -118,9 +120,10 @@ def plot_error_vs_n(output_dir: Path, results: Dict, *, dpi: int) -> None:
     fig.tight_layout(rect=(0, 0.12, 1, 1))
     _save_fig(fig, output_dir / "fig_oracle_error_vs_n.pdf", dpi)
     _save_fig(fig, output_dir / "fig_oracle_error_vs_n.png", dpi)
-    paper_fig = Path(ensure_repo()) / "paper" / "figures" / "fig_oracle_error_vs_n.pdf"
-    paper_fig.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(output_dir / "fig_oracle_error_vs_n.pdf", paper_fig)
+    if os.getenv("TOY_1D_DISABLE_PAPER_COPY") != "1":
+        paper_fig = Path(ensure_repo()) / "paper" / "figures" / "fig_oracle_error_vs_n.pdf"
+        paper_fig.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(output_dir / "fig_oracle_error_vs_n.pdf", paper_fig)
     plt.close(fig)
 
 
@@ -263,8 +266,16 @@ def plot_fused_vs_nonfused_runtime(output_dir: Path, results: Dict, *, dpi: int)
 
 def main() -> None:
     config = Toy1dMoGOraclePlotConfig()
+    results_override = os.getenv("TOY_1D_RESULTS_DIR")
+    if results_override:
+        config = replace(config, results_dir=results_override)
     results_dir = _resolve_results_dir(config)
-    output_dir = results_dir / config.output_subdir
+    output_override = os.getenv("TOY_1D_OUTPUT_DIR")
+    if output_override:
+        output_dir = Path(output_override)
+    else:
+        output_dir = results_dir / config.output_subdir
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     results = read_json(results_dir / "results.json")
     densities_path = results_dir / "densities_curves.npz"

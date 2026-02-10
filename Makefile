@@ -140,24 +140,10 @@ full_paper:
 	  echo "Missing $(LOG_DIR)/triton_sd_kde_nd.log; skipping 16D utilization plot."; \
 	fi
 	@$(PY) scripts/full_paper_collect.py --output "$(PAPER_PLOTS_OUT)"
-	@if [ ! -f $(PAPER_PLOTS_OUT)/fig_oracle_error_vs_n.png ]; then \
-	  if [ -f $(PAPER_DIR)/figures/fig_oracle_error_vs_n.png ]; then \
-	    cp -a $(PAPER_DIR)/figures/fig_oracle_error_vs_n.png $(PAPER_PLOTS_OUT)/; \
-	  else \
-	    echo "Missing paper/figures/fig_oracle_error_vs_n.png; skipping 16D oracle PNG."; \
-	  fi; \
-	fi
-	@if [ ! -f $(PAPER_PLOTS_OUT)/oracle_16d_mise_miae_vs_n.pdf ]; then \
-	  if [ -f $(PAPER_DIR)/figures/oracle_16d_mise_miae_vs_n.pdf ]; then \
-	    cp -a $(PAPER_DIR)/figures/oracle_16d_mise_miae_vs_n.pdf $(PAPER_PLOTS_OUT)/; \
-	  else \
-	    echo "Missing paper/figures/oracle_16d_mise_miae_vs_n.pdf; skipping 16D oracle appendix plot."; \
-	  fi; \
-	fi
 
 full_paper_experiments_plots:
 	@echo "Running experiments needed for paper plots (may take significant time/GPU)."
 	$(MAKE) run.sweep run.nd_runtime_sweep run.triton_sd_kde_nd LEGACY_FIG_DIR=$(PAPER_PLOTS_OUT) PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
-	$(MAKE) bench.toy_1d_oracle plot.toy_1d_oracle PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
+	$(MAKE) bench.toy_1d_oracle PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
 	$(PY) -m experiments.error_suite_a100_16d.sweep --config configs/error_suite_a100_16d/grid_oracle_mog_16d.yaml
 	$(MAKE) full_paper PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)

@@ -2,9 +2,11 @@ from gitbud.gitbud import inject_repo_into_sys_path
 
 inject_repo_into_sys_path()
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 import csv
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -300,12 +302,19 @@ def make_table(rows: list[dict[str, Any]], output_dir: Path, config: ErrorSuiteP
 
 def main() -> None:
     config = ErrorSuitePlotConfig()
+    results_override = os.getenv("ERROR_SUITE_RESULTS_DIR")
+    if results_override:
+        config = replace(config, results_dir=results_override)
     _setup_style(config)
 
     results_dir = _resolve_results_dir(config)
     rows = _filter_rows(_load_rows(results_dir), config)
 
-    output_dir = results_dir / config.output_subdir
+    output_override = os.getenv("ERROR_SUITE_OUTPUT_DIR")
+    if output_override:
+        output_dir = Path(output_override)
+    else:
+        output_dir = results_dir / config.output_subdir
     output_dir.mkdir(parents=True, exist_ok=True)
 
     plot_error_vs_bandwidth(rows, output_dir, config)
