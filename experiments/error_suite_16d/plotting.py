@@ -10,7 +10,7 @@ import csv
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import LogFormatterMathtext, ScalarFormatter
+from matplotlib.ticker import FixedLocator, FuncFormatter, NullFormatter, NullLocator
 
 from experiments.error_suite_16d.pareto import pareto_frontier
 
@@ -122,6 +122,37 @@ def _metric_label(metric: str) -> str:
     if metric == "rmse_log_err":
         return "RMSE log p"
     return metric
+
+
+def _one_times_ten_formatter(value: float, _pos: int) -> str:
+    """Format ticks as c x 10^k with uniform mathtext."""
+    if value <= 0:
+        return ""
+    exp = np.log10(value)
+    if not np.isfinite(exp):
+        return ""
+    exponent = int(np.floor(exp))
+    coeff = value / (10.0**exponent)
+    coeff_rounded = round(float(coeff), 1)
+    coeff_str = f"{coeff_rounded:.1f}"
+    return rf"${coeff_str}\times10^{{{exponent}}}$"
+
+
+def _rounded_log_ticks(ymin: float, ymax: float, count: int = 5) -> np.ndarray:
+    raw = np.geomspace(ymin, ymax, count)
+    rounded: list[float] = []
+    for value in raw:
+        exp = int(np.floor(np.log10(value)))
+        coeff = value / (10.0**exp)
+        coeff = round(float(coeff), 1)
+        if coeff >= 10.0:
+            coeff = 1.0
+            exp += 1
+        rounded.append(coeff * (10.0**exp))
+    rounded_arr = np.asarray(rounded, dtype=float)
+    if np.any(np.diff(rounded_arr) <= 0):
+        return raw
+    return rounded_arr
 
 
 def _aggregate_by_method(
@@ -425,6 +456,8 @@ def plot_oracle_mise_miae_vs_n(rows: list[dict[str, Any]], output_dir: Path) -> 
     legend_handles = {}
     band_scale = 1.0
     band_alpha = 0.06
+    y_lows: dict[int, list[float]] = {0: [], 1: []}
+    y_highs: dict[int, list[float]] = {0: [], 1: []}
     for method in METHOD_ORDER:
         if method not in mise_by_method or method not in miae_by_method:
             continue
@@ -436,41 +469,63 @@ def plot_oracle_mise_miae_vs_n(rows: list[dict[str, Any]], output_dir: Path) -> 
         counts_arr = np.maximum(1.0, np.asarray(counts, dtype=float))
         errs = np.asarray(stds) / np.sqrt(counts_arr)
         line = axes[0].plot(xs, means, color=color, label=label, **style)[0]
+        lower = np.maximum(1e-30, np.array(means) - band_scale * errs)
+        upper = np.array(means) + band_scale * errs
         axes[0].fill_between(
             xs,
-            np.maximum(1e-30, np.array(means) - band_scale * errs),
-            np.array(means) + band_scale * errs,
+            lower,
+            upper,
             color=color,
             alpha=band_alpha,
         )
+        y_lows[0].append(float(np.min(lower)))
+        y_highs[0].append(float(np.max(upper)))
         legend_handles.setdefault(label, line)
 
         xs, means, stds, counts = miae_by_method[method]
         counts_arr = np.maximum(1.0, np.asarray(counts, dtype=float))
         errs = np.asarray(stds) / np.sqrt(counts_arr)
         line = axes[1].plot(xs, means, color=color, label=label, **style)[0]
+        lower = np.maximum(1e-30, np.array(means) - band_scale * errs)
+        upper = np.array(means) + band_scale * errs
         axes[1].fill_between(
             xs,
-            np.maximum(1e-30, np.array(means) - band_scale * errs),
-            np.array(means) + band_scale * errs,
+            lower,
+            upper,
             color=color,
             alpha=band_alpha,
         )
+        y_lows[1].append(float(np.min(lower)))
+        y_highs[1].append(float(np.max(upper)))
         legend_handles.setdefault(label, line)
 
-    for ax, metric, title in zip(
+    for idx, (ax, metric, title) in enumerate(zip(
         axes,
         ["MISE", "MIAE"],
         [
             r"Oracle error vs $n_{\mathrm{train}}$:" "\n" "Mean Integrated Squared Error",
             r"Oracle error vs $n_{\mathrm{train}}$:" "\n" "Mean Integrated Absolute Error",
         ],
-    ):
+    )):
         ax.set_xlabel(r"$n_{\mathrm{train}}$")
         ax.set_ylabel(metric)
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.yaxis.set_major_formatter(LogFormatterMathtext())
+        if y_lows[idx] and y_highs[idx]:
+            data_min = max(1e-30, min(y_lows[idx]))
+            data_max = max(data_min * 1.001, max(y_highs[idx]))
+            log_min = np.log10(data_min)
+            log_max = np.log10(data_max)
+            pad_decades = max(0.03, 0.05 * (log_max - log_min))
+            ax.set_ylim(10.0 ** (log_min - pad_decades), 10.0 ** (log_max + pad_decades))
+            major_ticks = _rounded_log_ticks(data_min, data_max, 5)
+        else:
+            ymin, ymax = ax.get_ylim()
+            major_ticks = _rounded_log_ticks(ymin, ymax, 5)
+        ax.yaxis.set_major_locator(FixedLocator(major_ticks))
+        ax.yaxis.set_minor_locator(NullLocator())
+        ax.yaxis.set_major_formatter(FuncFormatter(_one_times_ten_formatter))
+        ax.yaxis.set_minor_formatter(NullFormatter())
         ax.grid(alpha=0.2, linestyle="--")
         ax.set_title(title)
         tick_size = 7 if _DEFAULT_PLOT_CONFIG is None else max(6, _DEFAULT_PLOT_CONFIG.font_size - 2)
