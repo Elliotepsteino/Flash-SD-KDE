@@ -395,6 +395,7 @@ def benchmark_triton_kde_multid(
     *,
     device: str = "cuda",
     bandwidth: float | None = None,
+    baseline_seed_only: bool = False,
 ) -> None:
     """Benchmark 16-D Triton KDE vs sklearn baseline."""
     if KernelDensity is None:
@@ -415,7 +416,7 @@ def benchmark_triton_kde_multid(
     speedups = []
     warmup_done = False
 
-    for seed in seeds:
+    for seed_idx, seed in enumerate(seeds):
         np.random.seed(seed)
         train = sample_gaussian_mixture_16d(n_train)
         np.random.seed(seed + 10_000)
@@ -423,8 +424,10 @@ def benchmark_triton_kde_multid(
 
         bw = bandwidth or silverman_bandwidth_nd(train)
 
-        sk_vals, sk_time = _sklearn_kde_nd(train, queries, bw)
-        sklearn_times.append(sk_time)
+        sk_vals = None
+        if not (baseline_seed_only and seed_idx > 0):
+            sk_vals, sk_time = _sklearn_kde_nd(train, queries, bw)
+            sklearn_times.append(sk_time)
 
         if not warmup_done:
             gaussian_kde_triton_nd(train, queries, bw, device=device, synchronize=True)
@@ -438,36 +441,37 @@ def benchmark_triton_kde_multid(
         torch.cuda.synchronize(torch_device)
         tri_time = time.perf_counter() - start
 
-        tri_np = tri_vals.detach().cpu().numpy()
-        max_delta = np.max(np.abs(sk_vals - tri_np))
-        mean_delta = np.mean(np.abs(sk_vals - tri_np))
-        rel_l2 = np.linalg.norm(sk_vals - tri_np) / (np.linalg.norm(sk_vals) + 1e-12)
-
         triton_times.append(tri_time)
-        deltas.append((max_delta, mean_delta, rel_l2))
-        speedups.append(sk_time / tri_time if tri_time > 0 else float("inf"))
-
-        print(
-            f"  Seed {seed}: sklearn={sk_time*1e3:.2f} ms, "
-            f"Triton={tri_time*1e3:.2f} ms "
-            f"(speedup={speedups[-1]:.2f}x, Δmax={max_delta:.3e}, rel-L2={rel_l2:.3e})"
-        )
+        tri_np = tri_vals.detach().cpu().numpy()
+        if sk_vals is not None:
+            max_delta = np.max(np.abs(sk_vals - tri_np))
+            mean_delta = np.mean(np.abs(sk_vals - tri_np))
+            rel_l2 = np.linalg.norm(sk_vals - tri_np) / (np.linalg.norm(sk_vals) + 1e-12)
+            deltas.append((max_delta, mean_delta, rel_l2))
+            speedups.append(sk_time / tri_time if tri_time > 0 else float("inf"))
+            print(
+                f"  Seed {seed}: sklearn={sk_time*1e3:.2f} ms, "
+                f"Triton={tri_time*1e3:.2f} ms "
+                f"(speedup={speedups[-1]:.2f}x, Δmax={max_delta:.3e}, rel-L2={rel_l2:.3e})"
+            )
+        else:
+            print(f"  Seed {seed}: Triton={tri_time*1e3:.2f} ms (baseline skipped)")
 
     avg_tri = np.mean(triton_times)
-    avg_sk = np.mean(sklearn_times)
-    avg_speed = np.mean(speedups)
-    delta_arr = np.array(deltas, dtype=float)
-    max_delta, mean_delta, rel_l2 = delta_arr.mean(axis=0)
-
+    avg_sk = np.mean(sklearn_times) if sklearn_times else float("nan")
+    avg_speed = np.mean(speedups) if speedups else float("nan")
     print("-" * 80)
     print(
         f"[16D KDE] avg sklearn={avg_sk*1e3:.2f} ms, "
         f"avg Triton={avg_tri*1e3:.2f} ms, "
         f"speedup={avg_speed:.2f}x"
     )
-    print(
-        f"[16D KDE] Δmax={max_delta:.3e}, Δmean={mean_delta:.3e}, rel-L2={rel_l2:.3e}"
-    )
+    if deltas:
+        delta_arr = np.array(deltas, dtype=float)
+        max_delta, mean_delta, rel_l2 = delta_arr.mean(axis=0)
+        print(
+            f"[16D KDE] Δmax={max_delta:.3e}, Δmean={mean_delta:.3e}, rel-L2={rel_l2:.3e}"
+        )
 
 
 def benchmark_empirical_sd_kde_multid(
@@ -478,6 +482,7 @@ def benchmark_empirical_sd_kde_multid(
     device: str = "cuda",
     bandwidth: float | None = None,
     torch_baseline: bool = True,
+    baseline_seed_only: bool = False,
 ) -> None:
     """Benchmark 16-D SD-KDE (Torch vs Triton)."""
     torch_device = torch.device(device)
@@ -497,7 +502,7 @@ def benchmark_empirical_sd_kde_multid(
     torch_warmup_done = False
     triton_warmup_done = False
 
-    for seed in seeds:
+    for seed_idx, seed in enumerate(seeds):
         np.random.seed(seed)
         train = sample_gaussian_mixture_16d(n_train)
         np.random.seed(seed + 10_000)
@@ -505,7 +510,8 @@ def benchmark_empirical_sd_kde_multid(
 
         bw = bandwidth or silverman_bandwidth_nd(train)
 
-        if torch_baseline and not torch_warmup_done:
+        use_torch_baseline = torch_baseline and not (baseline_seed_only and seed_idx > 0)
+        if use_torch_baseline and not torch_warmup_done:
             _torch_sd_kde_nd(train, queries, bw, device=device)
             torch_warmup_done = True
 
@@ -526,7 +532,7 @@ def benchmark_empirical_sd_kde_multid(
             )
             triton_warmup_done = True
 
-        if torch_baseline:
+        if use_torch_baseline:
             torch_vals, torch_time = _torch_sd_kde_nd(
                 train, queries, bw, device=device
             )
@@ -545,7 +551,7 @@ def benchmark_empirical_sd_kde_multid(
 
         times_triton.append(tri_time)
 
-        if torch_baseline:
+        if use_torch_baseline:
             max_delta = np.max(np.abs(torch_vals - tri_vals))
             mean_delta = np.mean(np.abs(torch_vals - tri_vals))
             rel_l2 = np.linalg.norm(torch_vals - tri_vals) / (
@@ -560,24 +566,25 @@ def benchmark_empirical_sd_kde_multid(
                 f"(speedup={speed:.2f}x, Δmax={max_delta:.3e}, rel-L2={rel_l2:.3e})"
             )
         else:
-            print(f"  Seed {seed}: Triton={tri_time*1e3:.2f} ms")
+            print(f"  Seed {seed}: Triton={tri_time*1e3:.2f} ms (baseline skipped)")
 
     print("-" * 80)
     avg_triton = np.mean(times_triton)
-    if torch_baseline:
+    if torch_baseline and times_torch:
         avg_torch = np.mean(times_torch)
-        avg_speed = np.mean(speedups)
-        delta_arr = np.array(deltas, dtype=float)
-        max_delta, mean_delta, rel_l2 = delta_arr.mean(axis=0)
+        avg_speed = np.mean(speedups) if speedups else float("nan")
         print(
             f"[16D SD-KDE] avg Torch={avg_torch*1e3:.2f} ms, "
             f"avg Triton={avg_triton*1e3:.2f} ms, "
             f"speedup={avg_speed:.2f}x"
         )
-        print(
-            f"[16D SD-KDE] Δmax={max_delta:.3e}, Δmean={mean_delta:.3e}, "
-            f"rel-L2={rel_l2:.3e}"
-        )
+        if deltas:
+            delta_arr = np.array(deltas, dtype=float)
+            max_delta, mean_delta, rel_l2 = delta_arr.mean(axis=0)
+            print(
+                f"[16D SD-KDE] Δmax={max_delta:.3e}, Δmean={mean_delta:.3e}, "
+                f"rel-L2={rel_l2:.3e}"
+            )
     else:
         print(
             f"[16D SD-KDE] Triton-only avg runtime={avg_triton*1e3:.2f} ms "
@@ -895,6 +902,11 @@ def main():
         help="Optional fixed bandwidth for the 16-D benchmark.",
     )
     parser.add_argument(
+        "--baseline-seed-only",
+        action="store_true",
+        help="Compute baseline/Δ metrics only for the first seed.",
+    )
+    parser.add_argument(
         "--emp-kernel-only",
         action="store_true",
         help="Benchmark only the Triton empirical SD-KDE kernel and exit.",
@@ -927,6 +939,7 @@ def main():
             n_test=args.n_test,
             device=args.device,
             bandwidth=args.multi_d_bandwidth,
+            baseline_seed_only=args.baseline_seed_only,
         )
         return
     if args.multi_d_sd:
@@ -937,6 +950,7 @@ def main():
             device=args.device,
             bandwidth=args.multi_d_bandwidth,
             torch_baseline=not args.sd_nd_triton_only,
+            baseline_seed_only=args.baseline_seed_only,
         )
         return
 
