@@ -6,22 +6,22 @@ metrics against ground truth, and Pareto analysis.
 ## Single run
 
 ```bash
-python -m experiments.error_suite_a100_16d.run --config configs/error_suite_a100_16d/default.yaml
+python -m experiments.error_suite_16d.run --config configs/error_suite_16d/default.yaml
 ```
 
 ## Sweep
 
 ```bash
-python -m experiments.error_suite_a100_16d.sweep --config configs/error_suite_a100_16d/grid_pareto_16d.yaml
+python -m experiments.error_suite_16d.sweep --config configs/error_suite_16d/grid_pareto_16d.yaml
 ```
 
 ## Oracle error (16D MoG)
 
 ```bash
-python -m experiments.error_suite_a100_16d.sweep --config configs/error_suite_a100_16d/grid_oracle_mog_16d.yaml
+python -m experiments.error_suite_16d.sweep --config configs/error_suite_16d/grid_oracle_mog_16d.yaml
 ```
 
 Generates `fig_oracle_error_vs_n_16d.pdf/png` with KDE, fused Laplace,
 non-fused Laplace, and Emp-SD-KDE.
 
-Outputs land in `file_storage/error_suite_a100_16d/<timestamp>/`.
+Outputs land in `file_storage/error_suite_16d/<timestamp>/`.

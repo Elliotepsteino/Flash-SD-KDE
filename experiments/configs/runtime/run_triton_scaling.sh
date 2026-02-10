@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 LOG_PATH="${1:-triton_scaling.log}"
 SEED="${SEED:-0}"
 MIXTURE="${MIXTURE:-0}"
@@ -21,7 +21,7 @@ for ((p = START_POWER; p <= END_POWER; ++p)); do
     m=1
   fi
   echo "==== Triton only: n_train=${n}, n_test=${m} ====" | tee -a "${LOG_PATH}"
-  python "${SCRIPT_DIR}/benchmark_triton_kde.py" \
+  PYTHONPATH="${REPO_ROOT}" python -m experiments.runtime.benchmark_triton_kde \
     --seeds "${SEED}" \
     --n-train "${n}" \
     --n-test "${m}" \

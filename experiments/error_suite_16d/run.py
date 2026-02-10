@@ -17,22 +17,22 @@ from typing import Any
 import numpy as np
 import torch
 
-from experiments.error_suite_a100_16d.adapters import (
+from experiments.error_suite_16d.adapters import (
     flash_available,
     run_flash_linearized_log_density,
     run_flash_log_density,
     run_sd_kde_log_density,
     sd_kde_available,
 )
-from experiments.error_suite_a100_16d.config import load_config, resolve_out_dir
-from experiments.error_suite_a100_16d.datasets import make_dataset
-from experiments.error_suite_a100_16d.metrics import (
+from experiments.error_suite_16d.config import load_config, resolve_out_dir
+from experiments.error_suite_16d.datasets import make_dataset
+from experiments.error_suite_16d.metrics import (
     compute_log_error_metrics,
     compute_oracle_error_metrics,
     compute_statistical_metrics,
 )
-from experiments.error_suite_a100_16d.numerics import exp_diagnostics
-from experiments.error_suite_a100_16d.reference import (
+from experiments.error_suite_16d.numerics import exp_diagnostics
+from experiments.error_suite_16d.reference import (
     reference_linearized_density,
     reference_log_density,
     silverman_diag_bandwidth,

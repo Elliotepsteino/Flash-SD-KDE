@@ -15,7 +15,7 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     KernelDensity = None
 
-from kde_utils import (
+from flash_sd_kde.reference import (
     kde_pdf_eval,
     mixture_params_list,
     one_step_debiased_data_emp_kde,
@@ -24,7 +24,7 @@ from kde_utils import (
     silverman_bandwidth,
     silverman_bandwidth_nd,
 )
-from triton_kde import (
+from kernels.flash_sd_kde import (
     gaussian_kde_triton,
     gaussian_kde_triton_nd,
     empirical_sd_kde_triton,

@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 LOG_PATH="${1:-sweep.log}"
 SEEDS="${SEEDS:-0,1,2}"
 MIXTURE="${MIXTURE:-0}"
@@ -20,7 +20,7 @@ while [ "${n}" -le 65536 ]; do
     m=1
   fi
   echo "==== n_train=${n}, n_test=${m} ====" | tee -a "${LOG_PATH}"
-  python "${SCRIPT_DIR}/benchmark_triton_kde.py" \
+  PYTHONPATH="${REPO_ROOT}" python -m experiments.runtime.benchmark_triton_kde \
     --seeds "${SEEDS}" \
     --n-train "${n}" \
     --n-test "${m}" \

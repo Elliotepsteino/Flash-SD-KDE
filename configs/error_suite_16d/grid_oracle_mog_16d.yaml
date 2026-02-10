@@ -1,6 +1,6 @@
 suite:
-  name: error_suite_a100_16d
-  out_dir: file_storage/error_suite_a100_16d/${timestamp}
+  name: error_suite_16d
+  out_dir: file_storage/error_suite_16d/${timestamp}
   seed: 0
   device: cuda
   require_gpu_name_contains: A100
@@ -42,7 +42,7 @@ kde:
 
 flash_impl:
   enabled: true
-  emp_score_backend: symmetric_atomic
+  emp_score_backend: flash_sd_kde
   precision_mode: fp32_ieee
   kde_backend: splitk_stream
   use_precomputed_norms: true

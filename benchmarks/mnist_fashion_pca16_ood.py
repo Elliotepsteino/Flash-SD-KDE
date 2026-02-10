@@ -21,12 +21,14 @@ from globals import (
     DEFAULT_EPS,
     EMP_SD_KDE_VARIANT_EXACT,
     EMP_SD_KDE_VARIANT_LINEARIZED,
+    EMP_SCORE_BACKEND_FLASH_SD_KDE,
     EMP_SCORE_BACKEND_ORDERED_SPLITK,
     EMP_SCORE_BACKEND_SYMMETRIC_ATOMIC,
     ND_FEATURES,
 )
 from kernels.emp_score_16d_ordered_splitk import emp_score_16d_ordered_splitk
 from kernels.emp_score_16d_symmetric_atomic import emp_score_16d_symmetric_atomic
+from kernels.flash_sd_kde import emp_score_16d_flash_sd_kde
 
 
 def _load_dataset(root: Path, *, train: bool, fashion: bool) -> torch.Tensor:
@@ -122,6 +124,12 @@ def _emp_score_backend(
     *,
     device: torch.device,
 ):
+    if backend.emp_score_backend == EMP_SCORE_BACKEND_FLASH_SD_KDE:
+        return emp_score_16d_flash_sd_kde(
+            train,
+            bandwidth,
+            device=device,
+        )
     if backend.emp_score_backend == EMP_SCORE_BACKEND_ORDERED_SPLITK:
         return emp_score_16d_ordered_splitk(
             train,

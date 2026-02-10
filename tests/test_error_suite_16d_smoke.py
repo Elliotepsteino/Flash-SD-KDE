@@ -10,7 +10,7 @@ import pytest
 import torch
 import yaml
 
-from experiments.error_suite_a100_16d.run import run_from_config_path
+from experiments.error_suite_16d.run import run_from_config_path
 
 
 def _load_config(path: Path) -> dict:
@@ -24,8 +24,8 @@ def _write_config(path: Path, cfg: dict) -> None:
 
 
 @pytest.mark.small
-def test_error_suite_a100_16d_smoke(tmp_path: Path) -> None:
-    config_path = Path("configs/error_suite_a100_16d/smoke.yaml")
+def test_error_suite_16d_smoke(tmp_path: Path) -> None:
+    config_path = Path("configs/error_suite_16d/smoke.yaml")
     cfg = _load_config(config_path)
 
     if not torch.cuda.is_available():

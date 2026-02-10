@@ -15,8 +15,8 @@ from flash_sd_kde.utils import ensure_repo
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "suite": {
-        "name": "error_suite_a100_16d",
-        "out_dir": "file_storage/error_suite_a100_16d/${timestamp}",
+        "name": "error_suite_16d",
+        "out_dir": "file_storage/error_suite_16d/${timestamp}",
         "seed": 0,
         "device": "cuda",
         "require_gpu_name_contains": "A100",
@@ -63,6 +63,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     "flash_impl": {
         "enabled": True,
+        "emp_score_backend": "flash_sd_kde",
         "params": {
             "compute_dtype": "bf16",
             "accumulate_dtype": "fp32",

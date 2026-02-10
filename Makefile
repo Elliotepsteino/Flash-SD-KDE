@@ -1,7 +1,8 @@
 PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo python; fi)
-LEGACY_DIR ?= legacy
-LOG_DIR ?= file_storage/legacy_sweeps
-LEGACY_FIG_DIR ?= paper/figures/legacy
+RUNTIME_DIR ?= experiments/runtime
+RUNTIME_CFG_DIR ?= experiments/configs/runtime
+RUNTIME_LOG_DIR ?= file_storage/runtime_sweeps
+RUNTIME_FIG_DIR ?= paper/figures/runtime
 FILE_STORAGE_ROOT ?= file_storage
 PAPER_PLOTS_DIR ?= $(FILE_STORAGE_ROOT)/paper_plots
 PAPER_PLOTS_RUN ?= $(PAPER_PLOTS_DIR)/$(shell date +%Y%m%d_%H%M%S)
@@ -13,8 +14,9 @@ TOY_1D_PLOTS_OUT ?= $(PAPER_PLOTS_OUT)
 	bench bench.mnist_ood bench.toy_1d_oracle \
 	plot plot.mnist_ood plot.grids plot.toy_1d_oracle \
 	paper paper.clean full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots paper.figures.sync \
-	plots.legacy plots.legacy.from_logs plots.legacy.util \
-	run.sweep run.nd_runtime_sweep run.triton_scaling run.triton_sd_kde_nd
+	plots.runtime plots.runtime.from_logs plots.runtime.util \
+	run.sweep run.nd_runtime_sweep run.triton_scaling run.triton_sd_kde_nd \
+	bench.emp_score_kernel_speed
 
 test: test.small test.large
 test.all: test.small test.large
@@ -37,6 +39,9 @@ bench.mnist_ood:
 bench.toy_1d_oracle:
 	$(PY) benchmarks/toy_1d_mog_oracle.py
 
+bench.emp_score_kernel_speed:
+	$(PY) -m experiments.runtime.compare_emp_score_kernels --n-train 32768
+
 plot: plot.mnist_ood plot.grids plot.toy_1d_oracle
 
 plot.mnist_ood:
@@ -49,63 +54,63 @@ plot.toy_1d_oracle:
 	$(PY) plots/plot_toy_1d_mog_oracle.py
 
 run.sweep:
-	mkdir -p $(LOG_DIR) $(LEGACY_FIG_DIR)
-	bash $(LEGACY_DIR)/run_sweep.sh $(LOG_DIR)/sweep.log
-	$(PY) $(LEGACY_DIR)/plot_flash_sd_kde.py --log $(LOG_DIR)/sweep.log --output $(LEGACY_FIG_DIR)/runtime_1d_kde_sdkde.pdf
-	$(PY) $(LEGACY_DIR)/plot_emp_sd_kde_util.py --log $(LOG_DIR)/sweep.log --output $(LEGACY_FIG_DIR)/util_1d_empirical_sdkde.pdf
+	mkdir -p $(RUNTIME_LOG_DIR) $(RUNTIME_FIG_DIR)
+	bash $(RUNTIME_CFG_DIR)/run_sweep.sh $(RUNTIME_LOG_DIR)/sweep.log
+	$(PY) $(RUNTIME_DIR)/plot_flash_sd_kde.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(RUNTIME_FIG_DIR)/runtime_1d_kde_sdkde.pdf
+	$(PY) $(RUNTIME_DIR)/plot_emp_sd_kde_util.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(RUNTIME_FIG_DIR)/util_1d_empirical_sdkde.pdf
 
 run.nd_runtime_sweep:
-	mkdir -p $(LOG_DIR) $(LEGACY_FIG_DIR)
-	bash $(LEGACY_DIR)/run_nd_runtime_sweep.sh $(LOG_DIR)/nd_runtime.log
-	$(PY) $(LEGACY_DIR)/plot_nd_runtime.py --log $(LOG_DIR)/nd_runtime.log --output $(LEGACY_FIG_DIR)/runtime_16d_kde_sdkde.pdf
+	mkdir -p $(RUNTIME_LOG_DIR) $(RUNTIME_FIG_DIR)
+	bash $(RUNTIME_CFG_DIR)/run_nd_runtime_sweep.sh $(RUNTIME_LOG_DIR)/nd_runtime.log
+	$(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(RUNTIME_FIG_DIR)/runtime_16d_kde_sdkde.pdf
 
 run.triton_scaling:
-	mkdir -p $(LOG_DIR) $(LEGACY_FIG_DIR)
-	bash $(LEGACY_DIR)/run_triton_scaling.sh $(LOG_DIR)/triton_scaling.log
-	$(PY) $(LEGACY_DIR)/plot_triton_large_util.py --log $(LOG_DIR)/triton_scaling.log --output $(LEGACY_FIG_DIR)/util_1d_triton_scaling.pdf
+	mkdir -p $(RUNTIME_LOG_DIR) $(RUNTIME_FIG_DIR)
+	bash $(RUNTIME_CFG_DIR)/run_triton_scaling.sh $(RUNTIME_LOG_DIR)/triton_scaling.log
+	$(PY) $(RUNTIME_DIR)/plot_triton_large_util.py --log $(RUNTIME_LOG_DIR)/triton_scaling.log --output $(RUNTIME_FIG_DIR)/util_1d_triton_scaling.pdf
 
 run.triton_sd_kde_nd:
-	mkdir -p $(LOG_DIR) $(LEGACY_FIG_DIR)
-	bash $(LEGACY_DIR)/run_triton_sd_kde_nd.sh $(LOG_DIR)/triton_sd_kde_nd.log
-	$(PY) $(LEGACY_DIR)/plot_triton_sd_kde_nd_util.py --log $(LOG_DIR)/triton_sd_kde_nd.log --output $(LEGACY_FIG_DIR)/util_16d_sdkde_tensorcore.pdf
+	mkdir -p $(RUNTIME_LOG_DIR) $(RUNTIME_FIG_DIR)
+	bash $(RUNTIME_CFG_DIR)/run_triton_sd_kde_nd.sh $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log
+	$(PY) $(RUNTIME_DIR)/plot_triton_sd_kde_nd_util.py --log $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log --output $(RUNTIME_FIG_DIR)/util_16d_sdkde_tensorcore.pdf
 
-plots.legacy:
-	mkdir -p $(LEGACY_FIG_DIR)
-	@if [ -f $(LOG_DIR)/sweep.log ]; then \
-	  $(PY) $(LEGACY_DIR)/plot_flash_sd_kde.py --log $(LOG_DIR)/sweep.log --output $(LEGACY_FIG_DIR)/runtime_1d_kde_sdkde.pdf; \
-	  $(PY) $(LEGACY_DIR)/plot_emp_sd_kde_util.py --log $(LOG_DIR)/sweep.log --output $(LEGACY_FIG_DIR)/util_1d_empirical_sdkde.pdf; \
+plots.runtime:
+	mkdir -p $(RUNTIME_FIG_DIR)
+	@if [ -f $(RUNTIME_LOG_DIR)/sweep.log ]; then \
+	  $(PY) $(RUNTIME_DIR)/plot_flash_sd_kde.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(RUNTIME_FIG_DIR)/runtime_1d_kde_sdkde.pdf; \
+	  $(PY) $(RUNTIME_DIR)/plot_emp_sd_kde_util.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(RUNTIME_FIG_DIR)/util_1d_empirical_sdkde.pdf; \
 	else \
-	  echo "Missing $(LOG_DIR)/sweep.log; skipping 1D runtime/util plots."; \
+	  echo "Missing $(RUNTIME_LOG_DIR)/sweep.log; skipping 1D runtime/util plots."; \
 	fi
-	@if [ -f $(LOG_DIR)/nd_runtime.log ]; then \
-	  $(PY) $(LEGACY_DIR)/plot_nd_runtime.py --log $(LOG_DIR)/nd_runtime.log --output $(LEGACY_FIG_DIR)/runtime_16d_kde_sdkde.pdf; \
+	@if [ -f $(RUNTIME_LOG_DIR)/nd_runtime.log ]; then \
+	  $(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(RUNTIME_FIG_DIR)/runtime_16d_kde_sdkde.pdf; \
 	else \
-	  echo "Missing $(LOG_DIR)/nd_runtime.log; skipping 16D runtime plot."; \
+	  echo "Missing $(RUNTIME_LOG_DIR)/nd_runtime.log; skipping 16D runtime plot."; \
 	fi
-	@if [ -f $(LOG_DIR)/triton_scaling.log ]; then \
-	  $(PY) $(LEGACY_DIR)/plot_triton_large_util.py --log $(LOG_DIR)/triton_scaling.log --output $(LEGACY_FIG_DIR)/util_1d_triton_scaling.pdf; \
+	@if [ -f $(RUNTIME_LOG_DIR)/triton_scaling.log ]; then \
+	  $(PY) $(RUNTIME_DIR)/plot_triton_large_util.py --log $(RUNTIME_LOG_DIR)/triton_scaling.log --output $(RUNTIME_FIG_DIR)/util_1d_triton_scaling.pdf; \
 	else \
-	  echo "Missing $(LOG_DIR)/triton_scaling.log; skipping Triton scaling plot."; \
+	  echo "Missing $(RUNTIME_LOG_DIR)/triton_scaling.log; skipping Triton scaling plot."; \
 	fi
-	@if [ -f $(LOG_DIR)/triton_sd_kde_nd.log ]; then \
-	  $(PY) $(LEGACY_DIR)/plot_triton_sd_kde_nd_util.py --log $(LOG_DIR)/triton_sd_kde_nd.log --output $(LEGACY_FIG_DIR)/util_16d_sdkde_tensorcore.pdf; \
+	@if [ -f $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log ]; then \
+	  $(PY) $(RUNTIME_DIR)/plot_triton_sd_kde_nd_util.py --log $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log --output $(RUNTIME_FIG_DIR)/util_16d_sdkde_tensorcore.pdf; \
 	else \
-		echo "Missing $(LOG_DIR)/triton_sd_kde_nd.log; skipping 16D utilization plot."; \
+		echo "Missing $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log; skipping 16D utilization plot."; \
 	fi
 
-plots.legacy.from_logs:
-	mkdir -p $(LEGACY_FIG_DIR)
-	$(PY) $(LEGACY_DIR)/plot_flash_sd_kde.py --log $(LOG_DIR)/sweep.log --output $(LEGACY_FIG_DIR)/runtime_1d_kde_sdkde.pdf
-	$(PY) $(LEGACY_DIR)/plot_emp_sd_kde_util.py --log $(LOG_DIR)/sweep.log --output $(LEGACY_FIG_DIR)/util_1d_empirical_sdkde.pdf
-	$(PY) $(LEGACY_DIR)/plot_nd_runtime.py --log $(LOG_DIR)/nd_runtime.log --output $(LEGACY_FIG_DIR)/runtime_16d_kde_sdkde.pdf
-	$(PY) $(LEGACY_DIR)/plot_triton_large_util.py --log $(LOG_DIR)/triton_scaling.log --output $(LEGACY_FIG_DIR)/util_1d_triton_scaling.pdf
-	$(PY) $(LEGACY_DIR)/plot_triton_sd_kde_nd_util.py --log $(LOG_DIR)/triton_sd_kde_nd.log --output $(LEGACY_FIG_DIR)/util_16d_sdkde_tensorcore.pdf
+plots.runtime.from_logs:
+	mkdir -p $(RUNTIME_FIG_DIR)
+	$(PY) $(RUNTIME_DIR)/plot_flash_sd_kde.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(RUNTIME_FIG_DIR)/runtime_1d_kde_sdkde.pdf
+	$(PY) $(RUNTIME_DIR)/plot_emp_sd_kde_util.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(RUNTIME_FIG_DIR)/util_1d_empirical_sdkde.pdf
+	$(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(RUNTIME_FIG_DIR)/runtime_16d_kde_sdkde.pdf
+	$(PY) $(RUNTIME_DIR)/plot_triton_large_util.py --log $(RUNTIME_LOG_DIR)/triton_scaling.log --output $(RUNTIME_FIG_DIR)/util_1d_triton_scaling.pdf
+	$(PY) $(RUNTIME_DIR)/plot_triton_sd_kde_nd_util.py --log $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log --output $(RUNTIME_FIG_DIR)/util_16d_sdkde_tensorcore.pdf
 
-plots.legacy.util:
-	mkdir -p $(LEGACY_FIG_DIR)
-	$(PY) $(LEGACY_DIR)/plot_emp_sd_kde_util.py --log $(LOG_DIR)/sweep.log --output $(LEGACY_FIG_DIR)/util_1d_empirical_sdkde.pdf
-	$(PY) $(LEGACY_DIR)/plot_triton_large_util.py --log $(LOG_DIR)/triton_scaling.log --output $(LEGACY_FIG_DIR)/util_1d_triton_scaling.pdf
-	$(PY) $(LEGACY_DIR)/plot_triton_sd_kde_nd_util.py --log $(LOG_DIR)/triton_sd_kde_nd.log --output $(LEGACY_FIG_DIR)/util_16d_sdkde_tensorcore.pdf
+plots.runtime.util:
+	mkdir -p $(RUNTIME_FIG_DIR)
+	$(PY) $(RUNTIME_DIR)/plot_emp_sd_kde_util.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(RUNTIME_FIG_DIR)/util_1d_empirical_sdkde.pdf
+	$(PY) $(RUNTIME_DIR)/plot_triton_large_util.py --log $(RUNTIME_LOG_DIR)/triton_scaling.log --output $(RUNTIME_FIG_DIR)/util_1d_triton_scaling.pdf
+	$(PY) $(RUNTIME_DIR)/plot_triton_sd_kde_nd_util.py --log $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log --output $(RUNTIME_FIG_DIR)/util_16d_sdkde_tensorcore.pdf
 
 PAPER_DIR := paper
 PAPER_BUILD := $(PAPER_DIR)/build
@@ -124,29 +129,29 @@ paper.clean:
 full_paper:
 	mkdir -p $(PAPER_PLOTS_BASELINE) $(PAPER_PLOTS_OUT)
 	cp -a $(PAPER_DIR)/figures/. $(PAPER_PLOTS_BASELINE)/
-	@if [ -f $(LOG_DIR)/sweep.log ]; then \
-	  $(PY) $(LEGACY_DIR)/plot_flash_sd_kde.py --log $(LOG_DIR)/sweep.log --output $(PAPER_PLOTS_OUT)/runtime_1d_kde_sdkde.pdf; \
-	  $(PY) $(LEGACY_DIR)/plot_emp_sd_kde_util.py --log $(LOG_DIR)/sweep.log --output $(PAPER_PLOTS_OUT)/util_1d_empirical_sdkde.pdf; \
+	@if [ -f $(RUNTIME_LOG_DIR)/sweep.log ]; then \
+	  $(PY) $(RUNTIME_DIR)/plot_flash_sd_kde.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(PAPER_PLOTS_OUT)/runtime_1d_kde_sdkde.pdf; \
+	  $(PY) $(RUNTIME_DIR)/plot_emp_sd_kde_util.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(PAPER_PLOTS_OUT)/util_1d_empirical_sdkde.pdf; \
 	else \
-	  echo "Missing $(LOG_DIR)/sweep.log; skipping 1D legacy runtime/util plots."; \
+	  echo "Missing $(RUNTIME_LOG_DIR)/sweep.log; skipping 1D runtime/util plots."; \
 	fi
-	@if [ -f $(LOG_DIR)/nd_runtime.log ]; then \
-	  $(PY) $(LEGACY_DIR)/plot_nd_runtime.py --log $(LOG_DIR)/nd_runtime.log --output $(PAPER_PLOTS_OUT)/runtime_16d_kde_sdkde.pdf; \
+	@if [ -f $(RUNTIME_LOG_DIR)/nd_runtime.log ]; then \
+	  $(PY) $(RUNTIME_DIR)/plot_nd_runtime.py --log $(RUNTIME_LOG_DIR)/nd_runtime.log --output $(PAPER_PLOTS_OUT)/runtime_16d_kde_sdkde.pdf; \
 	else \
-	  echo "Missing $(LOG_DIR)/nd_runtime.log; skipping 16D runtime plot."; \
+	  echo "Missing $(RUNTIME_LOG_DIR)/nd_runtime.log; skipping 16D runtime plot."; \
 	fi
-	@if [ -f $(LOG_DIR)/triton_sd_kde_nd.log ]; then \
-	  $(PY) $(LEGACY_DIR)/plot_triton_sd_kde_nd_util.py --log $(LOG_DIR)/triton_sd_kde_nd.log --output $(PAPER_PLOTS_OUT)/util_16d_sdkde_tensorcore.pdf; \
+	@if [ -f $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log ]; then \
+	  $(PY) $(RUNTIME_DIR)/plot_triton_sd_kde_nd_util.py --log $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log --output $(PAPER_PLOTS_OUT)/util_16d_sdkde_tensorcore.pdf; \
 	else \
-	  echo "Missing $(LOG_DIR)/triton_sd_kde_nd.log; skipping 16D utilization plot."; \
+	  echo "Missing $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log; skipping 16D utilization plot."; \
 	fi
 	@$(PY) scripts/full_paper_collect.py --output "$(PAPER_PLOTS_OUT)"
 
 full_paper_experiments_plots:
 	@echo "Running experiments needed for paper plots (may take significant time/GPU)."
-	$(MAKE) run.sweep run.nd_runtime_sweep run.triton_sd_kde_nd LEGACY_FIG_DIR=$(PAPER_PLOTS_OUT) PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
+	$(MAKE) run.sweep run.nd_runtime_sweep run.triton_sd_kde_nd RUNTIME_FIG_DIR=$(PAPER_PLOTS_OUT) PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
 	$(MAKE) bench.toy_1d_oracle PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
-	$(PY) -m experiments.error_suite_a100_16d.sweep --config configs/error_suite_a100_16d/grid_oracle_mog_16d.yaml
+	$(PY) -m experiments.error_suite_16d.sweep --config configs/error_suite_16d/grid_oracle_mog_16d.yaml
 	$(MAKE) full_paper PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
 
 toy_1d_oracle_plots:
@@ -159,7 +164,7 @@ toy_1d_oracle_plots:
 oracle_16d_plots:
 	@echo "Running 16D oracle sweep + plots."
 	mkdir -p $(PAPER_PLOTS_OUT)
-	$(PY) -m experiments.error_suite_a100_16d.sweep --config configs/error_suite_a100_16d/grid_oracle_mog_16d.yaml
+	$(PY) -m experiments.error_suite_16d.sweep --config configs/error_suite_16d/grid_oracle_mog_16d.yaml
 	$(PY) scripts/error_suite_oracle_plot.py --output "$(PAPER_PLOTS_OUT)"
 	@echo "16D oracle plots written to $(PAPER_PLOTS_OUT)"
 

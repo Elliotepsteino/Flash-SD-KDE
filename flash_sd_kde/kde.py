@@ -20,6 +20,7 @@ from globals import (
     DEFAULT_EMP_SCORE_BACKEND,
     DEFAULT_KDE_BACKEND,
     DEFAULT_PRECISION_MODE,
+    EMP_SCORE_BACKEND_FLASH_SD_KDE,
     EMP_SCORE_BACKEND_ORDERED_SPLITK,
     EMP_SCORE_BACKEND_SYMMETRIC_ATOMIC,
     KDE_BACKEND_ATOMIC,
@@ -28,6 +29,7 @@ from globals import (
 )
 from kernels.emp_score_16d_ordered_splitk import emp_score_16d_ordered_splitk
 from kernels.emp_score_16d_symmetric_atomic import emp_score_16d_symmetric_atomic
+from kernels.flash_sd_kde import emp_score_16d_flash_sd_kde
 from kernels.kde_eval_16d_stream_splitk import (
     kde_eval_16d_atomic,
     kde_eval_16d_splitk,
@@ -286,7 +288,13 @@ def emp_sd_kde_fit_transform(
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is not available but was requested.")
 
-    if emp_score_backend == EMP_SCORE_BACKEND_ORDERED_SPLITK:
+    if emp_score_backend == EMP_SCORE_BACKEND_FLASH_SD_KDE:
+        pdf_sum, weighted_sum = emp_score_16d_flash_sd_kde(
+            data,
+            bandwidth,
+            device=device,
+        )
+    elif emp_score_backend == EMP_SCORE_BACKEND_ORDERED_SPLITK:
         pdf_sum, weighted_sum = emp_score_16d_ordered_splitk(
             data,
             bandwidth,

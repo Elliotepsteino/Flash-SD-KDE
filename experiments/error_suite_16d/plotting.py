@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import LogFormatterMathtext, ScalarFormatter
 
-from experiments.error_suite_a100_16d.pareto import pareto_frontier
+from experiments.error_suite_16d.pareto import pareto_frontier
 
 try:
     from plots.plot_error_suite_16d_config import ErrorSuitePlotConfig

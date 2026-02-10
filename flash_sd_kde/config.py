@@ -12,6 +12,7 @@ from globals import (
     DEFAULT_PRECISION_MODE,
     EMP_SCORE_BACKEND_ORDERED_SPLITK,
     EMP_SCORE_BACKEND_SYMMETRIC_ATOMIC,
+    EMP_SCORE_BACKEND_FLASH_SD_KDE,
     KDE_BACKEND_ATOMIC,
     KDE_BACKEND_SPLITK_STREAM,
 )
@@ -59,7 +60,11 @@ def validate_kde_backend(kde_backend: str) -> None:
 
 
 def validate_emp_score_backend(emp_score_backend: str) -> None:
-    valid = {EMP_SCORE_BACKEND_ORDERED_SPLITK, EMP_SCORE_BACKEND_SYMMETRIC_ATOMIC}
+    valid = {
+        EMP_SCORE_BACKEND_ORDERED_SPLITK,
+        EMP_SCORE_BACKEND_SYMMETRIC_ATOMIC,
+        EMP_SCORE_BACKEND_FLASH_SD_KDE,
+    }
     if emp_score_backend not in valid:
         raise ValueError(
             f"emp_score_backend must be one of {sorted(valid)}, got {emp_score_backend}."
@@ -67,6 +72,8 @@ def validate_emp_score_backend(emp_score_backend: str) -> None:
 
 
 def select_emp_score_backend(n: int, *, heuristics: KernelHeuristics = DEFAULT_HEURISTICS) -> str:
+    if heuristics.default_emp_score_backend == EMP_SCORE_BACKEND_FLASH_SD_KDE:
+        return EMP_SCORE_BACKEND_FLASH_SD_KDE
     if n <= heuristics.n_sym_max:
         return EMP_SCORE_BACKEND_SYMMETRIC_ATOMIC
     return EMP_SCORE_BACKEND_ORDERED_SPLITK

@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 LOG_PATH="${1:-triton_sd_kde_nd.log}"
 SEED="${SEED:-0}"
 DEVICE="${DEVICE:-cuda}"
@@ -20,7 +20,7 @@ for ((p = START_POWER; p <= END_POWER; ++p)); do
     m=1
   fi
   echo "==== 16D SD-KDE: n_train=${n}, n_test=${m} ====" | tee -a "${LOG_PATH}"
-  python "${SCRIPT_DIR}/benchmark_triton_kde.py" \
+  PYTHONPATH="${REPO_ROOT}" python -m experiments.runtime.benchmark_triton_kde \
     --multi-d-sd \
     --sd-nd-triton-only \
     --seeds "${SEED}" \

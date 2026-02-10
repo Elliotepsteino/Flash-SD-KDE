@@ -8,7 +8,7 @@ from typing import Any
 
 import torch
 
-from experiments.error_suite_a100_16d.numerics import log_abs_diff_exp, logmeanexp
+from experiments.error_suite_16d.numerics import log_abs_diff_exp, logmeanexp
 
 
 def _safe_float(val: torch.Tensor) -> float:

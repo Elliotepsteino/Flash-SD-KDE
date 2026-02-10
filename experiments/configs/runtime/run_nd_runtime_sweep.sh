@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 LOG_PATH="${1:-nd_runtime.log}"
 SEED="${SEED:-0}"
 SEEDS_SD="${SEEDS_SD:-0,1,2,3,4,5,6,7,8,9}"
@@ -22,7 +22,7 @@ for ((p = START_POWER; p <= END_POWER; ++p)); do
   fi
 
   echo "==== 16D KDE Runtime: n_train=${n}, n_test=${m} ====" | tee -a "${LOG_PATH}"
-  python "${SCRIPT_DIR}/benchmark_triton_kde.py" \
+  PYTHONPATH="${REPO_ROOT}" python -m experiments.runtime.benchmark_triton_kde \
     --multi-d \
     --seeds "${SEED}" \
     --baseline-seed-only \
@@ -31,7 +31,7 @@ for ((p = START_POWER; p <= END_POWER; ++p)); do
     --device "${DEVICE}" | tee -a "${LOG_PATH}"
 
   echo "==== 16D SD-KDE Runtime: n_train=${n}, n_test=${m} ====" | tee -a "${LOG_PATH}"
-  python "${SCRIPT_DIR}/benchmark_triton_kde.py" \
+  PYTHONPATH="${REPO_ROOT}" python -m experiments.runtime.benchmark_triton_kde \
     --multi-d-sd \
     --seeds "${SEEDS_SD}" \
     --baseline-seed-only \

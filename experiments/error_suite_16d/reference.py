@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from experiments.error_suite_a100_16d.numerics import logmeanexp
+from experiments.error_suite_16d.numerics import logmeanexp
 
 
 def silverman_diag_bandwidth(data: torch.Tensor) -> float:

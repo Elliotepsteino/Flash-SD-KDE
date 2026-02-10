@@ -1,6 +1,6 @@
 suite:
-  name: error_suite_a100_16d
-  out_dir: file_storage/error_suite_a100_16d/${timestamp}
+  name: error_suite_16d
+  out_dir: file_storage/error_suite_16d/${timestamp}
   seed: 0
   device: cuda
   require_gpu_name_contains: A100

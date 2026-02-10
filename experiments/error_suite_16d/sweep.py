@@ -15,11 +15,11 @@ from typing import Any
 
 import torch
 
-from experiments.error_suite_a100_16d.config import expand_grid, load_config, resolve_out_dir, set_nested
-from experiments.error_suite_a100_16d.pareto import best_under_accuracy, best_under_speed, pareto_frontier
-from experiments.error_suite_a100_16d.plotting import make_plots, load_rows
-from experiments.error_suite_a100_16d.report import make_latex_tables, make_report
-from experiments.error_suite_a100_16d.run import run_one
+from experiments.error_suite_16d.config import expand_grid, load_config, resolve_out_dir, set_nested
+from experiments.error_suite_16d.pareto import best_under_accuracy, best_under_speed, pareto_frontier
+from experiments.error_suite_16d.plotting import make_plots, load_rows
+from experiments.error_suite_16d.report import make_latex_tables, make_report
+from experiments.error_suite_16d.run import run_one
 from flash_sd_kde.utils import get_repo_state, write_json
 
 
@@ -298,7 +298,7 @@ def run_sweep(config_path: Path, *, out_dir_override: Path | None = None, fail_f
         write_json(out_dir / "pareto_frontier.json", frontier)
     if plots:
         plot_manifest = {
-            "script": "experiments/error_suite_a100_16d/plotting.py",
+            "script": "experiments/error_suite_16d/plotting.py",
             "results_csv": str(results_path),
             "config": str(config_path),
             "repo": get_repo_state(),

@@ -22,13 +22,13 @@ def _latest_toy_results(repo_root: Path) -> Path | None:
 
 
 def _latest_error_suite_results(repo_root: Path) -> Path | None:
-    base = repo_root / FILE_STORAGE_ROOT / "error_suite_a100_16d"
+    base = repo_root / FILE_STORAGE_ROOT / "error_suite_16d"
     if not base.exists():
         print(f"Missing error suite outputs under {base}; skipping 16D oracle plots.")
         return None
     runs = sorted(base.glob("*"), key=lambda p: p.stat().st_mtime, reverse=True)
     if not runs:
-        print(f"No error_suite_a100_16d runs found under {base}; skipping 16D oracle plots.")
+        print(f"No error_suite_16d runs found under {base}; skipping 16D oracle plots.")
         return None
     return runs[0]
 

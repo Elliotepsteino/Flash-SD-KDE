@@ -23,7 +23,7 @@ def _resolve_results_dir(config: ErrorSuitePlotConfig) -> Path:
     repo_root = Path(ensure_repo())
     if config.results_dir is not None:
         return repo_root / config.results_dir
-    base = repo_root / FILE_STORAGE_ROOT / "error_suite_a100_16d"
+    base = repo_root / FILE_STORAGE_ROOT / "error_suite_16d"
     if not base.exists():
         raise FileNotFoundError(f"no error suite outputs found under {base}")
     runs = sorted(base.glob("*"), key=lambda p: p.stat().st_mtime, reverse=True)

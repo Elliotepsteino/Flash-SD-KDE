@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import torch
 
-from experiments.error_suite_a100_16d.truth import GaussianMixtureDiag16D, GaussianSingle16D, GroundTruthDist
+from experiments.error_suite_16d.truth import GaussianMixtureDiag16D, GaussianSingle16D, GroundTruthDist
 from globals import ND_FEATURES
 
 
