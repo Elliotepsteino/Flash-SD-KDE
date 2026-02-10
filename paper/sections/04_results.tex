@@ -1,19 +1,17 @@
 \section{Results}
 
 We now summarize the empirical behavior of the 16-D implementation on the
-RTX~A6000.  For each $n_{\text{train}}$ in $\{4\text{k}, 8\text{k}, 16\text{k},
+RTX~A6000.  For each $n_{\text{train}}$ in $\{2\text{k}, 4\text{k}, 8\text{k}, 16\text{k},
 32\text{k}\}$ we set $n_{\text{test}} = n_{\text{train}}/8$, draw data from a
-simple 16-D Gaussian mixture, and run three baselines: scikit-learn KDE,
-Torch SD-KDE (GEMM-based), and Triton SD-KDE (Tensor-Core GEMMs for both KDE
-and score).  Figure~\ref{fig:nd_runtime} shows that the Triton SD-KDE rapidly
-outpaces both baselines as $n$ grows, while remaining numerically close to the
-Torch SD-KDE reference.
+simple 16-D Gaussian mixture, and run three baselines: scikit-learn KDE~\citep{pedregosa2011scikit},
+Torch SD-KDE (GEMM-based, implemented in PyTorch~\citep{paszke2019pytorch}), and
+Flash-SD-KDE (Tensor-Core GEMMs for both KDE and score, implemented in
+Triton~\citep{tillet2019triton}).  Figure~\ref{fig:nd_runtime} shows that the Flash-SD-KDE rapidly
+outpaces both baselines as $n$ grows.
 
 We also measure utilization by combining the flop model above with the
-measured runtimes.  As shown in Figure~\ref{fig:triton_sd_kde_nd_util}, the
-Torch SD-KDE baseline reaches only a few percent of the A6000 Tensor Core
-peak, whereas the Triton implementation climbs into the multi-digit range once
-$n_{\text{train}}$ exceeds $8\text{k}$.  This confirms that the 16-D
+measured runtimes.  As shown in Figure~\ref{fig:triton_sd_kde_nd_util}, the Flash-SD-KDE GPU utilization is high into the multi-digit range once
+$n_{\text{train}}$ exceeds $8\text{k}$, despite a lot of operations such as exponential computations that can't utilize tensor cores.  This confirms that the 16-D
 Tensor-Core formulation is firmly compute-bound and that additional tuning
 effort should focus on kernel fusion and occupancy rather than memory traffic.
 
@@ -21,7 +19,7 @@ To compare against a specialized KDE implementation, we also benchmarked PyKeOps
 LazyTensor operators at $n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k}$.
 PyKeOps currently represents the state of the art for large-scale kernel
 reductions, so we report both its Gaussian KDE runtime and its SD-KDE runtime as
-a reference point.  Table~\ref{tab:pykeops} shows that Triton SD-KDE runs
+a reference point.  Table~\ref{tab:pykeops} shows that Flash-SD-KDE runs
 $1.4\times$ faster than the PyKeOps 16-D KDE baseline and $9.8\times$ faster
 than the PyKeOps 16-D SD-KDE implementation.
 
@@ -31,54 +29,32 @@ than the PyKeOps 16-D SD-KDE implementation.
   \setlength{\tabcolsep}{4pt}
   \begin{tabular}{lcc}
     \toprule
-    Method & Runtime (ms) & Rel to Triton \\
+    Method & Runtime (ms) & Rel. to Flash-SD-KDE \\
     \midrule
-    Triton 16-D SD-KDE & $2.23$ & $1\times$ \\
+    16-D Flash-SD-KDE & $2.23$ & $1\times$ \\
     PyKeOps 16-D KDE   & $3.06$ & $1.4\times$ \\
     PyKeOps 16-D SD-KDE& $21.73$ & $9.77\times$ \\
     \bottomrule
   \end{tabular}
   \caption{Runtime comparison at $n_{\text{train}}=32\text{k}$,
            $n_{\text{test}}=4\text{k}$.  PyKeOps rows report Gaussian KDE and
-           SD-KDE (LazyTensor) runtimes, while Triton executes the full SD-KDE
+           SD-KDE (LazyTensor) runtimes, while Flash-SD-KDE executes the full SD-KDE
            pipeline.}
   \label{tab:pykeops}
 \end{table}
 
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=\textwidth]{figures/legacy/runtime_16d_kde_sdkde.pdf}
-  \caption{Runtime comparison for 16-D KDE/SD-KDE across $n_{\text{train}}$
-           up to $32{,}768$ ($n_{\text{test}} = n_{\text{train}}/8$).}
-  \label{fig:nd_runtime}
-\end{figure*}
+
 
 \subsection{Oracle density benchmark for Laplace correction}
+Figure~\ref{fig:oracle_16d_error_1d} reports oracle accuracy on the 16-D mixture benchmark as a function of $n_{\text{train}}$, using Mean Integrated Squared Error (MISE) on the left and Mean Integrated Absolute Error (MIAE) on the right. Across the sweep, Flash-SD-KDE substantially improves on vanilla KDE, indicating that the baseline KDE estimator is a poor fit in this regime. The Laplace-corrected variants achieve the lowest MISE throughout, and the fused Flash-Laplace-KDE curve overlaps the non-fused implementation, showing that fusion is an implementation optimization rather than a change in the estimator. In MIAE, Flash-SD-KDE attains the lowest error, while the Laplace-corrected estimators show a sharp drop between the smallest $n_{\text{train}}$ and $10^4$, followed by a small non-monotonic “kink” (a slight increase at intermediate $n_{\text{train}}$). The kink lies within the uncertainty bands and is consistent with finite-sample variability and the greater sensitivity of an absolute-error metric to the signed tail correction. Both metrics continue to decrease as $n_{\text{train}}$ grows, but pushing this oracle evaluation much past $n_{\text{train}}\!\approx\!10^6$ is difficult on a single RTX A6000 due to the cost of repeated large kernel-sum evaluations for MISE/MIAE. To probe this regime, Figure~\ref{fig:e6_fig_oracle_error_vs_n} extends the sweep using only KDE and Flash-Laplace-KDE, and we observe that Flash-Laplace-KDE continues the downward trend, achieving both MISE and MIAE well below KDE at $n_{\text{train}}>10^6$. Because the Laplace-corrected kernel is not guaranteed to remain nonnegative, we compute MISE/MIAE on the signed estimator and separately log the integrated negative mass as a diagnostic.
 
-We evaluate Laplace-corrected KDE on a 1D oracle density benchmark with a known ground-truth mixture distribution.
-We report mean integrated squared error (MISE) and mean integrated absolute error (MIAE) versus $n_{\text{train}}$.
-Figure~\ref{fig:oracle_error_1d} compares KDE, Flash-SD-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE.
+We also evaluate Laplace-corrected KDE on a 1D oracle density.
+Figure~\ref{fig:oracle_error_1d} compares KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE.
 The Laplace-corrected estimators can take small negative values for large $\lVert x - x_i \rVert$.
 We therefore compute errors on the signed density, and we report the negative-mass diagnostics separately in the benchmark logs.
 
 Figure~\ref{fig:laplace_speedup_1d} shows the runtime advantage of fusion.
-The fused Flash-SD-KDE kernel consistently outperforms the non-fused Laplace correction across $n_{\text{train}}$.
-For context, the same plot also reports the Emp-SD-KDE to Flash-SD-KDE runtime ratio.
+The fused Flash-Laplace-KDE kernel consistently outperforms the non-fused Laplace correction across $n_{\text{train}}$.
+For context, the same plot also reports the Flash-SD-KDE to Flash-Laplace-KDE runtime ratio.
 
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=\textwidth]{figures/fig_oracle_error_vs_n.pdf}
-  \caption{Oracle error on a 1D mixture-of-Gaussians benchmark.
-          We report MISE and MIAE versus $n_{\text{train}}$ for KDE, Flash-SD-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE.
-           The Laplace-corrected estimators can be slightly negative, so error is computed on the signed density.}
-  \label{fig:oracle_error_1d}
-\end{figure*}
 
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=\textwidth]{figures/fig_fused_vs_nonfused_runtime.pdf}
-  \caption{Runtime and speedup for Laplace correction in 1D.
-           The left panel shows total runtime for the fused Flash-SD-KDE kernel and a non-fused implementation.
-          The right panel reports speedup ratios, including Flash-SD-KDE relative to Flash-SD-KDE for context.}
-  \label{fig:laplace_speedup_1d}
-\end{figure*}

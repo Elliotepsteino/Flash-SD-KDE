@@ -1,7 +1,15 @@
 \documentclass{article}
+\newif\ifarxiv
+\arxivtrue   % uncomment for 
 
+
+%\arxivfalse    % uncomment for ICML
 \input{preamble}
 \input{macros}
+\ifarxiv
+   \icmlshowauthorstrue
+   
+\fi
 
 \icmltitlerunning{Flash-SD-KDE}
 
@@ -10,25 +18,38 @@
 \twocolumn[
   \icmltitle{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
 
+%  \ifarxiv
   \begin{icmlauthorlist}
-    \icmlauthor{Elliot L. Epstein}{stanford}
+    \icmlauthor{Elliot L.\ Epstein}{stanford}
+    \icmlauthor{Rajat Vadiraj Dwaraknath}{stanford}
+    \icmlauthor{John Winnicki}{stanford}
+    \icmlauthor{Thanawat Sornwanee}{stanford}
   \end{icmlauthorlist}
 
-  \icmlaffiliation{stanford}{Affiliation withheld for blind review.}
-  \icmlcorrespondingauthor{Elliot L. Epstein}{anon.email@domain.com}
+  \icmlaffiliation{stanford}{Stanford University, Stanford, CA 94305, USA}
+  \icmlcorrespondingauthor{Elliot L.\ Epstein}{epsteine@stanford.edu}
+%\else
+%  \begin{icmlauthorlist}
+%    \icmlauthor{}{}
+%  \end{icmlauthorlist}
 
+%  \icmlaffiliation{}{Affiliation withheld for blind review.}
+%  \icmlcorrespondingauthor{}{anon.email@domain.com}
+%\fi
   \icmlkeywords{kernel density estimation, GPU acceleration, Triton, Tensor Cores}
-
   \vskip 0.3in
 ]
-
+%\ifarxiv
+%\else
 \printAffiliationsAndNotice{}  % required even if empty
+%\fi
 
 \begin{abstract}
 \input{sections/00_abstract}
 \end{abstract}
 
 \input{sections/01_intro}
+\input{sections/02_related_work}
 \input{sections/02_hardware}
 \input{sections/03_method}
 \input{sections/04_laplace_corrected}
@@ -39,9 +60,10 @@
 \input{sections/06_acknowledgements}
 \fi
 
-\input{sections/07_impact}
 
-\clearpage
+\input{sections/08_conclusion}
+\input{sections/09_impact}
+
 \bibliographystyle{icml2026/icml2026}
 \bibliography{references}
 

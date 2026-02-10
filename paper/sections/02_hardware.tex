@@ -1,5 +1,11 @@
 \section{Hardware}
-
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/runtime_16d_kde_sdkde.pdf}
+  \caption{Runtime comparison for 16-D KDE/SD-KDE across $n_{\text{train}}$
+           up to $32{,}768$ ($n_{\text{test}} = n_{\text{train}}/8$).}
+  \label{fig:nd_runtime}
+\end{figure*}
 All experiments run on a workstation equipped with an NVIDIA RTX~A6000
 (GA102).  This GPU exposes 84 streaming multiprocessors (SMs); each SM
 contains 128 FP32 ALUs and 16 special function units (SFUs).  Because the

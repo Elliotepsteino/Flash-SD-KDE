@@ -1,5 +1,5 @@
 \appendix
-\section{1-D SD-KDE baseline}
+\section{Flash-SD-KDE in low dimensions}
 
 For completeness we briefly summarize the 1-D SD-KDE arithmetic intensity and
 empirical behavior.  With $n_{\text{train}} = k$ and $n_{\text{test}} = k/8$,
@@ -46,45 +46,50 @@ arithmetic intensity scales as
 \]
 placing realistic problem sizes firmly in the compute-bound regime.
 
-Empirically we sweep $k$ over powers of two from $512$ to $32\text{k}$, with
+Empirically we sweep $k$ over powers of two from $1024$ to $64\text{k}$, with
 $n_{\text{test}} = k/8$, and average over three seeds.  For each
-configuration we record CPU Silverman KDE time, scikit-learn Gaussian KDE
-time, and SD-KDE GPU time.  Across the entire range, the empirical SD-KDE GPU
+configuration we record scikit-learn Gaussian KDE
+time, and SD-KDE Torch time, and Flash-SD-KDE time.  Across the entire range, the Flash-SD-KDE
 implementation is consistently faster than scikit-learn, with speedups
-growing with $k$; at the largest sizes the GPU achieves well over an
-order-of-magnitude speedup relative to the sklearn baseline.
+growing with $k$; at the largest sizes, Flash-SD-KDE achieves around 2 orders-of-magnitude speedup relative to the sklearn baseline, as shown in Figure~\ref{fig:flash_sd_kde}.
 
-\begin{figure}[t]
+\begin{figure*}[th]
   \centering
-  \includegraphics[width=0.8\linewidth]{figures/legacy/runtime_1d_kde_sdkde.pdf}
-  \caption{Average runtime (log-scale $y$-axis) of scikit-learn KDE and
-           SD-KDE GPU across $n_{\text{train}}$ in 1-D; annotations show
-           the SD-KDE GPU speedup relative to sklearn.}
+  \includegraphics[width=0.8\linewidth]{figures/runtime_1d_kde_sdkde.pdf}
+  \caption{Average runtime (log-scale $y$-axis) of scikit-learn KDE, SD-KDE (Torch), and Flash-SD-KDE across $n_{\text{train}}$ in 1-D; annotations show observed runtimes.}
   \label{fig:flash_sd_kde}
-\end{figure}
+\end{figure*}
 
-\begin{figure}[t]
+%\begin{figure}[th]
+%  \centering
+%  \includegraphics[width=0.8\linewidth]{figures/emp-sd-kde-%util.pdf}
+%  \caption{Estimated GPU utilization (as a percentage of A6000 %FP32 peak)
+%           for 1-D SD-KDE implemented in Triton and optimized %Torch,
+%           computed from the 1-D flop model and the measured %runtimes.}
+%  \label{fig:flash_sd_kde_util}
+%\end{figure}
+
+As shown in Figure~\ref{fig:triton_large_util}, we also compare the utilization of Flash-SD-KDE with SD-KDE (Torch) over a range of 1-D problem sizes, using powers of
+two for $n_{\text{train}}$ up to $2^{16} \approx 64$ thousand (and
+$n_{\text{test}} = n_{\text{train}}/8$).  
+
+\begin{figure*}[th]
   \centering
-  \includegraphics[width=0.8\linewidth]{figures/legacy/util_1d_empirical_sdkde.pdf}
-  \caption{Estimated GPU utilization (as a percentage of A6000 FP32 peak)
-           for 1-D SD-KDE implemented in Triton and optimized Torch,
-           computed from the 1-D flop model and the measured runtimes.}
-  \label{fig:flash_sd_kde_util}
-\end{figure}
-
-We also run a Triton-only sweep over larger 1-D problem sizes, using powers of
-two for $n_{\text{train}}$ up to $2^{22} \approx 4.2$ million (and
-$n_{\text{test}} = n_{\text{train}}/8$) with a single seed.  The helper
-script \texttt{run\_triton\_scaling.sh} executes this experiment by invoking
-the \texttt{--emp-kernel-only} benchmark mode, producing a compact log that we
-feed to Nsight Systems when examining the multi-million-sample kernels.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.8\linewidth]{figures/legacy/util_1d_triton_scaling.pdf}
-  \caption{Utilization of the 1-D Triton SD-KDE kernel for large
-           $n_{\text{train}}$ (powers of two up to $2^{22}$).  Labels show
+  \includegraphics[width=0.8\linewidth]{figures/util_1d_empirical_sdkde.pdf}
+  \caption{Utilization of the 1-D Flash-SD-KDE kernel and SD-KDE (Torch) for large
+           $n_{\text{train}}$ (powers of two up to $2^{16}$).  Labels show
            the observed runtime for each data size; error bars are omitted
            because a single seed is used per point.}
   \label{fig:triton_large_util}
-\end{figure}
+\end{figure*}
+
+\section{Oracle density benchmark for Laplace correction beyond $10^6$}
+\label{sec:laplace_corrected}
+The results are shown below.
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/oracle_16d_mise_miae_vs_n.pdf}
+  \caption{Oracle error on a 16D mixture-of-Gaussians benchmark.
+           We report MISE and MIAE versus $n_{\text{train}}$ for KDE and Flash-Laplace-KDE (fused Laplace correction).}
+  \label{fig:e6_fig_oracle_error_vs_n}
+\end{figure*}

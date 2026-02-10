@@ -1,5 +1,13 @@
 \subsection{Performance optimizations}
-
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.9\textwidth]{figures/util_16d_sdkde_tensorcore.pdf}
+  \caption{Utilization (percentage of RTX A6000 Tensor Core peak) for the 16-D
+           SD-KDE pipeline, computed via the flop model from
+           Section~\ref{sec:method}; bars are annotated with the observed
+           runtimes (ms).}
+  \label{fig:triton_sd_kde_nd_util}
+\end{figure*}
 Nsight Systems traces show that roughly $95\%$ of the SD-KDE runtime at
 $n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k}$ is spent computing
 the empirical score.  We therefore concentrated optimization effort on the
@@ -14,14 +22,13 @@ we varied:
 and selected the combination that minimized runtime.  For this workload we
 found that $BLOCK\_M=64$, $BLOCK\_N=1024$, $num\_warps=2$, and $num\_stages=2$
 gave the best overall performance, increasing measured FLOP utilization by
-more than $2\times$ relative to smaller-tile settings.  The same sweep can be
-repeated for different problem sizes if further tuning is needed.
+more than $2\times$ relative to smaller-tile settings.
 
 Beyond the launch-parameter sweep, two design choices account for most of the
 speedup over a standard tiling implementation:
 \begin{enumerate}
   \item \textbf{Tensor-Core tiling:} all high-dimensional dot products are
-        processed as $16 \times 16$ tiles via \texttt{tl.dot} with Tensor Core
+        processed as $16 \times 16$ tiles with Tensor Core
         acceleration, allowing the GEMM portion of the score and KDE kernels
         to run near the TF32 roofline.
   \item \textbf{Streaming accumulation:} we never materialize full
@@ -41,12 +48,11 @@ further low-level tuning, since additional optimizations would likely yield
 only modest incremental gains.
 
 
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=\textwidth]{figures/legacy/util_16d_sdkde_tensorcore.pdf}
-  \caption{Utilization (percentage of RTX A6000 Tensor Core peak) for the 16-D
-           SD-KDE pipeline, computed via the flop model from
-           Section~\ref{sec:method}; bars are annotated with the observed
-           runtimes (ms).}
-  \label{fig:triton_sd_kde_nd_util}
-\end{figure*}
+
+
+
+
+
+
+
+
