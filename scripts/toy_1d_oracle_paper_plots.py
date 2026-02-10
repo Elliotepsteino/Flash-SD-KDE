@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from gitbud.gitbud import inject_repo_into_sys_path
+
+inject_repo_into_sys_path()
+
 import argparse
 import json
 from pathlib import Path
