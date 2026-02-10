@@ -64,8 +64,9 @@ including the 16D oracle sweep, run:
 make full_paper_experiments_plots
 ```
 
-This target is GPU-heavy and can take a long time. It writes all regenerated
-plots to `file_storage/paper_plots/<timestamp>/generated` (not `paper/figures`).
+This target is GPU-heavy and can take a long time. It writes only the plots
+used by the paper to `file_storage/paper_plots/<timestamp>/generated` (not
+`paper/figures`).
 
 ## Paper figure commands (in order)
 
@@ -83,11 +84,11 @@ make oracle_16d_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
 ```
 3. **Figure 3** — 1D oracle error (`fig_oracle_error_vs_n_1d.pdf/png`)
 ```bash
-make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> TOY_1D_PLOTS_OUT=file_storage/paper_plots/<ts>/generated
+make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
 ```
 4. **Figure 4** — 1D fused vs non‑fused runtime (`fig_fused_vs_nonfused_runtime.pdf/png`)
 ```bash
-make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> TOY_1D_PLOTS_OUT=file_storage/paper_plots/<ts>/generated
+make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
 ```
 5. **Figure 5** — 16D utilization (`util_16d_sdkde_tensorcore.pdf`)
 ```bash

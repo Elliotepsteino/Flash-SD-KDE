@@ -7,7 +7,7 @@ PAPER_PLOTS_DIR ?= $(FILE_STORAGE_ROOT)/paper_plots
 PAPER_PLOTS_RUN ?= $(PAPER_PLOTS_DIR)/$(shell date +%Y%m%d_%H%M%S)
 PAPER_PLOTS_BASELINE ?= $(PAPER_PLOTS_RUN)/baseline
 PAPER_PLOTS_OUT ?= $(PAPER_PLOTS_RUN)/generated
-TOY_1D_PLOTS_OUT ?= $(PAPER_PLOTS_RUN)/toy_1d
+TOY_1D_PLOTS_OUT ?= $(PAPER_PLOTS_OUT)
 
 .PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration \
 	bench bench.mnist_ood bench.toy_1d_oracle \
@@ -153,8 +153,7 @@ toy_1d_oracle_plots:
 	@echo "Running toy 1D oracle benchmark + plots."
 	mkdir -p $(TOY_1D_PLOTS_OUT)
 	$(MAKE) bench.toy_1d_oracle PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
-	TOY_1D_OUTPUT_DIR="$(TOY_1D_PLOTS_OUT)" TOY_1D_DISABLE_PAPER_COPY=1 \
-		$(PY) plots/plot_toy_1d_mog_oracle.py
+	$(PY) scripts/toy_1d_oracle_paper_plots.py --output "$(TOY_1D_PLOTS_OUT)"
 	@echo "Toy 1D oracle plots written to $(TOY_1D_PLOTS_OUT)"
 
 oracle_16d_plots:

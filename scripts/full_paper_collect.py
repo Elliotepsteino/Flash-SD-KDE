@@ -45,13 +45,16 @@ def main() -> int:
     if latest is None:
         return 0
 
-    env = os.environ.copy()
-    env["TOY_1D_OUTPUT_DIR"] = str(out_dir)
-    env["TOY_1D_DISABLE_PAPER_COPY"] = "1"
     subprocess.run(
-        [sys.executable, str(repo_root / "plots" / "plot_toy_1d_mog_oracle.py")],
+        [
+            sys.executable,
+            str(repo_root / "scripts" / "toy_1d_oracle_paper_plots.py"),
+            "--output",
+            str(out_dir),
+            "--results_dir",
+            str(latest),
+        ],
         check=True,
-        env=env,
     )
 
     error_suite = _latest_error_suite_results(repo_root)
