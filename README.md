@@ -67,6 +67,51 @@ make full_paper_experiments_plots
 This target is GPU-heavy and can take a long time. It writes all regenerated
 plots to `file_storage/paper_plots/<timestamp>/generated` (not `paper/figures`).
 
+## Paper figure commands (in order)
+
+The list below follows the LaTeX figure order in the paper. For each figure,
+replace `<ts>` with a timestamp of your choice (e.g., `20260210_120000`) to keep
+outputs together in `file_storage/paper_plots/<ts>/generated`.
+
+1. **Figure 1** — 16D runtime comparison (`runtime_16d_kde_sdkde.pdf`)
+```bash
+make run.nd_runtime_sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
+```
+2. **Figure 2** — 16D oracle error (`fig_oracle_error_vs_n.png`)
+```bash
+make oracle_16d_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
+```
+3. **Figure 3** — 1D oracle error (`fig_oracle_error_vs_n.pdf`)
+```bash
+make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> TOY_1D_PLOTS_OUT=file_storage/paper_plots/<ts>/generated
+```
+4. **Figure 4** — 1D fused vs non‑fused runtime (`fig_fused_vs_nonfused_runtime.pdf`)
+```bash
+make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> TOY_1D_PLOTS_OUT=file_storage/paper_plots/<ts>/generated
+```
+5. **Figure 5** — 16D utilization (`util_16d_sdkde_tensorcore.pdf`)
+```bash
+make run.triton_sd_kde_nd PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
+```
+6. **Figure 6** — 1D runtime appendix (`runtime_1d_kde_sdkde.pdf`)
+```bash
+make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
+```
+7. **Figure 7** — 1D utilization appendix (`util_1d_empirical_sdkde.pdf`)
+```bash
+make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
+```
+8. **Appendix oracle plot** — 16D oracle MISE/MIAE (`oracle_16d_mise_miae_vs_n.pdf`)
+```bash
+make oracle_16d_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
+```
+
+To generate all figures in one go, use:
+
+```bash
+make full_paper_experiments_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
+```
+
 ## Legacy sweep scripts (deprecated)
 
 The root-level `run_*.sh` scripts are deprecated in this refactor. We keep
