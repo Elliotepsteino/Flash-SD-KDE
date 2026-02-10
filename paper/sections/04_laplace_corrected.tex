@@ -1,0 +1,123 @@
+\section{Laplace-corrected KDE}
+\label{sec:laplace_corrected}
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/fig_oracle_error_vs_n_16d.pdf}
+  \caption{Oracle error on a 16D mixture-of-Gaussians benchmark.
+           We report MISE and MIAE versus $n_{\text{train}}$ for KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE.
+           The Laplace-corrected estimators can be slightly negative, so error is computed in a signed density manner.}
+  \label{fig:oracle_16d_error_1d}
+\end{figure*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/fig_oracle_error_vs_n_1d.pdf}
+  \caption{Oracle error on a 1D mixture-of-Gaussians benchmark.
+           We report MISE and MIAE versus $n_{\text{train}}$ for KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE.
+           The Laplace-corrected estimators can be slightly negative, so error is computed on the signed density.}
+  \label{fig:oracle_error_1d}
+\end{figure*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/fig_fused_vs_nonfused_runtime.pdf}
+  \caption{Runtime and speedup for Laplace correction in 1D.
+           The left panel shows total runtime for the fused Flash-Laplace-KDE kernel and a non-fused implementation.
+           The right panel reports speedup ratios, including Flash-SD-KDE relative to Flash-Laplace-KDE for context.}
+  \label{fig:laplace_speedup_1d}
+\end{figure*}
+Score-debiased KDE offers better asymptotic error rates, but its empirical score step adds a full quadratic pass over the data.
+A natural approximation is to replace the explicit debiasing with a correction to the kernel itself, in the spirit of classical higher-order bias corrections for KDE\footnote{Laplace kernel has $0$ second moment, but non-zero fourth moment, so it is a fourth-order kernel.}~\citep{fan1992bias,jones1997comparison}.
+This yields a Laplace-corrected KDE that captures the same leading-order bias reduction of SD-KDE~\citep{epstein2025sdkde} while avoiding the empirical score computation at the cost of admitting possibly negative values.
+
+Let $K_h(x)$ denote the isotropic Gaussian kernel in $d$ dimensions.
+\[
+  K_h(x)
+  =
+  \frac{1}{(2\pi)^{d/2} h^d}
+  \exp\!\left(-\frac{\lVert x \rVert^2}{2h^2}\right),
+\]
+Let $\hat p(x) = \tfrac{1}{n} \sum_i K_h(x - x_i)$ be the corresponding KDE.
+The Laplace-corrected kernel is defined by
+\[
+  K_h^{\text{LC}}(x)
+  =
+  K_h(x) - \frac{h^2}{2} \Delta K_h(x).
+\]
+For the Gaussian kernel, the Laplacian has a closed form.
+\[
+  K_h^{\text{LC}}(x)
+  =
+  K_h(x)\left(1 + \frac{d}{2} - \frac{\lVert x \rVert^2}{2h^2}\right),
+\]
+The estimator becomes
+\[
+  \hat p_{\text{LC}}(x)
+  =
+  \frac{1}{n} \sum_{i=1}^n K_h^{\text{LC}}(x - x_i).
+\]
+
+\paragraph{Connection to SD-KDE.}
+SD-KDE~\citep{epstein2025sdkde} forms debiased samples $x_i^{\text{SD}} = x_i + \tfrac{h^2}{2}\,\hat s(x_i)$ using an empirical score $\hat s$.
+Evaluating a KDE on the shifted samples and linearizing in $h^2$ yields a correction proportional to $\Delta K_h$.
+When $\hat s$ is taken to be the KDE score, this linearized estimator coincides with the Laplace-corrected kernel above.
+Thus $\hat p_{\text{LC}}$ can be viewed as a first-order approximation to SD-KDE that preserves its leading bias reduction while avoiding an explicit score pass.
+
+As an intuitive explanation of why both methods achieve the same leading bias reduction, we can first view vanilla KDE\footnote{Throughout, we assume that the kernel is Gaussian for simplicity.} as a heat semigroup (kernel) $P_{t} = e^{\frac{t}{2}\Delta}$ with $t = h^2$ applying to the empirical density  function $f_n$ (sampled with replacement) to be
+\begin{align*}
+    \hat{f} = P_t f_n.
+\end{align*}
+From the linearity of the heat semigroup, we then have that the expected estimate
+\begin{align*}
+    \mathbb{E}\left[\hat{f}\right]
+    =\mathbb{E}\left[P_t f_n\right]
+    =P_t\mathbb{E}\left[ f_n\right]
+    =P_tf,
+\end{align*}
+where $f$ is the true probability density function.
+
+The bias is then, under a smoothness assumption we assume throughout,
+\begin{align*}
+    \mathbb{E}\left[\hat{f}\right]-f = (P_t-I)f = \frac{t}{2} \Delta f + O(t^2).
+\end{align*}
+
+The Laplace kernel deals with this leading term by using an operator $\left(I-\frac{t}{2}\Delta\right)P_t$ instead, making its bias
+\begin{align*}
+    \mathbb{E}\left[\hat{f}^{\text{LC}}\right]-f = \left[\left(I-\frac{t}{2}\Delta\right)P_t-I\right]f = O(t^2).
+\end{align*}
+
+The SD-KDE algorithm approaches this debias task differently by applying a \textbf{non-linear}\footnote{Even when the transportation kernel has a non-linear transportation. The kernel itself is linear.} transportation kernel $T_{\frac{t}{2}\nabla \log f}$ before applying a standard heat kernel $P_t$, making its bias
+\begin{align*}
+    &\mathbb{E}\left[\hat{f}^{\text{SD-KDE}}\right]-f\\ &= \left[P_tT_{\frac{t}{2}\nabla f}-I\right]f\\
+    &=
+    \left[P_t\left(f - \frac{t}{2}\nabla \cdot \left(f\nabla \log f\right) + O(t^2)\right)-f\right]\\
+    &=
+    \left[P_t\left(f - \frac{t}{2}\Delta f + O(t^2)\right)-f\right]\\
+    &=
+    \left[P_t\left(I - \frac{t}{2}\Delta  \right)-I\right]f+ O(t^2)\\
+    &= O(t^2).
+\end{align*}
+Recall that $t=h^2$, so we have that Laplace KDE and SD-KDE have an $O(h^4)$ bias, while vanilla KDE has an $O(h^2)$ bias.
+
+Note that the analysis above assumes that the SD-KDE has access to the oracle, so the translation kernel is linear. In practice, the score is empirical, making the translation kernel
+\begin{align*}
+    T_{\frac{t}{2}\nabla \log \left(P_{t'} f_n\right)}
+\end{align*}
+where $t'=\frac{h^2}{2}$ is the bandwidth for the kernel used for score estimation. Thus, the empirical SD-KDE is
+\begin{align*}
+    \hat{f}^{\text{Emp SD-KDE}} = T_{\frac{t}{2}\nabla \log \left(P_{t'} f_n\right)} f_n,
+\end{align*}
+which is no longer linear in $f_n$.
+
+
+\paragraph{Why we consider this correction.}
+The Laplace-corrected estimator is appealing when the full SD-KDE score is too expensive or when a fast bias-reduction surrogate is sufficient.
+It requires only the same pairwise distances and exponentials as standard KDE, plus a simple affine factor in the kernel value.
+The correction can be negative for large $\lVert x - x_i \rVert$, so $\hat p_{\text{LC}}$ is not guaranteed to be nonnegative, which we account for in our experiments.
+
+\paragraph{Kernel fusion opportunity.}
+Computing $K_h^{\text{LC}}$ reuses the same scaled distances used to compute $K_h$.
+A fused kernel can compute $\phi = \exp(-\tfrac{1}{2}\,\text{scaled})$ and apply the Laplace factor inside the same pass.
+A non-fused implementation must either recompute distances or materialize intermediates in a second kernel.
+This increases memory traffic and kernel launches.
+We therefore treat the fused Laplace-corrected kernel as a distinct fast path and refer to it as \emph{Flash-Laplace-KDE}.

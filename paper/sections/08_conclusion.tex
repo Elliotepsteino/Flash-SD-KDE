@@ -1,0 +1,8 @@
+\label{sec:conclusion}
+\section{Conclusion}
+Score-debiased kernel density estimation (SD-KDE) offers improved asymptotic accuracy over classical KDE, but its reliance on an empirical score has historically made it substantially slower in practice. 
+This paper shows that the dominant cost of empirical SD-KDE is not inherently prohibitive: by re-ordering the computation to expose matrix-multiplication structure, both KDE evaluation and the score numerator can be expressed as Tensor Core--accelerable GEMMs plus lightweight elementwise operations, while avoiding materializing full pairwise interaction matrices via streaming accumulation. 
+In the 16-D setting, this hardware-aligned formulation yields large end-to-end gains---up to $47\times$ faster than a strong Torch SD-KDE baseline and $3{,}300\times$ faster than scikit-learn KDE---and scales to previously infeasible regimes, completing SD-KDE on $\sim$1M training points and $\sim$131k queries in 2.3\,s on a single GPU.
+
+ Overall, our results suggest that practical nonparametric estimators can often be unlocked by hardware-aware reformulations that maximize GPU utilization. 
+ Future directions include extending the approach beyond $d$ multiples of 16, supporting richer bandwidth parameterizations and kernels, further reducing non-Tensor-Core overheads (e.g., exponentials and atomics), and developing nonnegativity-preserving approximations and multi-GPU variants.

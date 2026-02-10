@@ -1,0 +1,7 @@
+% Auto-generated error suite table
+\begin{tabular}{lcccc}
+\toprule
+Compute dtype & max|log err| & rmse log err & speedup & flash ms \
+\midrule
+\bottomrule
+\end{tabular}

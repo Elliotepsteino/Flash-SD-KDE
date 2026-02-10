@@ -1,0 +1,38 @@
+% Paper preamble (packages and formatting).
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+% Ensure LaTeX finds ICML-provided style dependencies in ./icml2026/.
+\makeatletter
+\def\input@path{{icml2026/}}
+\makeatother
+
+% Use the following line for the initial blind version submitted for review:
+\ifarxiv
+\usepackage[preprint]{icml2026}
+\else
+\usepackage{icml2026}
+\fi
+
+% For preprint, use:
+% 
+
+% If accepted, instead use the following line for the camera-ready submission:
+% \usepackage[accepted]{icml2026}
+
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{comment}
+
+% Attempt to make hyperref and algorithmic work together better:
+\providecommand{\theHalgorithm}{\arabic{algorithm}}
+
+% natbib's automatic mode detection keys off \bibliographystyle{...}. Since we
+% use a relative path for the ICML bst, tell natbib it's author-year.
+\makeatletter
+\expandafter\def\csname bibstyle@icml2026/icml2026\endcsname{\bibpunct{(}{)}{;}{a}{,}{,}}
+\makeatother

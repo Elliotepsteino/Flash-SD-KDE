@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flash-sd-kde"
+version = "0.1.0"
+description = "Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Elliot Epstein", email = "epsteine@stanford.edu" },
+]
+license = "BSD-3-Clause"
+license-files = ["LICENSE", "AUTHORS"]
+keywords = ["kde", "kernel density estimation", "triton", "cuda", "gpu"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "numpy",
+  "torch",
+  "triton",
+]
+
+[project.optional-dependencies]
+full = [
+  "scipy",
+  "torchvision",
+  "scikit-learn",
+  "matplotlib",
+  "pytest",
+  "gitbud",
+  "slack-results",
+  "pyyaml",
+]
+
+[project.urls]
+Repository = "https://github.com/Elliotepsteino/Flash-SD-KDE"
+Issues = "https://github.com/Elliotepsteino/Flash-SD-KDE/issues"
+
+[tool.setuptools]
+py-modules = ["globals"]
+
+[tool.setuptools.packages.find]
+include = ["flash_sd_kde*", "kernels*"]

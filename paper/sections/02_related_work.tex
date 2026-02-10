@@ -1,0 +1,40 @@
+\section{Related Work}
+
+\paragraph{Kernel density estimation.}
+Kernel density estimation (KDE) is a classical nonparametric approach to density estimation that dates back to the foundational work of \citet{rosenblatt1956remarks} and \citet{parzen1962estimation}; modern treatments appear in standard references such as \citet{silverman1986density} and \citet{wand1995kernel}.
+For smooth densities, KDE attains optimal nonparametric rates under appropriate bandwidth scaling, but in practice performance is highly sensitive to bandwidth selection.
+Rules-of-thumb and plug-in procedures are widely used for their simplicity, but they are typically tuned to unimodal, near-Gaussian targets and can misbehave for multimodal or heavy-tailed distributions \citep{silverman1986density, botev2010diffusion}.
+This sensitivity is particularly pronounced in moderate and high dimensions, where the bandwidth controls both statistical bias and the computational cost of evaluating kernels at scale.
+
+\paragraph{Bias reduction and adaptive smoothing.}
+A large body of work improves KDE accuracy by reducing leading-order bias or adapting the effective smoothing scale across the sample space.
+One line of work constructs higher-order bias corrections by modifying kernels or combining estimators so that the dominant $O(h^2)$ bias term cancels, yielding $O(h^4)$ bias under additional smoothness assumptions \citep{fan1992bias, jones1997comparison}.
+Another class of methods uses variable bandwidths that shrink in regions of high density and expand in the tails, improving adaptivity without committing to a parametric form \citep{abramson1982bandwidth, silverman1986density}.
+Complementary to these ideas, diffusion-based estimators view density estimation through the lens of smoothing by a linear diffusion process, providing both adaptivity and a data-driven bandwidth selection mechanism \citep{botev2010diffusion}.
+Score-debiased KDE (SD-KDE) \citep{epstein2025sdkde} fits into this landscape by using score information to correct the leading bias term while retaining a simple kernel estimator structure.
+Our Laplace-corrected formulation can be seen as an explicit higher-order correction that removes the need to form an empirical score at evaluation time, trading additional kernel evaluations for improved numerical and computational behavior.
+
+\paragraph{Score estimation and score-based modeling.}
+The score function $\nabla_x \log p(x)$ is a central object in statistics and machine learning.
+Score matching \citep{hyvarinen2005score} provides a way to fit unnormalized models by matching scores rather than likelihoods, and denoising score matching connects score estimation to learning denoisers \citep{vincent2011connection}.
+More recently, score-based generative models learn scores of noise-perturbed data distributions with neural networks and sample via Langevin or SDE-based dynamics \citep{song2019generative, song2021sde, ho2020ddpm}.
+These works typically target high-dimensional perceptual data and emphasize sampling or likelihood computation, whereas SD-KDE uses an explicit nonparametric density estimator and an analytically-defined score to improve pointwise density estimation.
+Related to our setting, Stein-based score estimators recover score information from samples via identities that avoid explicit density evaluation \citep{li2017gradient}.
+Our focus is complementary: we keep the statistical estimator fixed (SD-KDE and its Laplace variant) and address the practical bottleneck that arises when score-corrected estimators are deployed at large scale.
+
+\paragraph{Fast evaluation of kernel sums and density models.}
+The computational cost of KDE and related kernel methods is dominated by evaluating large Gaussian sums or kernel matrices.
+Algorithmic accelerations include multipole and series-expansion methods such as the Fast Gauss Transform (FGT) \citep{greengard1991fast} and improved variants tailored to Gaussian kernels \citep{yang2003improved}.
+%, as well as space-partitioning and dual-tree methods for generic ``$N$-body'' statistical computations \citep{gray2001nbody, gray2003nonparametric}.
+A different set of approaches uses randomized low-rank approximations (e.g., random Fourier features) to trade bias for computational efficiency \citep{rahimi2007random}.
+These methods reduce asymptotic complexity but can be sensitive to dimensionality, bandwidth, and target accuracy.
+In contrast, our work targets the exact SD-KDE computation and focuses on constant-factor reductions that make the estimator practical on modern accelerators.
+
+\paragraph{GPU acceleration and tensor-core programming.}
+A growing ecosystem of libraries and DSLs targets large kernel computations on GPUs.
+KeOps provides a memory-efficient reduction framework for kernel and distance matrices and is a strong baseline for Gaussian kernel reductions at scale \citep{charlier2021keops}.
+General deep learning frameworks such as PyTorch \citep{paszke2019pytorch} make it easy to express quadratic kernel computations, but their performance depends critically on whether the computation can be lowered to high-throughput primitives.
+Domain-specific languages such as Triton \citep{tillet2019triton} enable writing custom GPU kernels while still benefiting from compiler support for tiling and scheduling.
+At the hardware level, modern GPUs provide specialized matrix-multiply units (Tensor Cores) and mixed-precision execution paths that can offer large throughput improvements when computations are expressed in GEMM-like form \citep{micikevicius2017mixed, williams2009roofline}.
+Recent ``flash''-style algorithms demonstrate that reordering computations to avoid materializing large intermediate matrices and to match the GPU memory hierarchy can yield substantial speedups for quadratic primitives \citep{dao2022flashattention}.
+Our contribution follows this direction for score-corrected density estimation: we reorder SD-KDE to expose matrix-multiplication structure and implement a streaming accumulation strategy so that Tensor Cores can be used effectively without incurring prohibitive memory traffic.

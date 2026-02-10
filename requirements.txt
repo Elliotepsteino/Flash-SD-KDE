@@ -1,0 +1,12 @@
+numpy
+scipy
+torch
+torchvision
+triton
+scikit-learn
+matplotlib
+pytest
+gitbud
+slack-results
+pyyaml
+-e .

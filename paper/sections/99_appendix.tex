@@ -1,0 +1,98 @@
+\appendix
+\section{Flash-SD-KDE in low dimensions}
+
+For completeness we briefly summarize the 1-D SD-KDE arithmetic intensity and
+empirical behavior.  With $n_{\text{train}} = k$ and $n_{\text{test}} = k/8$,
+there are two steps:
+\begin{enumerate}
+  \item \textbf{Score + shift:} For each training point we compute
+        $\hat s(x_i)$ from all $k$ points and then form
+        $x_i^{\mathrm{SD}} = x_i + \tfrac{h^2}{2}\hat s(x_i)$.  This uses
+        $O(k^2)$ pairwise kernel interactions.  With the RTX~A6000 hardware
+        ratio ($128$ FP32 ALUs, $16$ SFUs per SM) we budget an $\exp$ as
+        $8$ flop-equivalents.  The score accumulation requires one $\exp$
+        and roughly eight additional arithmetic ops (subtraction, scaling,
+        accumulation), yielding $c_1 \approx 16$ flops per
+        $(\text{train},\text{train})$ pair.
+  \item \textbf{KDE on debiased samples:} We then evaluate a standard Gaussian
+        KDE at $k/8$ query points using the $k$ debiased samples, which uses
+        $O(k^2/8)$ interactions.  Each pair requires one $\exp$ (8 flops) plus
+        about six other operations (difference, square, scaling, accumulation),
+        so we take $c_2 \approx 14$ flops per $(\text{train},\text{test})$ pair.
+\end{enumerate}
+The total work is therefore approximated by
+\[
+  \text{FLOPs}(k)
+  \;\approx\;
+  c_1 k^2 + c_2\,k\,(k/8)
+  \;\approx\;
+  16 k^2 + 14\frac{k^2}{8}
+  \;=\;
+  17.75\,k^2.
+\]
+For $k = 32\text{k}$ this is on the order of $2\times 10^{10}$ flops.  When we
+fix $n_{\text{test}} = k/8$ we move approximately $5k$ bytes (counting one
+read of each train and test point and one write of each output), so the
+arithmetic intensity scales as
+\[
+  I(k)
+  =
+  \frac{\text{FLOPs}(k)}{\text{Bytes}(k)}
+  \;\approx\;
+  \frac{17.75\,k^2}{5\,k}
+  \approx
+  3.55\,k
+  \quad \text{flops/byte},
+\]
+placing realistic problem sizes firmly in the compute-bound regime.
+
+Empirically we sweep $k$ over powers of two from $1024$ to $64\text{k}$, with
+$n_{\text{test}} = k/8$, and average over three seeds.  For each
+configuration we record scikit-learn Gaussian KDE
+time, and SD-KDE Torch time, and Flash-SD-KDE time.  Across the entire range, the Flash-SD-KDE
+implementation is consistently faster than scikit-learn, with speedups
+growing with $k$; at the largest sizes, Flash-SD-KDE achieves around 2 orders-of-magnitude speedup relative to the sklearn baseline, as shown in Figure~\ref{fig:flash_sd_kde}.
+
+\begin{figure*}[th]
+  \centering
+  \includegraphics[width=0.8\linewidth]{figures/runtime_1d_kde_sdkde.pdf}
+  \caption{Average runtime (log-scale $y$-axis) of scikit-learn KDE, SD-KDE (Torch), and Flash-SD-KDE across $n_{\text{train}}$ in 1-D; annotations show observed runtimes.}
+  \label{fig:flash_sd_kde}
+\end{figure*}
+
+%\begin{figure}[th]
+%  \centering
+%  \includegraphics[width=0.8\linewidth]{figures/emp-sd-kde-%util.pdf}
+%  \caption{Estimated GPU utilization (as a percentage of A6000 %FP32 peak)
+%           for 1-D SD-KDE implemented in Triton and optimized %Torch,
+%           computed from the 1-D flop model and the measured %runtimes.}
+%  \label{fig:flash_sd_kde_util}
+%\end{figure}
+
+As shown in Figure~\ref{fig:triton_large_util}, we also compare the utilization of Flash-SD-KDE with SD-KDE (Torch) over a range of 1-D problem sizes, using powers of
+two for $n_{\text{train}}$ up to $2^{16} \approx 64$ thousand (and
+$n_{\text{test}} = n_{\text{train}}/8$).  
+
+\begin{figure*}[th]
+  \centering
+  \includegraphics[width=0.8\linewidth]{figures/util_1d_empirical_sdkde.pdf}
+  \caption{Utilization of the 1-D Flash-SD-KDE kernel and SD-KDE (Torch) for large
+           $n_{\text{train}}$ (powers of two up to $2^{16}$).  Labels show
+           the observed runtime for each data size; error bars are omitted
+           because a single seed is used per point.}
+  \label{fig:triton_large_util}
+\end{figure*}
+
+
+\begin{comment}
+\section{Oracle density benchmark for Laplace correction beyond $10^6$}
+\label{sec:laplace_corrected}
+The results are shown below.
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/fig_oracle_error_vs_n_16d.pdf}
+  \caption{Oracle error on a 16D mixture-of-Gaussians benchmark.
+           We report MISE and MIAE versus $n_{\text{train}}$ for KDE and Flash-Laplace-KDE (fused Laplace correction).}
+  \label{fig:e6_fig_oracle_error_vs_n}
+\end{figure*}
+\end{comment}
