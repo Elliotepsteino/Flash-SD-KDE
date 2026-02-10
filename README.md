@@ -102,7 +102,7 @@ make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file
 ```bash
 make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
 ```
-8. **Appendix oracle plot** — 16D oracle MISE/MIAE (`oracle_mise_miae_vs_n_16d.pdf/png`)
+8. **Appendix oracle plot** — reuses Figure 2 (`fig_oracle_error_vs_n_16d.pdf/png`)
 ```bash
 make oracle_16d_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
 ```
