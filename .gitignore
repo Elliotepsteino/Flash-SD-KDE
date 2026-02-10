@@ -14,3 +14,9 @@ external_kernels/
 
 # OS
 .DS_Store
+
+AGENTS.md
+GITBUD.md
+LATEX_PAPER_GUIDE.md
+PLOTTING_GUIDE.md
+SLACK_RESULTS.md
