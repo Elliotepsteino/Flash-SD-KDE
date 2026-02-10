@@ -65,5 +65,5 @@ oracle:
 sweep:
   fail_fast: false
   parameters:
-    data.n_train: [3000, 10000, 30000, 100000, 500000]
+    data.n_train: [3000, 10000, 30000, 100000, 500000, 1000000]
     oracle.method: [kde, flash_laplace, nonfused_laplace, emp_sd_kde]

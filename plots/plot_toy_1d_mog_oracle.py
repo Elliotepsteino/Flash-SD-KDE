@@ -103,7 +103,7 @@ def plot_error_vs_n(output_dir: Path, results: Dict, *, dpi: int) -> None:
     ]:
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_xlabel("n_train")
+        ax.set_xlabel(r"$n_{train}$")
         ax.set_ylabel(ylabel)
         ax.set_title(title)
         ax.grid(alpha=0.2, linestyle="--")
@@ -142,9 +142,9 @@ def plot_runtime_vs_n(output_dir: Path, results: Dict, *, dpi: int) -> None:
 
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("n_train")
+    ax.set_xlabel(r"$n_{train}$")
     ax.set_ylabel("runtime (s)")
-    ax.set_title("Runtime vs n_train (total)")
+    ax.set_title(r"Runtime vs $n_{train}$ (total)")
     ax.grid(alpha=0.2, linestyle="--")
     ax.legend(frameon=False)
 
@@ -171,7 +171,7 @@ def plot_density_curves(output_dir: Path, densities: Dict, *, dpi: int) -> None:
     ax.plot(x_grid, emp_density, color="C2", lw=1.8, label="Flash-SD-KDE")
     ax.set_xlabel("x")
     ax.set_ylabel("density")
-    ax.set_title(f"Density estimates at n_train={n_train}")
+    ax.set_title(rf"Density estimates at $n_{{train}}$={n_train}")
     ax.grid(alpha=0.2, linestyle="--")
     ax.legend(frameon=False, ncol=2, loc="lower center", bbox_to_anchor=(0.5, -0.25))
 
@@ -195,7 +195,7 @@ def plot_error_runtime_tradeoff(output_dir: Path, results: Dict, *, dpi: int) ->
     ax.set_ylabel("ISE")
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_title(f"Accuracy-speed tradeoff (n_train={n_train})")
+    ax.set_title(rf"Accuracy-speed tradeoff ($n_{{train}}$={n_train})")
     ax.grid(alpha=0.2, linestyle="--")
 
     fig.tight_layout()
@@ -232,7 +232,7 @@ def plot_fused_vs_nonfused_runtime(output_dir: Path, results: Dict, *, dpi: int)
     speedup_emp = emp_rt / np.maximum(fused_rt, _POS_EPS)
     axes[0].set_xscale("log")
     axes[0].set_yscale("log")
-    axes[0].set_xlabel("n_train")
+    axes[0].set_xlabel(r"$n_{train}$")
     axes[0].set_ylabel("runtime (s)")
     axes[0].set_title("Fused vs non-fused runtime")
     axes[0].grid(alpha=0.2, linestyle="--")
@@ -241,13 +241,13 @@ def plot_fused_vs_nonfused_runtime(output_dir: Path, results: Dict, *, dpi: int)
     axes[1].plot(n_train, speedup, marker="o", color="C2")
     axes[1].plot(n_train, speedup_emp, marker="o", color="C4")
     axes[1].set_xscale("log")
-    axes[1].set_xlabel("n_train")
+    axes[1].set_xlabel(r"$n_{train}$")
     axes[1].set_ylabel("runtime ratio")
     axes[1].set_title("Speedup from fusion")
     axes[1].grid(alpha=0.2, linestyle="--")
     handles, labels = axes[0].get_legend_handles_labels()
     handles += axes[1].get_lines()
-    labels += ["Flash-Laplace-KDE / Non-fused", "Flash-Laplace-KDE / Flash-SD-KDE"]
+    labels += ["Non-fused / Flash-Laplace-KDE", "Flash-SD-KDE / Flash-Laplace-KDE"]
     fig.legend(
         handles,
         labels,

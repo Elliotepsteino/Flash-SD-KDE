@@ -24,26 +24,6 @@ uv pip install -r requirements.txt
 If you need a specific CUDA-enabled PyTorch build, install it before the
 requirements and then re-run `uv pip install -r requirements.txt`.
 
-## Running the benchmark
-
-Edit `benchmarks/mnist_fashion_pca16_ood_config.py` to change seeds, sizes,
-or backend variants (all backends run by default). Then run:
-
-```bash
-make bench.mnist_ood
-```
-
-Outputs land in `file_storage/benchmarks/mnist_fashion_pca16_ood/<run_id>/`.
-
-## Plotting and grids
-
-Edit `plots/plot_mnist_fashion_ood_config.py` or
-`plots/save_density_ranked_grids_config.py`, then:
-
-```bash
-make plot
-```
-
 ## Paper plots (validation)
 
 To snapshot the current paper figures and regenerate what the repo can produce,
@@ -138,5 +118,26 @@ make run.triton_sd_kde_nd
 make test.small
 make test.large
 ```
+
+## Running the benchmark
+
+Edit `benchmarks/mnist_fashion_pca16_ood_config.py` to change seeds, sizes,
+or backend variants (all backends run by default). Then run:
+
+```bash
+make bench.mnist_ood
+```
+
+Outputs land in `file_storage/benchmarks/mnist_fashion_pca16_ood/<run_id>/`.
+
+## Plotting and grids
+
+Edit `plots/plot_mnist_fashion_ood_config.py` or
+`plots/save_density_ranked_grids_config.py`, then:
+
+```bash
+make plot
+```
+
 
 The large suite assumes CUDA is available; tests will skip if not.
