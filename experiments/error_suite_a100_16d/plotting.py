@@ -405,8 +405,8 @@ def make_plots(results_path: Path, output_dir: Path) -> tuple[dict[str, str], li
 
     oracle_plot = plot_oracle_mise_miae_vs_n(rows, output_dir)
     if oracle_plot:
-        plots["fig_oracle_error_vs_n"] = str(oracle_plot)
-        plots["oracle_mise_miae_vs_n"] = str(oracle_plot)
+        plots["fig_oracle_error_vs_n_16d"] = str(oracle_plot)
+        plots["oracle_mise_miae_vs_n_16d"] = str(oracle_plot)
 
     return plots, frontier
 
@@ -485,10 +485,10 @@ def plot_oracle_mise_miae_vs_n(rows: list[dict[str, Any]], output_dir: Path) -> 
     )
     fig.subplots_adjust(bottom=0.18, top=0.84, wspace=0.3)
 
-    path = output_dir / "fig_oracle_error_vs_n"
+    path = output_dir / "fig_oracle_error_vs_n_16d"
     _save(fig, path.with_suffix(".pdf"))
     _save(fig, path.with_suffix(".png"))
-    legacy = output_dir / "oracle_mise_miae_vs_n"
+    legacy = output_dir / "oracle_mise_miae_vs_n_16d"
     _save(fig, legacy.with_suffix(".pdf"))
     _save(fig, legacy.with_suffix(".png"))
     plt.close(fig)

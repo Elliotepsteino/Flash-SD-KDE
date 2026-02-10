@@ -341,7 +341,7 @@ def run_sweep(config_path: Path, *, out_dir_override: Path | None = None, fail_f
 
     summary_names = cfg.get(
         "summary_plots",
-        ["oracle_mise_miae_vs_n", "pareto_kl_vs_throughput", "pareto_nll_vs_throughput"],
+        ["oracle_mise_miae_vs_n_16d", "pareto_kl_vs_throughput", "pareto_nll_vs_throughput"],
     )
     if isinstance(summary_names, list):
         _collect_summary_plots(plots, out_dir, summary_names)

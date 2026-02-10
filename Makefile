@@ -161,5 +161,5 @@ oracle_16d_plots:
 	@echo "Running 16D oracle sweep + plots."
 	mkdir -p $(PAPER_PLOTS_OUT)
 	$(PY) -m experiments.error_suite_a100_16d.sweep --config configs/error_suite_a100_16d/grid_oracle_mog_16d.yaml
-	ERROR_SUITE_OUTPUT_DIR="$(PAPER_PLOTS_OUT)" $(PY) plots/plot_error_suite_16d.py
+	$(PY) scripts/error_suite_oracle_plot.py --output "$(PAPER_PLOTS_OUT)"
 	@echo "16D oracle plots written to $(PAPER_PLOTS_OUT)"

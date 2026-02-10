@@ -67,6 +67,18 @@ def main() -> int:
         env=env,
     )
 
+    subprocess.run(
+        [
+            sys.executable,
+            str(repo_root / "scripts" / "error_suite_oracle_plot.py"),
+            "--output",
+            str(out_dir),
+            "--results_dir",
+            str(error_suite),
+        ],
+        check=True,
+    )
+
     return 0
 
 

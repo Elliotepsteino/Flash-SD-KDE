@@ -77,15 +77,15 @@ outputs together in `file_storage/paper_plots/<ts>/generated`.
 ```bash
 make run.nd_runtime_sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
 ```
-2. **Figure 2** — 16D oracle error (`fig_oracle_error_vs_n.png`)
+2. **Figure 2** — 16D oracle error (`fig_oracle_error_vs_n_16d.pdf/png`)
 ```bash
 make oracle_16d_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
 ```
-3. **Figure 3** — 1D oracle error (`fig_oracle_error_vs_n.pdf`)
+3. **Figure 3** — 1D oracle error (`fig_oracle_error_vs_n_1d.pdf/png`)
 ```bash
 make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> TOY_1D_PLOTS_OUT=file_storage/paper_plots/<ts>/generated
 ```
-4. **Figure 4** — 1D fused vs non‑fused runtime (`fig_fused_vs_nonfused_runtime.pdf`)
+4. **Figure 4** — 1D fused vs non‑fused runtime (`fig_fused_vs_nonfused_runtime.pdf/png`)
 ```bash
 make toy_1d_oracle_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> TOY_1D_PLOTS_OUT=file_storage/paper_plots/<ts>/generated
 ```
@@ -101,7 +101,7 @@ make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file
 ```bash
 make run.sweep PAPER_PLOTS_RUN=file_storage/paper_plots/<ts> LEGACY_FIG_DIR=file_storage/paper_plots/<ts>/generated
 ```
-8. **Appendix oracle plot** — 16D oracle MISE/MIAE (`oracle_16d_mise_miae_vs_n.pdf`)
+8. **Appendix oracle plot** — 16D oracle MISE/MIAE (`oracle_mise_miae_vs_n_16d.pdf/png`)
 ```bash
 make oracle_16d_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
 ```

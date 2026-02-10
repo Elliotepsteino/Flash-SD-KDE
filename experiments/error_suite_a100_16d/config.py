@@ -127,7 +127,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "nonfused_dtype": "fp64",
     },
     "summary_plots": [
-        "fig_oracle_error_vs_n",
+        "fig_oracle_error_vs_n_16d",
         "pareto_kl_vs_throughput",
         "pareto_nll_vs_throughput",
     ],

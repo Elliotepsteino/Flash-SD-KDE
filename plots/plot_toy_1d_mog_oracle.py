@@ -118,12 +118,12 @@ def plot_error_vs_n(output_dir: Path, results: Dict, *, dpi: int) -> None:
         bbox_to_anchor=(0.5, -0.06),
     )
     fig.tight_layout(rect=(0, 0.12, 1, 1))
-    _save_fig(fig, output_dir / "fig_oracle_error_vs_n.pdf", dpi)
-    _save_fig(fig, output_dir / "fig_oracle_error_vs_n.png", dpi)
+    _save_fig(fig, output_dir / "fig_oracle_error_vs_n_1d.pdf", dpi)
+    _save_fig(fig, output_dir / "fig_oracle_error_vs_n_1d.png", dpi)
     if os.getenv("TOY_1D_DISABLE_PAPER_COPY") != "1":
-        paper_fig = Path(ensure_repo()) / "paper" / "figures" / "fig_oracle_error_vs_n.pdf"
+        paper_fig = Path(ensure_repo()) / "paper" / "figures" / "fig_oracle_error_vs_n_1d.pdf"
         paper_fig.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(output_dir / "fig_oracle_error_vs_n.pdf", paper_fig)
+        shutil.copy2(output_dir / "fig_oracle_error_vs_n_1d.pdf", paper_fig)
     plt.close(fig)
 
 
