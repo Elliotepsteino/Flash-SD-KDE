@@ -467,23 +467,23 @@ def plot_oracle_mise_miae_vs_n(rows: list[dict[str, Any]], output_dir: Path) -> 
             "Oracle error vs n_train:\nMean Integrated Absolute Error",
         ],
     ):
-        ax.set_xlabel("n_train")
+        ax.set_xlabel(r"$n_{\mathrm{train}}$")
         ax.set_ylabel(metric)
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.grid(alpha=0.2, linestyle="--")
         ax.set_title(title)
 
-    axes[0].legend(
+    fig.legend(
         legend_handles.values(),
         legend_handles.keys(),
         frameon=False,
         ncol=2,
         fontsize=7 if _DEFAULT_PLOT_CONFIG is None else max(6, _DEFAULT_PLOT_CONFIG.font_size - 2),
-        loc="lower left",
-        bbox_to_anchor=(0.0, 0.02),
+        loc="lower center",
+        bbox_to_anchor=(0.5, 0.02),
     )
-    fig.subplots_adjust(bottom=0.18, top=0.84, wspace=0.3)
+    fig.subplots_adjust(bottom=0.22, top=0.84, wspace=0.3)
 
     path = output_dir / "fig_oracle_error_vs_n_16d"
     _save(fig, path.with_suffix(".pdf"))
