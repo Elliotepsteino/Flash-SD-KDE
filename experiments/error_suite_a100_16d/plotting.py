@@ -27,7 +27,7 @@ METHOD_LABELS = {
     "kde": "KDE",
     "flash_laplace": "Flash-Laplace-KDE",
     "nonfused_laplace": "Laplace-corrected KDE (non-fused)",
-    "emp_sd_kde": "Emp-SD-KDE",
+    "emp_sd_kde": "Flash-SD-KDE",
 }
 METHOD_ORDER = ["kde", "flash_laplace", "nonfused_laplace", "emp_sd_kde"]
 METHOD_COLORS = {
@@ -463,8 +463,8 @@ def plot_oracle_mise_miae_vs_n(rows: list[dict[str, Any]], output_dir: Path) -> 
         axes,
         ["MISE", "MIAE"],
         [
-            "Oracle error vs n_train:\nMean Integrated Squared Error",
-            "Oracle error vs n_train:\nMean Integrated Absolute Error",
+            r"Oracle error vs $n_{\mathrm{train}}$:" "\n" "Mean Integrated Squared Error",
+            r"Oracle error vs $n_{\mathrm{train}}$:" "\n" "Mean Integrated Absolute Error",
         ],
     ):
         ax.set_xlabel(r"$n_{\mathrm{train}}$")
@@ -473,6 +473,8 @@ def plot_oracle_mise_miae_vs_n(rows: list[dict[str, Any]], output_dir: Path) -> 
         ax.set_yscale("log")
         ax.grid(alpha=0.2, linestyle="--")
         ax.set_title(title)
+        tick_size = 7 if _DEFAULT_PLOT_CONFIG is None else max(6, _DEFAULT_PLOT_CONFIG.font_size - 2)
+        ax.tick_params(axis="y", labelsize=tick_size)
 
     fig.legend(
         legend_handles.values(),
@@ -481,9 +483,9 @@ def plot_oracle_mise_miae_vs_n(rows: list[dict[str, Any]], output_dir: Path) -> 
         ncol=2,
         fontsize=7 if _DEFAULT_PLOT_CONFIG is None else max(6, _DEFAULT_PLOT_CONFIG.font_size - 2),
         loc="lower center",
-        bbox_to_anchor=(0.5, 0.02),
+        bbox_to_anchor=(0.5, -0.02),
     )
-    fig.subplots_adjust(bottom=0.22, top=0.84, wspace=0.3)
+    fig.subplots_adjust(bottom=0.28, top=0.84, wspace=0.3)
 
     path = output_dir / "fig_oracle_error_vs_n_16d"
     _save(fig, path.with_suffix(".pdf"))
