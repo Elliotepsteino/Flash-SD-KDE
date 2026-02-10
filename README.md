@@ -68,6 +68,12 @@ This target is GPU-heavy and can take a long time. It writes only the plots
 used by the paper to `file_storage/paper_plots/<timestamp>/generated` (not
 `paper/figures`).
 
+To copy the generated plots into `paper/figures`, run:
+
+```bash
+make paper.figures.sync PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
+```
+
 ## Paper figure commands (in order)
 
 The list below follows the LaTeX figure order in the paper. For each figure,

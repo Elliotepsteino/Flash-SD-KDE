@@ -12,7 +12,7 @@ TOY_1D_PLOTS_OUT ?= $(PAPER_PLOTS_OUT)
 .PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration \
 	bench bench.mnist_ood bench.toy_1d_oracle \
 	plot plot.mnist_ood plot.grids plot.toy_1d_oracle \
-	paper paper.clean full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots \
+	paper paper.clean full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots paper.figures.sync \
 	plots.legacy plots.legacy.from_logs plots.legacy.util \
 	run.sweep run.nd_runtime_sweep run.triton_scaling run.triton_sd_kde_nd
 
@@ -162,3 +162,6 @@ oracle_16d_plots:
 	$(PY) -m experiments.error_suite_a100_16d.sweep --config configs/error_suite_a100_16d/grid_oracle_mog_16d.yaml
 	$(PY) scripts/error_suite_oracle_plot.py --output "$(PAPER_PLOTS_OUT)"
 	@echo "16D oracle plots written to $(PAPER_PLOTS_OUT)"
+
+paper.figures.sync:
+	@$(PY) scripts/paper_figures_sync.py --source "$(PAPER_PLOTS_OUT)" --dest "$(PAPER_DIR)/figures"
