@@ -489,6 +489,5 @@ def plot_oracle_mise_miae_vs_n(rows: list[dict[str, Any]], output_dir: Path) -> 
 
     path = output_dir / "fig_oracle_error_vs_n_16d"
     _save(fig, path.with_suffix(".pdf"))
-    _save(fig, path.with_suffix(".png"))
     plt.close(fig)
     return path

@@ -119,7 +119,6 @@ def plot_error_vs_n(output_dir: Path, results: Dict, *, dpi: int) -> None:
     )
     fig.tight_layout(rect=(0, 0.12, 1, 1))
     _save_fig(fig, output_dir / "fig_oracle_error_vs_n_1d.pdf", dpi)
-    _save_fig(fig, output_dir / "fig_oracle_error_vs_n_1d.png", dpi)
     if os.getenv("TOY_1D_DISABLE_PAPER_COPY") != "1":
         paper_fig = Path(ensure_repo()) / "paper" / "figures" / "fig_oracle_error_vs_n_1d.pdf"
         paper_fig.parent.mkdir(parents=True, exist_ok=True)
@@ -260,7 +259,6 @@ def plot_fused_vs_nonfused_runtime(output_dir: Path, results: Dict, *, dpi: int)
 
     fig.tight_layout(rect=(0, 0.1, 1, 1))
     _save_fig(fig, output_dir / "fig_fused_vs_nonfused_runtime.pdf", dpi)
-    _save_fig(fig, output_dir / "fig_fused_vs_nonfused_runtime.png", dpi)
     plt.close(fig)
 
 

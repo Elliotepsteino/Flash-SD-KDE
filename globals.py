@@ -1,7 +1,3 @@
-from gitbud.gitbud import inject_repo_into_sys_path
-
-inject_repo_into_sys_path()
-
 # Global string identifiers
 PRECISION_FAST_TF32 = "fast_tf32"
 PRECISION_FP32_IEEE = "fp32_ieee"

@@ -11,7 +11,7 @@ PAPER_PLOTS_OUT ?= $(PAPER_PLOTS_RUN)/generated
 TOY_1D_PLOTS_OUT ?= $(PAPER_PLOTS_OUT)
 
 .PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration \
-	bench bench.mnist_ood bench.toy_1d_oracle \
+	bench bench.mnist_ood bench.toy_1d_oracle bench.pykeops_16d \
 	plot plot.mnist_ood plot.grids plot.toy_1d_oracle \
 	paper paper.clean full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots paper.figures.sync \
 	plots.runtime plots.runtime.from_logs plots.runtime.util \
@@ -38,6 +38,17 @@ bench.mnist_ood:
 
 bench.toy_1d_oracle:
 	$(PY) benchmarks/toy_1d_mog_oracle.py
+
+bench.pykeops_16d:
+	mkdir -p $(PAPER_PLOTS_OUT)
+	$(PY) -m experiments.runtime.benchmark_pykeops_16d \
+		--n-train 32768 \
+		--n-test 4096 \
+		--device cuda \
+		--seed 0 \
+		--flash-repeats 10 \
+		--output "$(PAPER_PLOTS_OUT)/pykeops_16d_runtime.json" \
+		--table-output "$(PAPER_PLOTS_OUT)/table_pykeops_16d_runtime.txt"
 
 bench.emp_score_kernel_speed:
 	$(PY) -m experiments.runtime.compare_emp_score_kernels --n-train 32768
@@ -155,6 +166,7 @@ full_paper_experiments_plots:
 	@echo "Running experiments needed for paper plots (may take significant time/GPU)."
 	$(MAKE) run.sweep run.nd_runtime_sweep run.triton_sd_kde_nd RUNTIME_FIG_DIR=$(PAPER_PLOTS_OUT) PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
 	$(MAKE) bench.toy_1d_oracle PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
+	$(MAKE) bench.pykeops_16d PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
 	$(PY) -m experiments.error_suite_16d.sweep --config configs/error_suite_16d/grid_oracle_mog_16d.yaml
 	$(MAKE) full_paper PAPER_PLOTS_RUN=$(PAPER_PLOTS_RUN)
 

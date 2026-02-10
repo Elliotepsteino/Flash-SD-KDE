@@ -155,7 +155,7 @@ def plot_util(rows: List[Dict[str, float]], output: Path):
     plt.xticks(idx, [f"{int(k):d}" for k in ks], rotation=45, ha="right")
     plt.ylabel("Fraction of A6000 Tensor Core peak (%)")
     plt.xlabel("$n_{\\text{train}}$ (samples)", fontsize=12)
-    plt.title("16-D SD-KDE Utilization vs Tensor Core Peak")
+    plt.title("16-D Flash-SD-KDE Utilization vs Tensor Core Peak")
     util_values = [util_triton]
     if has_torch:
         util_values.append(util_torch)

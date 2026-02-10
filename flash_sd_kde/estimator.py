@@ -4,9 +4,7 @@ from typing import Literal
 import numpy as np
 import torch
 
-from gitbud.gitbud import inject_repo_into_sys_path
 
-inject_repo_into_sys_path()
 
 from flash_sd_kde.kde import emp_sd_kde_fit_transform, kde_eval
 from flash_sd_kde.reference import silverman_bandwidth_1d, silverman_bandwidth_nd

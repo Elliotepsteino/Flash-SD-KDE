@@ -1,7 +1,3 @@
-from gitbud.gitbud import inject_repo_into_sys_path
-
-inject_repo_into_sys_path()
-
 import torch
 import triton
 import triton.language as tl

@@ -1,19 +1,29 @@
-from gitbud.gitbud import inject_repo_into_sys_path
-
-inject_repo_into_sys_path()
-
 import json
 import os
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
 
-from gitbud.gitbud import get_commit_hash, get_exp_info, get_repo
-
 from globals import FILE_STORAGE_ROOT
+
+try:
+    from gitbud.gitbud import get_commit_hash, get_exp_info, get_repo
+except ImportError:  # pragma: no cover - optional for package-only usage
+    get_commit_hash = None
+    get_exp_info = None
+    get_repo = None
+
+
+def _require_gitbud() -> None:
+    if get_repo is None or get_commit_hash is None or get_exp_info is None:
+        raise RuntimeError(
+            "gitbud is required for flash_sd_kde.utils repository helpers. "
+            "Install with `pip install gitbud`."
+        )
 
 
 def ensure_repo() -> str:
+    _require_gitbud()
     repo = get_repo()
     if repo is None or repo.working_tree_dir is None:
         raise RuntimeError("git repo not found; cannot resolve repo root.")
@@ -21,6 +31,8 @@ def ensure_repo() -> str:
 
 
 def get_repo_state() -> dict[str, Any]:
+    if get_repo is None or get_commit_hash is None:
+        return {"dirty": None, "commit": None}
     repo = get_repo()
     if repo is None:
         return {"dirty": None, "commit": None}
@@ -28,6 +40,7 @@ def get_repo_state() -> dict[str, Any]:
 
 
 def make_run_dir(*, tag: str) -> Path:
+    _require_gitbud()
     repo_root = Path(ensure_repo())
     exp_info = get_exp_info()
     run_dir = repo_root / FILE_STORAGE_ROOT / tag / exp_info

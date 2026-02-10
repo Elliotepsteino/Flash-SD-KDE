@@ -20,7 +20,7 @@ LazyTensor operators at $n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k
 PyKeOps currently represents the state of the art for large-scale kernel
 reductions, so we report both its Gaussian KDE runtime and its SD-KDE runtime as
 a reference point.  Table~\ref{tab:pykeops} shows that Flash-SD-KDE runs
-$1.4\times$ faster than the PyKeOps 16-D KDE baseline and $9.8\times$ faster
+$1.57\times$ faster than the PyKeOps 16-D KDE baseline and $7.99\times$ faster
 than the PyKeOps 16-D SD-KDE implementation.
 
 \begin{table}[h]
@@ -31,9 +31,9 @@ than the PyKeOps 16-D SD-KDE implementation.
     \toprule
     Method & Runtime (ms) & Rel. to Flash-SD-KDE \\
     \midrule
-    16-D Flash-SD-KDE & $2.23$ & $1\times$ \\
-    PyKeOps 16-D KDE   & $3.06$ & $1.4\times$ \\
-    PyKeOps 16-D SD-KDE& $21.73$ & $9.77\times$ \\
+    16-D Flash-SD-KDE & $2.11$ & $1\times$ \\
+    PyKeOps 16-D KDE   & $3.33$ & $1.4\times$ \\
+    PyKeOps 16-D SD-KDE& $16.91$ & $7.99\times$ \\
     \bottomrule
   \end{tabular}
   \caption{Runtime comparison at $n_{\text{train}}=32\text{k}$,
@@ -46,7 +46,12 @@ than the PyKeOps 16-D SD-KDE implementation.
 
 
 \subsection{Oracle density benchmark for Laplace correction}
-Figure~\ref{fig:oracle_16d_error_1d} reports oracle accuracy on the 16-D mixture benchmark as a function of $n_{\text{train}}$, using Mean Integrated Squared Error (MISE) on the left and Mean Integrated Absolute Error (MIAE) on the right. Across the sweep, Flash-SD-KDE substantially improves on vanilla KDE, indicating that the baseline KDE estimator is a poor fit in this regime. The Laplace-corrected variants achieve the lowest MISE throughout, and the fused Flash-Laplace-KDE curve overlaps the non-fused implementation, showing that fusion is an implementation optimization rather than a change in the estimator. In MIAE, Flash-SD-KDE attains the lowest error, while the Laplace-corrected estimators show a sharp drop between the smallest $n_{\text{train}}$ and $10^4$, followed by a small non-monotonic “kink” (a slight increase at intermediate $n_{\text{train}}$). The kink lies within the uncertainty bands and is consistent with finite-sample variability and the greater sensitivity of an absolute-error metric to the signed tail correction. Both metrics continue to decrease as $n_{\text{train}}$ grows, but pushing this oracle evaluation much past $n_{\text{train}}\!\approx\!10^6$ is difficult on a single RTX A6000 due to the cost of repeated large kernel-sum evaluations for MISE/MIAE. To probe this regime, Figure~\ref{fig:e6_fig_oracle_error_vs_n} extends the sweep using only KDE and Flash-Laplace-KDE, and we observe that Flash-Laplace-KDE continues the downward trend, achieving both MISE and MIAE well below KDE at $n_{\text{train}}>10^6$. Because the Laplace-corrected kernel is not guaranteed to remain nonnegative, we compute MISE/MIAE on the signed estimator and separately log the integrated negative mass as a diagnostic.
+Figure~\ref{fig:oracle_16d_error_1d} reports oracle accuracy on the 16-D mixture benchmark as a function of $n_{\text{train}}$, using Mean Integrated Squared Error (MISE) on the left and Mean Integrated Absolute Error (MIAE) on the right. 
+Across the sweep, Flash-SD-KDE substantially improves on vanilla KDE, indicating that the baseline KDE estimator is a poor fit in this regime. 
+The Laplace-corrected variants achieve the lowest MISE throughout, and the fused Flash-Laplace-KDE curve overlaps the non-fused implementation, showing that fusion is an implementation optimization rather than a change in the estimator. 
+In MIAE, Flash-SD-KDE attains the lowest error, while the Laplace-corrected estimators show a sharp drop between the smallest $n_{\text{train}}$ and $10^4$, followed by a small non-monotonic “kink” (a slight increase at intermediate $n_{\text{train}}$). 
+The kink lies within the uncertainty bands and is consistent with finite-sample variability and the greater sensitivity of an absolute-error metric to the signed tail correction. 
+Both metrics continue to decrease as $n_{\text{train}}$ grows. Because the Laplace-corrected kernel is not guaranteed to remain nonnegative, we compute MISE/MIAE on the signed estimator and separately log the integrated negative mass as a diagnostic.
 
 We also evaluate Laplace-corrected KDE on a 1D oracle density.
 Figure~\ref{fig:oracle_error_1d} compares KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE.

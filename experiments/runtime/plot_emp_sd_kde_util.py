@@ -119,7 +119,7 @@ def plot_util(rows: List[Dict[str, float]], output: Path):
     plt.xticks(idx, [f"{int(k):d}" for k in ks], rotation=45, ha="right")
     plt.xlabel("$n_{\\text{train}}$ (samples)", fontsize=12)
     plt.ylabel("GPU utilization (% of A6000 FP32 peak)")
-    plt.title("1-D SD-KDE GPU Utilization (Torch vs Flash-SD-KDE)")
+    plt.title("1-D GPU Utilization for Flash-SD-KDE vs SD-KDE (Torch)")
     # Give a bit of headroom above the tallest bar
     ymax = np.nanmax([util_triton.max(), util_torch.max()]) * 1.2
     plt.ylim(0, ymax)

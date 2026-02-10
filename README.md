@@ -20,38 +20,28 @@ Official code release for the paper `Flash-SD-KDE: Accelerating SD-KDE with Tens
 - `tests/`: pytest suites
 - `file_storage/`: generated artifacts and experiment outputs
 
-## Environment Setup
+## Development Setup (Source Install)
 
 ```bash
+git clone https://github.com/Elliotepsteino/Flash-SD-KDE.git
+cd Flash-SD-KDE
 uv venv .venv
 source .venv/bin/activate
 uv pip install -r requirements.txt
+
+python -c "from flash_sd_kde import FlashSDKDE; print('ok')"
+```
+
+## Install from PyPI
+
+```bash
+pip install flash-sd-kde
 ```
 
 If you need a specific CUDA-enabled PyTorch build, install it first, then run:
 
 ```bash
 uv pip install -r requirements.txt
-```
-
-## Fresh pip Install Test (Editable)
-
-To validate local packaging (`pip install -e .`) in a clean environment:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
-pip install -e .
-
-python -c "from flash_sd_kde import FlashSDKDE; print('ok')"
-```
-
-If you only want to validate packaging metadata without installing heavy dependencies:
-
-```bash
-pip install -e . --no-deps
 ```
 
 ## sklearn-Style API
@@ -140,30 +130,4 @@ One-command full run:
 
 ```bash
 make full_paper_experiments_plots
-```
-
-## 16D Runtime Plot for README
-
-The 16D runtime target now writes both PDF and PNG:
-
-```bash
-make run.nd_runtime_sweep
-```
-
-Generated files:
-
-- `paper/figures/runtime/runtime_16d_kde_sdkde.pdf`
-- `paper/figures/runtime/runtime_16d_kde_sdkde.png`
-
-You can reference the PNG directly in markdown:
-
-```markdown
-![16D Runtime Plot](paper/figures/runtime/runtime_16d_kde_sdkde.png)
-```
-
-## Tests
-
-```bash
-make test.small
-make test.large
 ```

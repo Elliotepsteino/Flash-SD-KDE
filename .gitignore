@@ -6,6 +6,9 @@ __pycache__/
 .venv/
 .venv-pip-test/
 *.egg-info/
+dist/
+dist_pypi_check*/
+build/
 
 # Outputs
 file_storage
@@ -20,6 +23,7 @@ GITBUD.md
 LATEX_PAPER_GUIDE.md
 PLOTTING_GUIDE.md
 SLACK_RESULTS.md
+DEVELOPMENT.md
 
 AGENTS.md
 GITBUD.md

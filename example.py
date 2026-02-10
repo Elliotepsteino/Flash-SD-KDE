@@ -52,29 +52,42 @@ def main() -> None:
     print(f"mean abs diff:          {diff.mean():.6e}")
     print()
 
-    # 16D: quick timing comparison for KDE mode (sklearn vs Flash-SD-KDE wrapper).
+    # 16D: timing comparison for KDE mode (sklearn vs Flash-SD-KDE wrapper),
+    # including fit time and fit+score end-to-end time.
     n_train_16d = 8192
     n_query_16d = 1024
     x_train_16d = rng.normal(size=(n_train_16d, 16)).astype(np.float32)
     x_query_16d = rng.normal(size=(n_query_16d, 16)).astype(np.float32)
+    total_repeats = 3
 
     flash_kde_16d = flash_sd_kde.FlashSDKDE(mode="kde", bandwidth="silverman", device="cuda")
     flash_kde_16d.fit(x_train_16d)
-    sk_16d = KernelDensity(kernel="gaussian", bandwidth=flash_kde_16d.bandwidth_)
+    bandwidth_16d = float(flash_kde_16d.bandwidth_)
+    sk_16d = KernelDensity(kernel="gaussian", bandwidth=bandwidth_16d)
     sk_16d.fit(x_train_16d)
 
     # Warmup once to avoid one-time setup effects in timing.
     _ = flash_kde_16d.score_samples(x_query_16d)
     _ = sk_16d.score_samples(x_query_16d)
 
-    flash_kde_ms = _time_call_ms(
-        lambda: flash_kde_16d.score_samples(x_query_16d),
-        repeats=5,
+    def flash_kde_fit_and_score():
+        est = flash_sd_kde.FlashSDKDE(mode="kde", bandwidth=bandwidth_16d, device="cuda")
+        est.fit(x_train_16d)
+        est.score_samples(x_query_16d)
+
+    def sk_kde_fit_and_score():
+        est = KernelDensity(kernel="gaussian", bandwidth=bandwidth_16d)
+        est.fit(x_train_16d)
+        est.score_samples(x_query_16d)
+
+    flash_kde_total_ms = _time_call_ms(
+        flash_kde_fit_and_score,
+        repeats=total_repeats,
         cuda_sync=True,
     )
-    sk_kde_ms = _time_call_ms(
-        lambda: sk_16d.score_samples(x_query_16d),
-        repeats=5,
+    sk_kde_total_ms = _time_call_ms(
+        sk_kde_fit_and_score,
+        repeats=total_repeats,
         cuda_sync=False,
     )
 
@@ -83,21 +96,33 @@ def main() -> None:
     kde_diff_16d = np.abs(np.exp(sk_kde_log_16d) - np.exp(flash_kde_log_16d))
 
     print("=== 16D KDE Timing (sklearn vs FlashSDKDE mode='kde') ===")
-    print(f"n_train={n_train_16d}, n_query={n_query_16d}, bandwidth={flash_kde_16d.bandwidth_:.6f}")
-    print(f"sklearn avg score_samples:   {sk_kde_ms:.3f} ms")
-    print(f"flash_sd_kde avg score_samples: {flash_kde_ms:.3f} ms")
-    print(f"speedup (sklearn/flash):     {sk_kde_ms / flash_kde_ms:.2f}x")
+    print(f"n_train={n_train_16d}, n_query={n_query_16d}, bandwidth={bandwidth_16d:.6f}")
+    print(f"sklearn avg fit+score:       {sk_kde_total_ms:.3f} ms")
+    print(f"flash_sd_kde avg fit+score:  {flash_kde_total_ms:.3f} ms")
+    print(f"total speedup (sklearn/flash): {sk_kde_total_ms / flash_kde_total_ms:.2f}x")
     print(f"max abs density diff:        {kde_diff_16d.max():.6e}")
     print(f"mean abs density diff:       {kde_diff_16d.mean():.6e}")
     print()
 
-    # 16D: Flash SD-KDE mode.
-    flash_sd = flash_sd_kde.FlashSDKDE(mode="sd_kde", bandwidth="silverman", device="cuda")
+    # 16D: Flash SD-KDE mode, including fit timing.
+    flash_sd = flash_sd_kde.FlashSDKDE(mode="sd_kde", bandwidth=bandwidth_16d, device="cuda")
     flash_sd.fit(x_train_16d)
     log_dens_16d = flash_sd.score_samples(x_query_16d)
 
+    def flash_sd_fit_and_score():
+        est = flash_sd_kde.FlashSDKDE(mode="sd_kde", bandwidth=bandwidth_16d, device="cuda")
+        est.fit(x_train_16d)
+        est.score_samples(x_query_16d)
+
+    flash_sd_total_ms = _time_call_ms(
+        flash_sd_fit_and_score,
+        repeats=total_repeats,
+        cuda_sync=True,
+    )
+
     print("=== 16D Flash-SD-KDE (mode='sd_kde') ===")
-    print(f"n_train={n_train_16d}, n_query={n_query_16d}, bandwidth={flash_sd.bandwidth_:.6f}")
+    print(f"n_train={n_train_16d}, n_query={n_query_16d}, bandwidth={bandwidth_16d:.6f}")
+    print(f"avg fit+score:          {flash_sd_total_ms:.3f} ms")
     print(f"mean log density:       {log_dens_16d.mean():.6e}")
     print(f"std log density:        {log_dens_16d.std():.6e}")
 
