@@ -42,10 +42,11 @@ kde:
 
 flash_impl:
   enabled: true
+  emp_score_backend: symmetric_atomic
   precision_mode: fp32_ieee
   kde_backend: splitk_stream
   use_precomputed_norms: true
-  autotune: true
+  autotune: false
   params:
     compute_dtype: fp32
     accumulate_dtype: fp32
