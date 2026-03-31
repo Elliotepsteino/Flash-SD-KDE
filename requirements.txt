@@ -9,4 +9,7 @@ pytest
 gitbud
 slack-results
 pyyaml
+datasets
+transformers
+sentence-transformers
 -e .

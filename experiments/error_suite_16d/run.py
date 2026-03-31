@@ -19,6 +19,7 @@ import torch
 
 from experiments.error_suite_16d.adapters import (
     flash_available,
+    run_flash_linearized_density,
     run_flash_linearized_log_density,
     run_flash_log_density,
     run_sd_kde_log_density,
@@ -29,6 +30,7 @@ from experiments.error_suite_16d.datasets import make_dataset
 from experiments.error_suite_16d.metrics import (
     compute_log_error_metrics,
     compute_oracle_error_metrics,
+    compute_signed_density_diagnostics,
     compute_statistical_metrics,
 )
 from experiments.error_suite_16d.numerics import exp_diagnostics
@@ -329,6 +331,10 @@ def run_one(cfg: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
         "enable_tf32": bool(suite_cfg.get("enable_tf32", False)),
         "clamped_fraction_flash": None,
         "clamped_fraction_laplace": None,
+        "negative_fraction_laplace": None,
+        "integrated_negative_mass_laplace": None,
+        "integrated_abs_mass_laplace": None,
+        "negative_mass_fraction_laplace": None,
     }
 
     meta = {
@@ -370,7 +376,7 @@ def run_one(cfg: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
             ).detach().cpu()
 
         elif method == "flash_laplace":
-            logp_hat, aux = run_flash_linearized_log_density(
+            density = run_flash_linearized_density(
                 train,
                 test,
                 bandwidth=bandwidth,
@@ -380,12 +386,12 @@ def run_one(cfg: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
                 use_precomputed_norms=flash_cfg.get("use_precomputed_norms", True),
                 autotune=flash_cfg.get("autotune", True),
                 compute_dtype=flash_cfg.get("params", {}).get("compute_dtype"),
-                eps=clamp_eps,
-                return_aux=True,
             )
+            density_cpu = density.detach().cpu()
+            results.update(compute_signed_density_diagnostics(density_cpu, logp_true))
             if clamp_nonneg:
-                results["clamped_fraction_laplace"] = aux.get("clamped_fraction")
-            logp_hat = logp_hat.detach().cpu()
+                results["clamped_fraction_laplace"] = float((density <= 0).float().mean().item())
+            logp_hat = torch.log(torch.clamp(density, min=clamp_eps)).detach().cpu()
 
         elif method == "nonfused_laplace":
             nf_device = torch.device(oracle_cfg.get("nonfused_device", "cpu"))
@@ -401,6 +407,8 @@ def run_one(cfg: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
                 dtype=nf_dtype,
                 device=nf_device,
             )
+            density_cpu = density.detach().cpu()
+            results.update(compute_signed_density_diagnostics(density_cpu, logp_true))
             if clamp_nonneg:
                 nonpos = (density <= 0).float().mean().item()
                 density = torch.clamp(density, min=clamp_eps)

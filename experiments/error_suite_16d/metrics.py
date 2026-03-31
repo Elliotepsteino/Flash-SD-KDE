@@ -125,3 +125,38 @@ def compute_oracle_error_metrics(logp_hat: torch.Tensor, logp_true: torch.Tensor
         "log_miae_mc": _safe_float(log_miae),
         "miae_mc": _safe_float(torch.exp(log_miae)),
     }
+
+
+def compute_signed_density_diagnostics(
+    density_hat: torch.Tensor,
+    logp_true: torch.Tensor,
+) -> dict[str, Any]:
+    if density_hat.shape != logp_true.shape:
+        raise ValueError("density_hat and logp_true must have matching shapes")
+
+    finite_mask = torch.isfinite(density_hat) & torch.isfinite(logp_true)
+    if not torch.any(finite_mask):
+        return {
+            "negative_fraction_laplace": float("nan"),
+            "integrated_negative_mass_laplace": float("nan"),
+            "integrated_abs_mass_laplace": float("nan"),
+            "negative_mass_fraction_laplace": float("nan"),
+        }
+
+    density_hat = density_hat[finite_mask].to(dtype=torch.float64)
+    logp_true = logp_true[finite_mask].to(dtype=torch.float64)
+
+    inv_true_density = torch.exp(-logp_true)
+    negative_part = torch.clamp(-density_hat, min=0.0)
+    abs_part = torch.abs(density_hat)
+
+    integrated_negative_mass = (negative_part * inv_true_density).mean()
+    integrated_abs_mass = (abs_part * inv_true_density).mean()
+    negative_mass_fraction = integrated_negative_mass / integrated_abs_mass.clamp_min(1e-300)
+
+    return {
+        "negative_fraction_laplace": _safe_float((density_hat < 0).to(dtype=torch.float64).mean()),
+        "integrated_negative_mass_laplace": _safe_float(integrated_negative_mass),
+        "integrated_abs_mass_laplace": _safe_float(integrated_abs_mass),
+        "negative_mass_fraction_laplace": _safe_float(negative_mass_fraction),
+    }

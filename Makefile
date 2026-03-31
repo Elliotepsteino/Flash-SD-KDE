@@ -9,6 +9,26 @@ PAPER_PLOTS_RUN ?= $(PAPER_PLOTS_DIR)/$(shell date +%Y%m%d_%H%M%S)
 PAPER_PLOTS_BASELINE ?= $(PAPER_PLOTS_RUN)/baseline
 PAPER_PLOTS_OUT ?= $(PAPER_PLOTS_RUN)/generated
 TOY_1D_PLOTS_OUT ?= $(PAPER_PLOTS_OUT)
+REBUTTAL_FIG1_START_POWER ?= 11
+REBUTTAL_FIG1_END_POWER ?= 15
+REBUTTAL_FIG1_SEED ?= 0
+REBUTTAL_FIG1_WARMUP ?= 1
+REBUTTAL_FIG1_FLASH_REPEATS ?= 10
+REBUTTAL_FIG1_BASELINE_REPEATS ?= 3
+REBUTTAL_ICML2026_FLASH_LAPLACE_OUT_DIR ?= $(FILE_STORAGE_ROOT)/error_suite_16d/rebuttal_icml2026_flash_laplace_$(shell date +%Y%m%d_%H%M%S)
+REBUTTAL_OPERATOR_OUT_DIR ?= $(PAPER_PLOTS_OUT)
+REBUTTAL_EMBED_OUT_DIR ?= $(FILE_STORAGE_ROOT)/benchmarks/mnist_fashion_pca64_similarity
+REBUTTAL_REPORT_RUNTIME_JSON ?= $(FILE_STORAGE_ROOT)/paper_plots/rebuttal_full_20260330/generated/fig_rebuttal_runtime_16d_kde_sdkde.json
+REBUTTAL_REPORT_NEG_CSV ?= $(FILE_STORAGE_ROOT)/error_suite_16d/rebuttal_icml2026_full/results.csv
+REBUTTAL_C4_EMBED_DEVICE ?= cuda
+REBUTTAL_C4_EMBED_MODEL ?= sentence-transformers/all-MiniLM-L6-v2
+REBUTTAL_C4_EMBED_DATASET ?= allenai/c4
+REBUTTAL_C4_EMBED_CONFIG ?= en
+REBUTTAL_C4_EMBED_SPLIT ?= train
+REBUTTAL_C4_EMBED_SAMPLES ?= 100
+REBUTTAL_C4_EMBED_MIN_TOKENS ?= 128
+REBUTTAL_C4_EMBED_MAX_TOKENS ?= 256
+REBUTTAL_C4_EMBED_BATCH_SIZE ?= 32
 
 .PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration \
 	bench bench.mnist_ood bench.toy_1d_oracle bench.pykeops_16d \
@@ -16,6 +36,9 @@ TOY_1D_PLOTS_OUT ?= $(PAPER_PLOTS_OUT)
 	paper paper.clean full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots paper.figures.sync \
 	plots.runtime plots.runtime.from_logs plots.runtime.util \
 	run.sweep run.nd_runtime_sweep run.triton_scaling run.triton_sd_kde_nd \
+	rebuttal.figure1_16d_runtime rebuttal.icml2026.flash_laplace_negative_mass \
+	rebuttal.icml2026.operator_ablation rebuttal.icml2026.embedding_similarity \
+	rebuttal.icml2026.overall_report rebuttal.icml2026.c4_embedding_sanity \
 	bench.emp_score_kernel_speed
 
 test: test.small test.large
@@ -186,3 +209,73 @@ oracle_16d_plots:
 
 paper.figures.sync:
 	@$(PY) scripts/paper_figures_sync.py --source "$(PAPER_PLOTS_OUT)" --dest "$(PAPER_DIR)/figures"
+
+rebuttal.figure1_16d_runtime:
+	mkdir -p $(PAPER_PLOTS_OUT)
+	$(PY) -m experiments.runtime.benchmark_rebuttal_16d_runtime \
+		--start-power $(REBUTTAL_FIG1_START_POWER) \
+		--end-power $(REBUTTAL_FIG1_END_POWER) \
+		--seed $(REBUTTAL_FIG1_SEED) \
+		--warmup $(REBUTTAL_FIG1_WARMUP) \
+		--flash-repeats $(REBUTTAL_FIG1_FLASH_REPEATS) \
+		--baseline-repeats $(REBUTTAL_FIG1_BASELINE_REPEATS) \
+		--device cuda \
+		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_runtime_16d_kde_sdkde.json" \
+		--markdown-output "$(PAPER_PLOTS_OUT)/fig_rebuttal_runtime_16d_kde_sdkde.md"
+	$(PY) $(RUNTIME_DIR)/plot_rebuttal_16d_runtime.py \
+		--input "$(PAPER_PLOTS_OUT)/fig_rebuttal_runtime_16d_kde_sdkde.json" \
+		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_runtime_16d_kde_sdkde.pdf"
+	$(PY) $(RUNTIME_DIR)/plot_rebuttal_16d_runtime.py \
+		--input "$(PAPER_PLOTS_OUT)/fig_rebuttal_runtime_16d_kde_sdkde.json" \
+		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_runtime_16d_kde_sdkde.png"
+
+rebuttal.icml2026.flash_laplace_negative_mass:
+	mkdir -p $(PAPER_PLOTS_OUT)
+	$(PY) -m experiments.error_suite_16d.sweep \
+		--config configs/error_suite_16d/rebuttal_flash_laplace_negative_mass.yaml \
+		--out_dir "$(REBUTTAL_ICML2026_FLASH_LAPLACE_OUT_DIR)"
+	$(PY) scripts/error_suite_negative_mass_table.py \
+		--results_dir "$(REBUTTAL_ICML2026_FLASH_LAPLACE_OUT_DIR)" \
+		--method flash_laplace \
+		--output "$(PAPER_PLOTS_OUT)/table_rebuttal_flash_laplace_negative_mass.md"
+
+rebuttal.icml2026.operator_ablation:
+	mkdir -p $(REBUTTAL_OPERATOR_OUT_DIR)
+	$(PY) -m experiments.runtime.benchmark_operator_ablation \
+		--device cuda \
+		--start-power 11 \
+		--end-power 13 \
+		--warmup 1 \
+		--repeats 3 \
+		--output "$(REBUTTAL_OPERATOR_OUT_DIR)/rebuttal_operator_ablation.json" \
+		--markdown-output "$(REBUTTAL_OPERATOR_OUT_DIR)/rebuttal_operator_ablation.md"
+
+rebuttal.icml2026.embedding_similarity:
+	$(PY) benchmarks/mnist_fashion_pca64_similarity.py \
+		--device cuda \
+		--pca-components 64 \
+		--n-train-list 1000,2000,4000 \
+		--n-id-eval 4000 \
+		--n-ood-eval 4000 \
+		--output-tag benchmarks/mnist_fashion_pca64_similarity
+
+rebuttal.icml2026.c4_embedding_sanity:
+	$(PY) benchmarks/c4_minilm_embedding_sanity.py \
+		--device "$(REBUTTAL_C4_EMBED_DEVICE)" \
+		--dataset-name "$(REBUTTAL_C4_EMBED_DATASET)" \
+		--dataset-config "$(REBUTTAL_C4_EMBED_CONFIG)" \
+		--split "$(REBUTTAL_C4_EMBED_SPLIT)" \
+		--embedding-model "$(REBUTTAL_C4_EMBED_MODEL)" \
+		--n-samples "$(REBUTTAL_C4_EMBED_SAMPLES)" \
+		--min-tokens "$(REBUTTAL_C4_EMBED_MIN_TOKENS)" \
+		--max-tokens "$(REBUTTAL_C4_EMBED_MAX_TOKENS)" \
+		--batch-size "$(REBUTTAL_C4_EMBED_BATCH_SIZE)" \
+		--output-tag benchmarks/c4_minilm_embedding_sanity
+
+rebuttal.icml2026.overall_report:
+	mkdir -p $(PAPER_PLOTS_OUT)
+	$(PY) scripts/rebuttal_icml2026_overall_report.py \
+		--runtime-json "$(REBUTTAL_REPORT_RUNTIME_JSON)" \
+		--negative-mass-csv "$(REBUTTAL_REPORT_NEG_CSV)" \
+		--embedding-json "$(FILE_STORAGE_ROOT)/benchmarks/mnist_fashion_pca64_similarity/$(shell ls -1t $(FILE_STORAGE_ROOT)/benchmarks/mnist_fashion_pca64_similarity 2>/dev/null | head -n 1)/results.json" \
+		--output "$(PAPER_PLOTS_OUT)/rebuttal_icml2026_overall_report.md"
