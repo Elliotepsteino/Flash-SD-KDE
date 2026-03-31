@@ -169,6 +169,27 @@ Outputs:
 - `file_storage/benchmarks/c4_minilm_embedding_sanity/<run>/results.json`
 - `file_storage/benchmarks/c4_minilm_embedding_sanity/<run>/report.md`
 
+### Tulu-3 SFT MiniLM Embeddings
+
+Creates deterministic MiniLM embeddings for a shuffled subset of
+`allenai/tulu-3-sft-mixture`. The current local dataset has `939,343` rows, so
+with a fixed `50,000`-example validation split the available train pool is
+`889,343` rows. Each SFT sample is rendered as one conversation string with
+role prefixes, truncated to `256` tokens, embedded in `384` dimensions, and
+saved together with the original dataset indices needed for later subset
+selection and fine-tuning.
+
+```bash
+make real_application.tulu_sft_embeddings
+```
+
+Outputs:
+- `file_storage/benchmarks/tulu_sft_minilm_embeddings/<run>/embeddings.npy`
+- `file_storage/benchmarks/tulu_sft_minilm_embeddings/<run>/dataset_indices.npy`
+- `file_storage/benchmarks/tulu_sft_minilm_embeddings/<run>/records.jsonl`
+- `file_storage/benchmarks/tulu_sft_minilm_embeddings/<run>/results.json`
+- `file_storage/benchmarks/tulu_sft_minilm_embeddings/<run>/report.md`
+
 ### Overall Report
 
 Aggregates the rebuttal runtime figure, Flash-Laplace negative-mass table,

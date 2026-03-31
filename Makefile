@@ -29,6 +29,16 @@ REBUTTAL_C4_EMBED_SAMPLES ?= 100
 REBUTTAL_C4_EMBED_MIN_TOKENS ?= 128
 REBUTTAL_C4_EMBED_MAX_TOKENS ?= 256
 REBUTTAL_C4_EMBED_BATCH_SIZE ?= 32
+REAL_APP_TULU_EMBED_DEVICE ?= cuda
+REAL_APP_TULU_EMBED_MODEL ?= sentence-transformers/all-MiniLM-L6-v2
+REAL_APP_TULU_EMBED_DATASET ?= allenai/tulu-3-sft-mixture
+REAL_APP_TULU_EMBED_SPLIT ?= train
+REAL_APP_TULU_EMBED_SUBSET ?= train_pool
+REAL_APP_TULU_EMBED_VALIDATION_SIZE ?= 50000
+REAL_APP_TULU_EMBED_SEED ?= 20260330
+REAL_APP_TULU_EMBED_SAMPLES ?= 100
+REAL_APP_TULU_EMBED_MAX_TOKENS ?= 256
+REAL_APP_TULU_EMBED_BATCH_SIZE ?= 256
 
 .PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration \
 	bench bench.mnist_ood bench.toy_1d_oracle bench.pykeops_16d \
@@ -39,6 +49,7 @@ REBUTTAL_C4_EMBED_BATCH_SIZE ?= 32
 	rebuttal.figure1_16d_runtime rebuttal.icml2026.flash_laplace_negative_mass \
 	rebuttal.icml2026.operator_ablation rebuttal.icml2026.embedding_similarity \
 	rebuttal.icml2026.overall_report rebuttal.icml2026.c4_embedding_sanity \
+	real_application.tulu_sft_embeddings \
 	bench.emp_score_kernel_speed
 
 test: test.small test.large
@@ -271,6 +282,20 @@ rebuttal.icml2026.c4_embedding_sanity:
 		--max-tokens "$(REBUTTAL_C4_EMBED_MAX_TOKENS)" \
 		--batch-size "$(REBUTTAL_C4_EMBED_BATCH_SIZE)" \
 		--output-tag benchmarks/c4_minilm_embedding_sanity
+
+real_application.tulu_sft_embeddings:
+	$(PY) benchmarks/tulu_sft_minilm_embeddings.py \
+		--device "$(REAL_APP_TULU_EMBED_DEVICE)" \
+		--dataset-name "$(REAL_APP_TULU_EMBED_DATASET)" \
+		--split "$(REAL_APP_TULU_EMBED_SPLIT)" \
+		--subset "$(REAL_APP_TULU_EMBED_SUBSET)" \
+		--validation-size "$(REAL_APP_TULU_EMBED_VALIDATION_SIZE)" \
+		--shuffle-seed "$(REAL_APP_TULU_EMBED_SEED)" \
+		--embedding-model "$(REAL_APP_TULU_EMBED_MODEL)" \
+		--n-samples "$(REAL_APP_TULU_EMBED_SAMPLES)" \
+		--max-tokens "$(REAL_APP_TULU_EMBED_MAX_TOKENS)" \
+		--batch-size "$(REAL_APP_TULU_EMBED_BATCH_SIZE)" \
+		--output-tag benchmarks/tulu_sft_minilm_embeddings
 
 rebuttal.icml2026.overall_report:
 	mkdir -p $(PAPER_PLOTS_OUT)
