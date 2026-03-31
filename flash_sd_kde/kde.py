@@ -26,6 +26,10 @@ from globals import (
 from kernels.emp_score_16d_ordered_splitk import emp_score_16d_ordered_splitk
 from kernels.emp_score_16d_symmetric_atomic import emp_score_16d_symmetric_atomic
 from kernels.flash_sd_kde import emp_score_16d_flash_sd_kde
+from kernels.flash_sd_kde.padded_nd import (
+    emp_score_padded_nd_flash_sd_kde,
+    gaussian_kde_triton_padded_nd,
+)
 from kernels.kde_eval_16d_stream_splitk import (
     kde_eval_16d_atomic,
     kde_eval_16d_splitk,
@@ -46,6 +50,18 @@ def _infer_ndim(data: Sequence[float] | Sequence[Sequence[float]] | np.ndarray |
     return 1
 
 
+def _infer_feature_dim(data: Sequence[float] | Sequence[Sequence[float]] | np.ndarray | torch.Tensor) -> int:
+    ndim = _infer_ndim(data)
+    if ndim == 1:
+        return 1
+    if isinstance(data, (torch.Tensor, np.ndarray)):
+        return int(data.shape[1])
+    if len(data) == 0:
+        return 1
+    first = data[0]
+    return len(first)
+
+
 def kde_eval(
     data: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
     queries: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
@@ -57,6 +73,7 @@ def kde_eval(
     use_precomputed_norms: bool = True,
     autotune: bool = True,
     apply_laplacian_correction: bool = False,
+    prefer_specialized_dims: bool = True,
 ) -> torch.Tensor:
     """Evaluate a Gaussian KDE or its Laplacian-corrected linearized variant."""
     validate_precision_mode(precision_mode)
@@ -71,7 +88,23 @@ def kde_eval(
         raise RuntimeError("CUDA is not available but was requested.")
 
     ndim = _infer_ndim(data)
-    if ndim == 1:
+    query_ndim = _infer_ndim(queries)
+    feature_dim = _infer_feature_dim(data)
+    query_feature_dim = _infer_feature_dim(queries)
+    if feature_dim != query_feature_dim:
+        raise ValueError(
+            f"data and queries must share feature dimension, got {feature_dim} and {query_feature_dim}."
+        )
+
+    use_legacy_1d = prefer_specialized_dims and ndim == 1 and query_ndim == 1
+    use_legacy_16d = (
+        prefer_specialized_dims
+        and ndim == 2
+        and query_ndim == 2
+        and feature_dim == ND_FEATURES
+    )
+
+    if use_legacy_1d:
         n_data = data.shape[0] if isinstance(data, torch.Tensor) else len(data)
         if kde_backend == KDE_BACKEND_SPLITK_STREAM:
             pdf_sum = kde_eval_1d_splitk(
@@ -93,7 +126,7 @@ def kde_eval(
         norm = 1.0 / (math.sqrt(2.0 * math.pi) * bandwidth)
         return pdf_sum * (norm / n_data)
 
-    if ndim == 2:
+    if use_legacy_16d:
         if kde_backend == KDE_BACKEND_SPLITK_STREAM:
             pdf_sum = kde_eval_16d_splitk(
                 data,
@@ -121,7 +154,17 @@ def kde_eval(
         norm = 1.0 / ((2.0 * math.pi) ** (dim / 2.0) * (bandwidth ** dim) * n_data)
         return pdf_sum * norm
 
-    raise ValueError("data must be 1D or 2D.")
+    if ndim not in {1, 2} or query_ndim not in {1, 2}:
+        raise ValueError("data and queries must be 1D or 2D.")
+
+    return gaussian_kde_triton_padded_nd(
+        data,
+        queries,
+        bandwidth,
+        device=device,
+        precision_mode=precision_mode,
+        apply_laplacian_correction=apply_laplacian_correction,
+    )
 
 
 def kde_eval_linearized(
@@ -134,6 +177,7 @@ def kde_eval_linearized(
     kde_backend: str = DEFAULT_KDE_BACKEND,
     use_precomputed_norms: bool = True,
     autotune: bool = True,
+    prefer_specialized_dims: bool = True,
 ) -> torch.Tensor:
     """Evaluate the linearized Emp-SD-KDE approximation using K - (h^2/2) ΔK."""
     return kde_eval(
@@ -146,6 +190,7 @@ def kde_eval_linearized(
         use_precomputed_norms=use_precomputed_norms,
         autotune=autotune,
         apply_laplacian_correction=True,
+        prefer_specialized_dims=prefer_specialized_dims,
     )
 
 
@@ -160,6 +205,7 @@ def kde_eval_linearized_nonfused(
     use_precomputed_norms: bool = True,
     autotune: bool = True,
     chunk_size: int | None = None,
+    prefer_specialized_dims: bool = True,
 ) -> torch.Tensor:
     """Evaluate the linearized KDE using a non-fused correction pass.
 
@@ -182,6 +228,7 @@ def kde_eval_linearized_nonfused(
         use_precomputed_norms=use_precomputed_norms,
         autotune=autotune,
         apply_laplacian_correction=False,
+        prefer_specialized_dims=prefer_specialized_dims,
     )
 
     def _to_1d_tensor(array_like) -> torch.Tensor:
@@ -198,8 +245,8 @@ def kde_eval_linearized_nonfused(
             tensor = array_like.to(device=device, dtype=torch.float32, copy=False)
         else:
             tensor = torch.as_tensor(array_like, dtype=torch.float32, device=device)
-        if tensor.ndim != 2 or tensor.shape[1] != ND_FEATURES:
-            raise ValueError(f"expected data shape (n, {ND_FEATURES}).")
+        if tensor.ndim != 2:
+            raise ValueError("expected 2D data for KDE eval.")
         return tensor.contiguous()
 
     ndim = _infer_ndim(data)
@@ -229,6 +276,10 @@ def kde_eval_linearized_nonfused(
     if ndim == 2:
         train = _to_2d_tensor(data)
         query = _to_2d_tensor(queries)
+        if train.shape[1] != query.shape[1]:
+            raise ValueError(
+                f"data and queries must share feature dimension, got {train.shape[1]} and {query.shape[1]}."
+            )
         n_data = train.shape[0]
         if n_data == 0:
             raise ValueError("data must be non-empty.")
@@ -248,7 +299,7 @@ def kde_eval_linearized_nonfused(
             phi = torch.exp(-0.5 * scaled)
             sum_phi_scaled += (phi * scaled).sum(dim=1)
 
-        dim = float(ND_FEATURES)
+        dim = float(train.shape[1])
         norm = 1.0 / ((2.0 * math.pi) ** (dim / 2.0) * (bandwidth ** dim) * n_data)
         return base * (1.0 + 0.5 * dim) - 0.5 * norm * sum_phi_scaled
 
@@ -256,7 +307,7 @@ def kde_eval_linearized_nonfused(
 
 
 def emp_sd_kde_fit_transform(
-    data: Sequence[Sequence[float]] | torch.Tensor,
+    data: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
     bandwidth: float,
     *,
     device: str | torch.device = "cuda",
@@ -266,6 +317,7 @@ def emp_sd_kde_fit_transform(
     autotune: bool = True,
     eps: float = DEFAULT_EPS,
     return_debug: bool = False,
+    prefer_specialized_dims: bool = True,
 ) -> torch.Tensor | Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
@@ -284,43 +336,64 @@ def emp_sd_kde_fit_transform(
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is not available but was requested.")
 
-    if emp_score_backend == EMP_SCORE_BACKEND_FLASH_SD_KDE:
-        pdf_sum, weighted_sum = emp_score_16d_flash_sd_kde(
-            data,
-            bandwidth,
-            device=device,
-        )
-    elif emp_score_backend == EMP_SCORE_BACKEND_ORDERED_SPLITK:
-        pdf_sum, weighted_sum = emp_score_16d_ordered_splitk(
-            data,
-            bandwidth,
-            device=device,
-            precision_mode=precision_mode,
-            use_precomputed_norms=use_precomputed_norms,
-            autotune=autotune,
-        )
-    else:
-        pdf_sum, weighted_sum = emp_score_16d_symmetric_atomic(
-            data,
-            bandwidth,
-            device=device,
-            precision_mode=precision_mode,
-            use_precomputed_norms=use_precomputed_norms,
-            autotune=autotune,
-        )
-
     if isinstance(data, torch.Tensor):
         train = data.to(device=device, dtype=torch.float32, copy=False).contiguous()
     else:
         train = torch.as_tensor(data, dtype=torch.float32, device=device).contiguous()
-    if train.ndim != 2 or train.shape[1] != ND_FEATURES:
-        raise ValueError(f"expected data shape (n, {ND_FEATURES}).")
+    squeeze_result = False
+    if train.ndim == 1:
+        train = train.unsqueeze(1)
+        squeeze_result = True
+    if train.ndim != 2:
+        raise ValueError("data must be 1D or 2D.")
+
+    use_legacy_16d = prefer_specialized_dims and train.shape[1] == ND_FEATURES
+    if use_legacy_16d and emp_score_backend == EMP_SCORE_BACKEND_FLASH_SD_KDE:
+        pdf_sum, weighted_sum = emp_score_16d_flash_sd_kde(
+            train,
+            bandwidth,
+            device=device,
+        )
+    elif use_legacy_16d and emp_score_backend == EMP_SCORE_BACKEND_ORDERED_SPLITK:
+        pdf_sum, weighted_sum = emp_score_16d_ordered_splitk(
+            train,
+            bandwidth,
+            device=device,
+            precision_mode=precision_mode,
+            use_precomputed_norms=use_precomputed_norms,
+            autotune=autotune,
+        )
+    elif use_legacy_16d and emp_score_backend == EMP_SCORE_BACKEND_SYMMETRIC_ATOMIC:
+        pdf_sum, weighted_sum = emp_score_16d_symmetric_atomic(
+            train,
+            bandwidth,
+            device=device,
+            precision_mode=precision_mode,
+            use_precomputed_norms=use_precomputed_norms,
+            autotune=autotune,
+        )
+    else:
+        pdf_sum, weighted_sum = emp_score_padded_nd_flash_sd_kde(
+            train,
+            bandwidth,
+            device=device,
+            precision_mode=precision_mode,
+        )
 
     inv_h2 = 1.0 / (bandwidth * bandwidth)
     score = (weighted_sum / (pdf_sum[:, None] + eps) - train) * inv_h2
     delta = 0.5 * (bandwidth ** 2)
     debiased = train + delta * score
 
+    if squeeze_result:
+        debiased_out = debiased[:, 0]
+        weighted_out = weighted_sum[:, 0]
+        score_out = score[:, 0]
+    else:
+        debiased_out = debiased
+        weighted_out = weighted_sum
+        score_out = score
+
     if return_debug:
-        return debiased, pdf_sum, weighted_sum, score
-    return debiased
+        return debiased_out, pdf_sum, weighted_out, score_out
+    return debiased_out

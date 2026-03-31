@@ -4,15 +4,12 @@ from typing import Literal
 import numpy as np
 import torch
 
-
-
 from flash_sd_kde.kde import emp_sd_kde_fit_transform, kde_eval
 from flash_sd_kde.reference import silverman_bandwidth_1d, silverman_bandwidth_nd
 from globals import (
     DEFAULT_EPS,
     DEFAULT_KDE_BACKEND,
     DEFAULT_PRECISION_MODE,
-    ND_FEATURES,
 )
 
 FlashMode = Literal["sd_kde", "kde"]
@@ -30,7 +27,8 @@ class FlashSDKDE:
 
     Notes:
     - CUDA is required by the underlying kernels in this repository.
-    - `mode="sd_kde"` currently requires 16-D inputs.
+    - The implementation keeps specialized 1D / 16D kernels, with a generalized
+      padded path for other feature dimensions.
     """
 
     bandwidth: BandwidthSpec = "silverman"
@@ -41,6 +39,7 @@ class FlashSDKDE:
     emp_score_backend: str | None = None
     use_precomputed_norms: bool = True
     autotune: bool = True
+    prefer_specialized_dims: bool = True
     eps: float = DEFAULT_EPS
 
     # Set during fit
@@ -59,11 +58,6 @@ class FlashSDKDE:
         self._validate_mode()
 
         if self.mode == "sd_kde":
-            if self.n_features_in_ != ND_FEATURES:
-                raise ValueError(
-                    f'mode="sd_kde" currently requires {ND_FEATURES} features, '
-                    f"but got {self.n_features_in_}."
-                )
             self._fit_eval_data = emp_sd_kde_fit_transform(
                 x_fit,
                 self.bandwidth_,
@@ -73,6 +67,7 @@ class FlashSDKDE:
                 use_precomputed_norms=self.use_precomputed_norms,
                 autotune=self.autotune,
                 eps=self.eps,
+                prefer_specialized_dims=self.prefer_specialized_dims,
             )
         else:
             if self.n_features_in_ == 1:
@@ -96,7 +91,7 @@ class FlashSDKDE:
                 f"{self.n_features_in_} features."
             )
 
-        if self.n_features_in_ == 1:
+        if self.mode == "kde" and self.n_features_in_ == 1:
             query_eval = queries[:, 0].astype(np.float32, copy=False)
         else:
             query_eval = queries
@@ -110,6 +105,7 @@ class FlashSDKDE:
             kde_backend=self.kde_backend,
             use_precomputed_norms=self.use_precomputed_norms,
             autotune=self.autotune,
+            prefer_specialized_dims=self.prefer_specialized_dims,
         )
         log_density = torch.log(density + self.eps)
         return log_density.detach().cpu().numpy()

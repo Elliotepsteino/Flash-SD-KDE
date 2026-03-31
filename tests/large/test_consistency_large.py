@@ -71,3 +71,36 @@ def test_kde_eval_manual_chunking_equivalence():
     concat = torch.cat([part_a, part_b], dim=0)
 
     np.testing.assert_allclose(full.detach().cpu().numpy(), concat.detach().cpu().numpy(), rtol=1e-3, atol=1e-3)
+
+
+@pytest.mark.large
+def test_kde_eval_generalized_matches_specialized_large():
+    _require_cuda()
+    rng = np.random.default_rng(12)
+    train = rng.normal(size=(512, 16)).astype(np.float32)
+    queries = rng.normal(size=(768, 16)).astype(np.float32)
+    h = 1.0
+
+    specialized = kde_eval(
+        train,
+        queries,
+        h,
+        device="cuda",
+        precision_mode=PRECISION_FP32_IEEE,
+        prefer_specialized_dims=True,
+    )
+    generalized = kde_eval(
+        train,
+        queries,
+        h,
+        device="cuda",
+        precision_mode=PRECISION_FP32_IEEE,
+        prefer_specialized_dims=False,
+    )
+
+    np.testing.assert_allclose(
+        generalized.detach().cpu().numpy(),
+        specialized.detach().cpu().numpy(),
+        rtol=2e-3,
+        atol=2e-3,
+    )

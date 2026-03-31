@@ -12,6 +12,7 @@ _CUDA_MAX_GRID_DIM_X = 65_535
 _CUDA_MAX_GRID_DIM_Y = 65_535
 _MAX_BLOCK_TILE = 1024
 _ND_FEATURES = 16
+_GENERAL_TILE_K = 16
 
 
 def _to_torch_tensor(
@@ -39,6 +40,45 @@ def _to_matrix_tensor(
     if tensor.ndim != 2 or tensor.shape[1] != dim:
         raise ValueError(f"expected tensor with shape (n, {dim}), got {tuple(tensor.shape)}")
     return tensor.contiguous()
+
+
+def _to_feature_matrix_tensor(
+    array_like: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
+    device: torch.device,
+) -> torch.Tensor:
+    """Convert 1D or 2D feature arrays to a contiguous `(n, d)` float32 tensor."""
+    if isinstance(array_like, torch.Tensor):
+        tensor = array_like.to(device=device, dtype=torch.float32, copy=False)
+    else:
+        tensor = torch.as_tensor(array_like, dtype=torch.float32, device=device)
+    if tensor.ndim == 1:
+        return tensor.contiguous().unsqueeze(1)
+    if tensor.ndim == 2:
+        return tensor.contiguous()
+    raise ValueError(f"expected 1D or 2D tensor-like input, got shape {tuple(tensor.shape)}")
+
+
+def _round_up_to_multiple(value: int, multiple: int) -> int:
+    if multiple <= 0:
+        raise ValueError("multiple must be positive.")
+    return ((value + multiple - 1) // multiple) * multiple
+
+
+def _pad_feature_matrix(
+    tensor: torch.Tensor,
+    *,
+    tile_multiple: int = _GENERAL_TILE_K,
+) -> tuple[torch.Tensor, int, int]:
+    """Pad a `(n, d)` tensor with zeros to the next multiple of `tile_multiple`."""
+    if tensor.ndim != 2:
+        raise ValueError(f"expected a 2D tensor, got shape {tuple(tensor.shape)}")
+    dim_true = int(tensor.shape[1])
+    dim_pad = max(tile_multiple, _round_up_to_multiple(dim_true, tile_multiple))
+    if dim_pad == dim_true:
+        return tensor.contiguous(), dim_true, dim_pad
+    padded = torch.zeros((tensor.shape[0], dim_pad), device=tensor.device, dtype=tensor.dtype)
+    padded[:, :dim_true] = tensor
+    return padded.contiguous(), dim_true, dim_pad
 
 
 def _next_power_of_two(value: int) -> int:

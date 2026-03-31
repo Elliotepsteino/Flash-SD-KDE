@@ -269,8 +269,6 @@ def empirical_score_nd_numpy(
     x = np.asarray(data, dtype=np.float32)
     if x.ndim != 2:
         raise ValueError("data must be 2D.")
-    if x.shape[1] != ND_FEATURES:
-        raise ValueError(f"expected {ND_FEATURES} features, got {x.shape[1]}.")
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
     inv_h2 = 1.0 / (bandwidth * bandwidth)
