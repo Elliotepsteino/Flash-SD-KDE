@@ -4,7 +4,7 @@ from typing import Literal
 import numpy as np
 import torch
 
-from flash_sd_kde.kde import emp_sd_kde_fit_transform, kde_eval
+from flash_sd_kde.kde import emp_sd_kde_fit_transform, kde_eval_log
 from flash_sd_kde.reference import silverman_bandwidth_1d, silverman_bandwidth_nd
 from globals import (
     DEFAULT_EPS,
@@ -96,7 +96,7 @@ class FlashSDKDE:
         else:
             query_eval = queries
 
-        density = kde_eval(
+        log_density = kde_eval_log(
             self._fit_eval_data,
             query_eval,
             self.bandwidth_,
@@ -106,8 +106,8 @@ class FlashSDKDE:
             use_precomputed_norms=self.use_precomputed_norms,
             autotune=self.autotune,
             prefer_specialized_dims=self.prefer_specialized_dims,
+            eps=self.eps,
         )
-        log_density = torch.log(density + self.eps)
         return log_density.detach().cpu().numpy()
 
     def score(self, X: np.ndarray, y=None) -> float:

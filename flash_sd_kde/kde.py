@@ -167,6 +167,75 @@ def kde_eval(
     )
 
 
+def kde_eval_log(
+    data: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
+    queries: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
+    bandwidth: float,
+    *,
+    device: str | torch.device = "cuda",
+    precision_mode: str = DEFAULT_PRECISION_MODE,
+    kde_backend: str = DEFAULT_KDE_BACKEND,
+    use_precomputed_norms: bool = True,
+    autotune: bool = True,
+    prefer_specialized_dims: bool = True,
+    eps: float = DEFAULT_EPS,
+) -> torch.Tensor:
+    """Evaluate log Gaussian KDE stably, avoiding normalization overflow for padded ND paths."""
+    validate_precision_mode(precision_mode)
+    validate_kde_backend(kde_backend)
+    if bandwidth <= 0:
+        raise ValueError("bandwidth must be positive.")
+
+    ndim = _infer_ndim(data)
+    query_ndim = _infer_ndim(queries)
+    feature_dim = _infer_feature_dim(data)
+    query_feature_dim = _infer_feature_dim(queries)
+    if feature_dim != query_feature_dim:
+        raise ValueError(
+            f"data and queries must share feature dimension, got {feature_dim} and {query_feature_dim}."
+        )
+
+    use_legacy_1d = prefer_specialized_dims and ndim == 1 and query_ndim == 1
+    use_legacy_16d = (
+        prefer_specialized_dims
+        and ndim == 2
+        and query_ndim == 2
+        and feature_dim == ND_FEATURES
+    )
+    if use_legacy_1d or use_legacy_16d:
+        density = kde_eval(
+            data,
+            queries,
+            bandwidth,
+            device=device,
+            precision_mode=precision_mode,
+            kde_backend=kde_backend,
+            use_precomputed_norms=use_precomputed_norms,
+            autotune=autotune,
+            prefer_specialized_dims=prefer_specialized_dims,
+        )
+        return torch.log(density + eps)
+
+    if ndim not in {1, 2} or query_ndim not in {1, 2}:
+        raise ValueError("data and queries must be 1D or 2D.")
+
+    unnormalized = gaussian_kde_triton_padded_nd(
+        data,
+        queries,
+        bandwidth,
+        device=device,
+        precision_mode=precision_mode,
+        return_unnormalized=True,
+    )
+    n_data = data.shape[0] if isinstance(data, (torch.Tensor, np.ndarray)) else len(data)
+    log_norm = (
+        -math.log(float(n_data))
+        -0.5 * feature_dim * math.log(2.0 * math.pi)
+        -feature_dim * math.log(float(bandwidth))
+    )
+    return torch.log(unnormalized + eps) + log_norm
+
+
 def kde_eval_linearized(
     data: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
     queries: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
