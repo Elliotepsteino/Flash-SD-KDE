@@ -28,6 +28,10 @@ REBUTTAL_FUSION_MEM_START_POWER ?= 11
 REBUTTAL_FUSION_MEM_END_POWER ?= 16
 REBUTTAL_FUSION_MEM_WARMUP ?= 1
 REBUTTAL_FUSION_MEM_REPEATS ?= 10
+REBUTTAL_MATERIALIZE_N_TRAIN ?= 65536
+REBUTTAL_MATERIALIZE_N_TEST ?= 8192
+REBUTTAL_MATERIALIZE_WARMUP ?= 1
+REBUTTAL_MATERIALIZE_REPEATS ?= 3
 REBUTTAL_ICML2026_FLASH_LAPLACE_OUT_DIR ?= $(FILE_STORAGE_ROOT)/error_suite_16d/rebuttal_icml2026_flash_laplace_$(shell date +%Y%m%d_%H%M%S)
 REBUTTAL_OPERATOR_OUT_DIR ?= $(PAPER_PLOTS_OUT)
 REBUTTAL_EMBED_OUT_DIR ?= $(FILE_STORAGE_ROOT)/benchmarks/mnist_fashion_pca64_similarity
@@ -59,7 +63,7 @@ REAL_APP_TULU_EMBED_BATCH_SIZE ?= 256
 	paper paper.clean full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots paper.figures.sync \
 	plots.runtime plots.runtime.from_logs plots.runtime.util \
 	run.sweep run.nd_runtime_sweep run.triton_scaling run.triton_sd_kde_nd \
-	rebuttal.figure1_16d_runtime rebuttal.icml2026.query_batching_sweep rebuttal.icml2026.tensorcore_ablation rebuttal.icml2026.fusion_memory_ablation rebuttal.icml2026.flash_laplace_negative_mass \
+	rebuttal.figure1_16d_runtime rebuttal.icml2026.query_batching_sweep rebuttal.icml2026.tensorcore_ablation rebuttal.icml2026.fusion_memory_ablation rebuttal.icml2026.materialization_case rebuttal.icml2026.flash_laplace_negative_mass \
 	rebuttal.icml2026.operator_ablation rebuttal.icml2026.embedding_similarity \
 	rebuttal.icml2026.overall_report rebuttal.icml2026.c4_embedding_sanity \
 	real_application.tulu_sft_embeddings \
@@ -307,6 +311,24 @@ rebuttal.icml2026.fusion_memory_ablation:
 	$(PY) $(RUNTIME_DIR)/plot_rebuttal_16d_fusion_memory_ablation.py \
 		--input "$(PAPER_PLOTS_OUT)/fig_rebuttal_fusion_memory_ablation_16d.json" \
 		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_fusion_memory_ablation_16d.png"
+
+rebuttal.icml2026.materialization_case:
+	mkdir -p $(PAPER_PLOTS_OUT)
+	$(PY) -m experiments.runtime.benchmark_rebuttal_16d_materialization_case \
+		--n-train $(REBUTTAL_MATERIALIZE_N_TRAIN) \
+		--n-test $(REBUTTAL_MATERIALIZE_N_TEST) \
+		--seed $(REBUTTAL_FIG1_SEED) \
+		--warmup $(REBUTTAL_MATERIALIZE_WARMUP) \
+		--repeats $(REBUTTAL_MATERIALIZE_REPEATS) \
+		--device cuda \
+		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_materialization_case_16d.json" \
+		--markdown-output "$(PAPER_PLOTS_OUT)/table_rebuttal_materialization_case_16d.md"
+	$(PY) $(RUNTIME_DIR)/plot_rebuttal_16d_materialization_case.py \
+		--input "$(PAPER_PLOTS_OUT)/fig_rebuttal_materialization_case_16d.json" \
+		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_materialization_case_16d.pdf"
+	$(PY) $(RUNTIME_DIR)/plot_rebuttal_16d_materialization_case.py \
+		--input "$(PAPER_PLOTS_OUT)/fig_rebuttal_materialization_case_16d.json" \
+		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_materialization_case_16d.png"
 
 rebuttal.icml2026.flash_laplace_negative_mass:
 	mkdir -p $(PAPER_PLOTS_OUT)
