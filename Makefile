@@ -15,6 +15,12 @@ REBUTTAL_FIG1_SEED ?= 0
 REBUTTAL_FIG1_WARMUP ?= 1
 REBUTTAL_FIG1_FLASH_REPEATS ?= 10
 REBUTTAL_FIG1_BASELINE_REPEATS ?= 3
+REBUTTAL_QUERY_SWEEP_N_TRAIN ?= 32768
+REBUTTAL_QUERY_SWEEP_N_TEST_LIST ?= 4,16,64,256,1024,4096,16384
+REBUTTAL_QUERY_SWEEP_WARMUP ?= 1
+REBUTTAL_QUERY_SWEEP_FLASH_REPEATS ?= 10
+REBUTTAL_QUERY_SWEEP_BASELINE_REPEATS ?= 3
+REBUTTAL_QUERY_SWEEP_NONFUSED_CHUNK_SIZE ?= 2048
 REBUTTAL_ICML2026_FLASH_LAPLACE_OUT_DIR ?= $(FILE_STORAGE_ROOT)/error_suite_16d/rebuttal_icml2026_flash_laplace_$(shell date +%Y%m%d_%H%M%S)
 REBUTTAL_OPERATOR_OUT_DIR ?= $(PAPER_PLOTS_OUT)
 REBUTTAL_EMBED_OUT_DIR ?= $(FILE_STORAGE_ROOT)/benchmarks/mnist_fashion_pca64_similarity
@@ -46,7 +52,7 @@ REAL_APP_TULU_EMBED_BATCH_SIZE ?= 256
 	paper paper.clean full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots paper.figures.sync \
 	plots.runtime plots.runtime.from_logs plots.runtime.util \
 	run.sweep run.nd_runtime_sweep run.triton_scaling run.triton_sd_kde_nd \
-	rebuttal.figure1_16d_runtime rebuttal.icml2026.flash_laplace_negative_mass \
+	rebuttal.figure1_16d_runtime rebuttal.icml2026.query_batching_sweep rebuttal.icml2026.flash_laplace_negative_mass \
 	rebuttal.icml2026.operator_ablation rebuttal.icml2026.embedding_similarity \
 	rebuttal.icml2026.overall_report rebuttal.icml2026.c4_embedding_sanity \
 	real_application.tulu_sft_embeddings \
@@ -239,6 +245,26 @@ rebuttal.figure1_16d_runtime:
 	$(PY) $(RUNTIME_DIR)/plot_rebuttal_16d_runtime.py \
 		--input "$(PAPER_PLOTS_OUT)/fig_rebuttal_runtime_16d_kde_sdkde.json" \
 		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_runtime_16d_kde_sdkde.png"
+
+rebuttal.icml2026.query_batching_sweep:
+	mkdir -p $(PAPER_PLOTS_OUT)
+	$(PY) -m experiments.runtime.benchmark_rebuttal_16d_query_batching \
+		--n-train $(REBUTTAL_QUERY_SWEEP_N_TRAIN) \
+		--n-test-list "$(REBUTTAL_QUERY_SWEEP_N_TEST_LIST)" \
+		--seed $(REBUTTAL_FIG1_SEED) \
+		--warmup $(REBUTTAL_QUERY_SWEEP_WARMUP) \
+		--flash-repeats $(REBUTTAL_QUERY_SWEEP_FLASH_REPEATS) \
+		--baseline-repeats $(REBUTTAL_QUERY_SWEEP_BASELINE_REPEATS) \
+		--nonfused-chunk-size $(REBUTTAL_QUERY_SWEEP_NONFUSED_CHUNK_SIZE) \
+		--device cuda \
+		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_query_batching_16d.json" \
+		--markdown-output "$(PAPER_PLOTS_OUT)/table_rebuttal_query_batching_16d.md"
+	$(PY) $(RUNTIME_DIR)/plot_rebuttal_16d_query_batching.py \
+		--input "$(PAPER_PLOTS_OUT)/fig_rebuttal_query_batching_16d.json" \
+		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_query_batching_16d.pdf"
+	$(PY) $(RUNTIME_DIR)/plot_rebuttal_16d_query_batching.py \
+		--input "$(PAPER_PLOTS_OUT)/fig_rebuttal_query_batching_16d.json" \
+		--output "$(PAPER_PLOTS_OUT)/fig_rebuttal_query_batching_16d.png"
 
 rebuttal.icml2026.flash_laplace_negative_mass:
 	mkdir -p $(PAPER_PLOTS_OUT)
