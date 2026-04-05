@@ -11,7 +11,6 @@ import numpy as np
 import torch
 
 from benchmarks.exact_kde_baselines import time_cuda_ms, torch_exact_sd_kde_nd
-from flash_sd_kde.kde import kde_eval_linearized_nonfused
 from flash_sd_kde.reference import sample_gaussian_mixture_16d, silverman_bandwidth_nd
 from kernels.flash_sd_kde import empirical_sd_kde_triton_nd, gaussian_kde_triton_nd
 
@@ -95,27 +94,6 @@ def _flash_sd_kde_nd(
     )
 
 
-def _flash_nonfused_impl_nd(
-    train: torch.Tensor,
-    queries: torch.Tensor,
-    bandwidth: float,
-    *,
-    device: torch.device,
-    chunk_size: int,
-) -> torch.Tensor:
-    return kde_eval_linearized_nonfused(
-        train,
-        queries,
-        bandwidth,
-        device=device,
-        precision_mode="fast_tf32",
-        kde_backend="splitk_stream",
-        use_precomputed_norms=True,
-        autotune=True,
-        chunk_size=chunk_size,
-    )
-
-
 def _fmt_float(value: float) -> str:
     return "n/a" if not math.isfinite(value) else f"{value:.2f}"
 
@@ -131,7 +109,6 @@ def benchmark_point(
     warmup: int,
     flash_repeats: int,
     baseline_repeats: int,
-    nonfused_chunk_size: int,
 ) -> dict[str, float]:
     eager_mean, eager_std, eager_min, eager_vals = time_cuda_ms(
         lambda: torch_exact_sd_kde_nd(train_t, queries_t, bandwidth),
@@ -164,18 +141,6 @@ def benchmark_point(
         warmup=warmup,
         repeats=baseline_repeats,
     )
-    nonfused_mean, nonfused_std, nonfused_min, _ = time_cuda_ms(
-        lambda: _flash_nonfused_impl_nd(
-            train_t,
-            queries_t,
-            bandwidth,
-            device=device,
-            chunk_size=nonfused_chunk_size,
-        ),
-        device=device,
-        warmup=warmup,
-        repeats=baseline_repeats,
-    )
     flash_mean, flash_std, flash_min, flash_vals = time_cuda_ms(
         lambda: _flash_sd_kde_nd(train_t, queries_t, bandwidth, device=device),
         device=device,
@@ -201,16 +166,12 @@ def benchmark_point(
         "sd_pykeops_ms": pykeops_mean,
         "sd_pykeops_ms_std": pykeops_std,
         "sd_pykeops_ms_min": pykeops_min,
-        "nonfused_impl_ms": nonfused_mean,
-        "nonfused_impl_ms_std": nonfused_std,
-        "nonfused_impl_ms_min": nonfused_min,
         "flash_sd_kde_ms": flash_mean,
         "flash_sd_kde_ms_std": flash_std,
         "flash_sd_kde_ms_min": flash_min,
         "speedup_flash_vs_torch": eager_mean / flash_mean if flash_mean > 0 else float("inf"),
         "speedup_flash_vs_torch_compile": compile_mean / flash_mean if flash_mean > 0 else float("nan"),
         "speedup_flash_vs_pykeops": pykeops_mean / flash_mean if flash_mean > 0 else float("inf"),
-        "speedup_flash_vs_nonfused": nonfused_mean / flash_mean if flash_mean > 0 else float("inf"),
         "delta_max_flash_vs_torch": float(np.max(np.abs(flash_vals - eager_vals))),
         "delta_max_flash_vs_torch_compile": float(np.max(np.abs(flash_vals - compile_vals))),
         "delta_max_flash_vs_pykeops": float(np.max(np.abs(flash_vals - pykeops_vals))),
@@ -228,15 +189,13 @@ def benchmark_point(
     print(
         f"[Rebuttal Query Sweep 16D] n_train={n_train}, n_test={n_test}, h={bandwidth:.6e} | "
         f"Torch={eager_mean:.2f} ms | compile={compile_mean:.2f} ms | "
-        f"PyKeOps={pykeops_mean:.2f} ms | non-fused={nonfused_mean:.2f} ms | "
-        f"Flash={flash_mean:.2f} ms"
+        f"PyKeOps={pykeops_mean:.2f} ms | Flash={flash_mean:.2f} ms"
     )
     print(
         "  Flash speedups:"
         f" Torch={row['speedup_flash_vs_torch']:.2f}x |"
         f" compile={row['speedup_flash_vs_torch_compile']:.2f}x |"
-        f" PyKeOps={row['speedup_flash_vs_pykeops']:.2f}x |"
-        f" non-fused={row['speedup_flash_vs_nonfused']:.2f}x"
+        f" PyKeOps={row['speedup_flash_vs_pykeops']:.2f}x"
     )
     return row
 
@@ -250,7 +209,6 @@ def benchmark_sweep(
     warmup: int,
     flash_repeats: int,
     baseline_repeats: int,
-    nonfused_chunk_size: int,
 ) -> dict[str, object]:
     torch_device = torch.device(device)
     if torch_device.type != "cuda" or not torch.cuda.is_available():
@@ -285,7 +243,6 @@ def benchmark_sweep(
                 warmup=warmup,
                 flash_repeats=flash_repeats,
                 baseline_repeats=baseline_repeats,
-                nonfused_chunk_size=nonfused_chunk_size,
             )
         )
 
@@ -299,7 +256,6 @@ def benchmark_sweep(
         "warmup": warmup,
         "flash_repeats": flash_repeats,
         "baseline_repeats": baseline_repeats,
-        "nonfused_chunk_size": nonfused_chunk_size,
         "rows": rows,
     }
 
@@ -307,28 +263,22 @@ def benchmark_sweep(
 def format_markdown_table(payload: dict[str, object]) -> str:
     rows = list(payload["rows"])
     lines = [
-        "| n_train | n_test | Torch (ms) | torch.compile (ms) | PyKeOps (ms) | Non-fused impl (ms) | Flash-SD-KDE (ms) | Torch/Flash | Compile/Flash | PyKeOps/Flash | Non-fused/Flash |",
-        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| n_train | n_test | Torch (ms) | torch.compile (ms) | PyKeOps (ms) | Flash-SD-KDE (ms) | Torch/Flash | Compile/Flash | PyKeOps/Flash |",
+        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in rows:
         lines.append(
             f"| {int(row['n_train'])} | {int(row['n_test'])} | "
             f"{_fmt_float(row['sd_torch_ms'])} | {_fmt_float(row['sd_torch_compile_ms'])} | "
-            f"{_fmt_float(row['sd_pykeops_ms'])} | {_fmt_float(row['nonfused_impl_ms'])} | "
-            f"{_fmt_float(row['flash_sd_kde_ms'])} | {_fmt_float(row['speedup_flash_vs_torch'])}x | "
+            f"{_fmt_float(row['sd_pykeops_ms'])} | {_fmt_float(row['flash_sd_kde_ms'])} | {_fmt_float(row['speedup_flash_vs_torch'])}x | "
             f"{_fmt_float(row['speedup_flash_vs_torch_compile'])}x | "
-            f"{_fmt_float(row['speedup_flash_vs_pykeops'])}x | "
-            f"{_fmt_float(row['speedup_flash_vs_nonfused'])}x |"
+            f"{_fmt_float(row['speedup_flash_vs_pykeops'])}x |"
         )
     lines.extend(
         [
             "",
             "Lower is better for runtime. Speedup columns are `baseline_runtime / flash_runtime`,",
             "so values above `1.00x` mean Flash-SD-KDE is faster.",
-            "",
-            "The `Non-fused impl` row is the separate-pass Laplace-corrected implementation",
-            "(`kde_eval_linearized_nonfused`), included as an implementation baseline rather than",
-            "an exact SD-KDE estimator.",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -354,7 +304,6 @@ def main() -> None:
     parser.add_argument("--warmup", type=int, default=1)
     parser.add_argument("--flash-repeats", type=int, default=10)
     parser.add_argument("--baseline-repeats", type=int, default=3)
-    parser.add_argument("--nonfused-chunk-size", type=int, default=2048)
     parser.add_argument("--output", type=Path, required=True, help="Output JSON path.")
     parser.add_argument(
         "--markdown-output",
@@ -372,7 +321,6 @@ def main() -> None:
         warmup=args.warmup,
         flash_repeats=args.flash_repeats,
         baseline_repeats=args.baseline_repeats,
-        nonfused_chunk_size=args.nonfused_chunk_size,
     )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

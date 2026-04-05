@@ -29,14 +29,12 @@ def plot_query_sweep(payload: dict[str, object], output: Path) -> None:
         ("sd_torch_ms", "SD-KDE (Torch)", "#59a14f", "s"),
         ("sd_torch_compile_ms", "SD-KDE (Torch compile)", "#76b7b2", "P"),
         ("sd_pykeops_ms", "SD-KDE (PyKeOps)", "#e15759", "^"),
-        ("nonfused_impl_ms", "Non-fused impl", "#9c755f", "X"),
         ("flash_sd_kde_ms", "Flash-SD-KDE", "#f28e2b", "D"),
     ]
     speedup_series = [
         ("speedup_flash_vs_torch", "vs Torch", "#59a14f", "s"),
         ("speedup_flash_vs_torch_compile", "vs Torch compile", "#76b7b2", "P"),
         ("speedup_flash_vs_pykeops", "vs PyKeOps", "#e15759", "^"),
-        ("speedup_flash_vs_nonfused", "vs non-fused impl", "#9c755f", "X"),
     ]
 
     fig, axes = plt.subplots(1, 2, figsize=(11.4, 4.8))
