@@ -1,0 +1,171 @@
+\section{Additional Literature Review}
+\label{app:additional_literature}
+
+This appendix expands the related-work discussion of
+Section~\ref{sec:related} along three axes that are most relevant to
+score-debiased and other bias-corrected density estimators: sub-quadratic
+approximate KDE algorithms, sample compression and coreset methods, and
+KDE-as-primitive applications in modern machine learning.
+We also discuss potential hybrids of these algorithmic directions with the
+hardware-accelerated exact pipeline of Section~\ref{sec:method}.
+The discussion is intentionally complementary to the experimental focus of
+the main paper: the works below approximate either the kernel sum or the
+training set, while our work makes the exact SD-KDE estimator practical at
+scale.
+
+\subsection{Sub-quadratic approximate KDE via locality-sensitive hashing}
+\label{app:hbe_literature}
+
+A line of work starting with the hashing-based estimator (HBE) framework of
+\citet{charikar2017hbe} reduces the cost of evaluating a Gaussian kernel
+sum from quadratic to sub-quadratic by sampling from locality-sensitive
+hash buckets.
+At a high level, HBE hashes both the training set and the query point into
+LSH buckets whose collision probability is calibrated to the kernel, and
+uses bucket cardinalities together with a small number of refinement
+samples to estimate the kernel sum to a target relative error.
+\citet{backurs2019space} improve the construction so that it requires only
+linear preprocessing time and space while retaining the same query time,
+and \citet{siminelakis2019rehashing} bring the scheme closer to practice
+through adaptive sample-size selection and sharper data-dependent variance
+bounds.
+\citet{charikar2019multi} extend the construction beyond Gaussian-like
+kernels to a much broader class of pairwise summations using a
+multi-resolution hashing scheme.
+A subsequent refinement \citep{charikar2020kde} casts the sub-quadratic KDE
+problem as a density-constrained near-neighbor search and removes the
+redundancy that arises in HBE when nearby points fall into different
+buckets on opposite sides of the query.
+
+The ACE method of \citet{luo2018ace}, which we evaluate against in
+Section~\ref{app:ace}, is a practical instantiation of this family
+specialized for streaming anomaly detection: rather than estimating the
+kernel sum, it tracks per-bucket counts and uses them as proxies for local
+density.
+The closely related RACE sketch of \citet{coleman2020race} extends the
+LSH-counting view to streaming KDE with explicit error guarantees.
+ACE was a natural choice for our anomaly-detection comparison precisely
+because it shares the high-level inverse-density-as-anomaly viewpoint of a
+KDE-based scorer while bringing the sub-quadratic LSH cost.
+
+These methods are complementary to ours rather than substitutes.
+HBE-family algorithms approximate \emph{classical} KDE, so applying them
+out of the box to SD-KDE would forfeit the bias-reduction guarantees that
+motivate SD-KDE in the first place.
+A natural hybrid direction (Section~\ref{app:future_work}) is to use a
+sub-quadratic approximation only for the empirical-score pass and retain
+exact streaming Tensor-Core evaluation for the final density.
+
+\subsection{Sample compression, coresets, and kernel thinning}
+\label{app:compression_literature}
+
+A second line of work reduces the cost of kernel computations by replacing
+the full training set with a much smaller weighted subset.
+\citet{dwivedi2021kernel} introduce kernel thinning, which produces a
+coreset of size $O(\sqrt{n})$ whose worst-case kernel-mean error matches
+that of the full sample up to logarithmic factors, by halving the dataset
+under a self-balancing process and selecting the half that better
+preserves a target reproducing-kernel Hilbert space functional.
+\citet{shetty2022compress} extend this construction with a meta-procedure
+(Compress++) that reduces the total runtime to near-linear while inflating
+the integration error by at most a constant factor, making kernel thinning
+practical at substantially larger scales.
+
+Compression-based methods affect a different cost axis from the one we
+target.
+They reduce $n$ before any kernel evaluations are performed, while we keep
+$n$ fixed and accelerate the resulting $O(n^2)$ computation.
+For SD-KDE specifically, kernel thinning could in principle be used to
+reduce both the training set and the empirical-score sample, at the cost
+of inflating bias and variance by amounts that have not yet been
+characterized for score-debiased estimators.
+We view a careful theoretical and empirical study of kernel thinning under
+SD-KDE as out of scope for this paper but a promising follow-up.
+
+\subsection{Higher-order bias correction in KDE}
+\label{app:higher_order_literature}
+
+The Laplace-corrected estimator of Section~\ref{sec:laplace_corrected}
+belongs to the broader family of higher-order bias kernels.
+Classical work in this area includes the higher-order kernel constructions
+of \citet{fan1992bias} and the systematic comparison of
+\citet{jones1997comparison}, both already discussed in the main related-work
+section.
+The novelty of our use of this construction is not in the kernel itself but
+in identifying it as the right first-order surrogate for SD-KDE in the
+limit where the empirical score is replaced by its leading-order Taylor
+expansion, and in giving a fused GPU realization that retains the same
+effective bias reduction at a fraction of the runtime cost.
+
+\subsection{KDE as a primitive in modern ML systems}
+\label{app:kde_attention_literature}
+
+Although the present paper targets density estimation directly, KDE-style
+sums also arise as computational primitives inside modern deep-learning
+pipelines.
+Self-attention with a softmax kernel can be written as a normalized
+weighted sum that is closely related to a Gaussian KDE evaluated at the
+query, and several recent works exploit this view to design
+sub-quadratic attention approximations.
+\citet{zandieh2023kdeformer} treat the attention denominator as a KDE and
+use a sub-quadratic KDE algorithm in the spirit of the FOCS line above to
+approximate it, obtaining provable spectral-norm guarantees and large
+end-to-end speedups.
+\citet{kacham2024polysketchformer} replace the softmax kernel with a
+polynomial kernel and use polynomial-kernel sketches from randomized
+numerical linear algebra to obtain a linear-time attention mechanism with
+approximation guarantees.
+Streaming-style LSH sketches in the spirit of RACE \citep{coleman2020race}
+have similarly been adapted as the scoring primitive inside attention
+modules.
+FlashAttention~\citep{dao2022flashattention} is the closest analogue on the
+hardware-aware side: it does not approximate the kernel sum but reorders
+the exact computation to fit the GPU memory hierarchy and to expose
+Tensor-Core GEMMs, which is the same high-level recipe we apply to SD-KDE.
+
+These works underline that fast KDE-style primitives have downstream value
+beyond density estimation.
+The implementation pattern in this paper (matrix-multiplication
+re-ordering, streaming accumulation, mixed Tensor-Core/FP32 work) is a
+natural building block for any future architecture in which a
+score-corrected or higher-order kernel sum is used in place of vanilla
+attention or a vanilla KDE primitive.
+
+\subsection{Hybrid algorithmic--hardware directions for future work}
+\label{app:future_work}
+
+The literature surveyed above suggests several hybrid directions that pair
+algorithmic reductions with the hardware-accelerated exact pipeline of this
+paper.
+
+\paragraph{Approximate-score, exact-evaluation hybrids.}
+The empirical score in SD-KDE is itself a sum of weighted kernels, and the
+SD-KDE estimator is empirically robust to small score perturbations.
+This makes it natural to plug a sub-quadratic approximate KDE algorithm,
+such as those of
+\citet{charikar2017hbe,backurs2019space,siminelakis2019rehashing,charikar2019multi,charikar2020kde},
+into the score-evaluation step while retaining the exact Tensor-Core
+kernel of Section~\ref{sec:method} for the final density evaluation.
+Quantifying how approximate-score error propagates into the bias-reduction
+guarantee of SD-KDE is an open theoretical question in this direction.
+
+\paragraph{Spectral and grid-based score acceleration.}
+For low-to-moderate dimensions, the score can also be computed by
+evaluating the gradient of a smoothed density on a grid, with non-uniform
+fast Fourier transforms (NUFFT) reducing the cost of the underlying sum.
+Combining a NUFFT-based score with the exact Flash-SD-KDE evaluation kernel
+is a promising hybrid for the dimensionalities we target, and is on our
+roadmap.
+
+\paragraph{Coreset-then-accelerate.}
+A complementary hybrid uses kernel thinning
+\citep{dwivedi2021kernel,shetty2022compress} or another coreset construction
+to reduce $n$ before invoking the exact pipeline, trading a controlled
+error increase for a square-root reduction in compute.
+Because Flash-SD-KDE is already efficient at large $n$, the regime where
+this trade is attractive likely lies at the very largest scales, where
+even a hardware-accelerated exact $O(n^2)$ pass becomes prohibitive.
+
+In all three directions, a fast and accurate exact SD-KDE primitive is
+useful as the inner loop and as a ground-truth reference for evaluating
+approximation error, which is the role this paper aims to fill.

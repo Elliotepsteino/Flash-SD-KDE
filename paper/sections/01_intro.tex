@@ -1,5 +1,90 @@
 \section{Introduction}
 
+Kernel density estimation (KDE) is a foundational nonparametric
+tool~\citep{rosenblatt1956remarks,parzen1962estimation,silverman1986density,wand1995kernel}
+that has become a recurring primitive in modern machine learning
+pipelines: KDE-style density and score estimates underpin anomaly and
+out-of-distribution detection~\citep{luo2018ace,coleman2020race},
+embedding-space dataset comparison and divergence estimation,
+data-mixture and selection analysis for pre-training and instruction
+tuning, density-based regularization and sampling, and softmax-style
+attention~\citep{zandieh2023kdeformer,kacham2024polysketchformer}.
+Two limitations have long held KDE back at these scales: an $O(h^2)$
+leading-bias term that dominates error in moderate dimensions, and an
+$O(n^2)$ exact evaluation cost --- both of which have driven decades of
+follow-up work.
+
+A long line of work attacks the bias limitation by modifying the kernel or
+the bandwidth so that the leading bias term cancels.
+Higher-order kernel constructions~\citep{fan1992bias,jones1997comparison},
+variable-bandwidth schemes~\citep{abramson1982bandwidth}, and
+diffusion-based estimators~\citep{botev2010diffusion} are all members of
+this family.
+Score-debiased kernel density estimation
+(SD-KDE)~\citep{epstein2025sdkde} is a recent addition: it uses an
+empirical score $\hat s$ to form debiased samples
+$x_i^{\mathrm{SD}} = x_i + \tfrac{h^2}{2}\,\hat s(x_i)$, and then evaluates
+a standard Gaussian KDE on these shifted samples instead of the originals,
+which improves statistical efficiency over standard KDE while retaining a
+simple, nonparametric form and preserving non-negativity.
+In particular, SD-KDE achieves an asymptotic mean integrated squared error
+(AMISE) of order $O(n^{-8/(d+8)})$, improving the convergence exponent
+relative to the $O(n^{-4/(d+4)})$ rate of classical KDE tuned with
+Silverman's rule of thumb~\citep{silverman1986density,wand1995kernel}.
+
+These statistical gains come with a significant computational drawback.
+The empirical score used for debiasing is itself a kernel sum, so it
+introduces an additional $O(n^2)$ pass over the data, and a naive
+implementation has roughly the same quadratic cost as KDE itself but with
+a substantially larger constant factor.
+Empirically, the score pass dominates end-to-end runtime, accounting for
+roughly $90\%$ of the total cost in our setting, which has so far made
+SD-KDE impractical at the scales where downstream applications operate.
+The natural fix --- porting the computation to GPUs --- is not automatic,
+because the score pass does not match the GEMM shape that modern
+accelerators are built to execute, and the scalar work surrounding the
+kernel sum (norms, exponentials, atomic accumulation) limits how much
+generic deep-learning frameworks can help.
+
+Our central observation is that re-ordering the SD-KDE computation
+exposes a hidden matrix-multiplication structure inside both the
+empirical-score pass and the KDE evaluation.
+Once that structure is made explicit, the heavy work of SD-KDE is exactly
+the work that Tensor Cores on modern GPUs are designed to accelerate, and
+the rest of the implementation reduces to streaming the matrix tiles and
+managing the surrounding scalar work against a mixed-precision performance
+budget.
+This is what enables SD-KDE to run at scales that were previously
+infeasible on a single GPU.
+
+\textbf{Contributions.}
+We make SD-KDE practical at large scale through three contributions: a
+GEMM re-ordering that exposes Tensor-Core structure in both the score and
+the KDE passes, a streaming Triton implementation that avoids
+materializing pairwise kernel matrices, and a fused first-order surrogate
+(Flash-Laplace-KDE) that retains the leading bias correction without the
+explicit score pass.
+On a 32k-sample 16-D problem, Flash-SD-KDE runs roughly $40\times$ faster
+than a strong PyTorch SD-KDE baseline, $\sim\!8\times$ faster than
+PyKeOps, and over three orders of magnitude faster than scikit-learn KDE.
+
+\textbf{Paper overview.}
+Section~\ref{sec:related} surveys related work on KDE, score estimation,
+fast kernel evaluation, and GPU programming.
+Section~\ref{sec:hardware} reviews the GPU hardware features that drive
+the design.
+Section~\ref{sec:method} derives the matrix-form SD-KDE computation and
+the streaming Tensor-Core kernel.
+Section~\ref{sec:laplace_corrected} introduces the Laplace-corrected
+surrogate.
+Section~\ref{sec:results} reports the empirical study, including
+performance optimizations and the oracle-density benchmark, and
+Section~\ref{sec:conclusion} concludes.
+Additional experiments and a more complete literature review appear in
+the appendix.
+
+\begin{comment}
+%% Original introduction, kept here for reference in case we want to revert.
 Score-debiased kernel density estimation (SD-KDE)~\citep{epstein2025sdkde}
 improves the statistical efficiency of standard kernel density estimators,
 relative to classical kernel density estimation (KDE)~\citep{rosenblatt1956remarks,parzen1962estimation,silverman1986density}:
@@ -35,3 +120,4 @@ of the samples, we estimate the score as
   \frac{\sum_{i=1}^n \bigl[-({x - x_i})\,\varphi\!\left(\tfrac{x - x_i}{h}\right)\bigr]}
        {h^2 \sum_{i=1}^n \varphi\!\left(\tfrac{x - x_i}{h}\right)}.
 \]
+\end{comment}

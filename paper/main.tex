@@ -6,10 +6,6 @@
 %\arxivfalse    % uncomment for ICML
 \input{preamble}
 \input{macros}
-\ifarxiv
-   \icmlshowauthorstrue
-   
-\fi
 
 \icmltitlerunning{Flash-SD-KDE}
 
@@ -23,10 +19,9 @@
     \icmlauthor{Elliot L.\ Epstein}{stanford}
     \icmlauthor{Rajat Vadiraj Dwaraknath}{stanford}
     \icmlauthor{John Winnicki}{stanford}
-    \icmlauthor{Thanawat Sornwanee}{stanford}
   \end{icmlauthorlist}
 
-  \icmlaffiliation{stanford}{Stanford University, Stanford, CA 94305, USA}
+  \icmlaffiliation{stanford}{Institute for Computational and Mathematical Engineering, Stanford University}
   \icmlcorrespondingauthor{Elliot L.\ Epstein}{epsteine@stanford.edu}
 %\else
 %  \begin{icmlauthorlist}
@@ -36,7 +31,7 @@
 %  \icmlaffiliation{}{Affiliation withheld for blind review.}
 %  \icmlcorrespondingauthor{}{anon.email@domain.com}
 %\fi
-  \icmlkeywords{kernel density estimation, GPU acceleration, Triton, Tensor Cores}
+  \icmlkeywords{kernel density estimation, GPU kernels, SD-KDE}
   \vskip 0.3in
 ]
 %\ifarxiv
@@ -56,16 +51,16 @@
 \input{sections/04_results}
 \input{sections/05_optimizations}
 
+\input{sections/08_conclusion}
 \ificmlshowauthors
 \input{sections/06_acknowledgements}
 \fi
-
-
-\input{sections/08_conclusion}
 \input{sections/09_impact}
 
 \bibliographystyle{icml2026/icml2026}
 \bibliography{references}
 
 \input{sections/99_appendix}
+\input{sections/A_additional_experiments}
+\input{sections/B_additional_literature}
 \end{document}
