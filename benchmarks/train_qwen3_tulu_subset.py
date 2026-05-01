@@ -137,6 +137,10 @@ class CausalLMPaddingCollator:
 
 
 def _render_report(results: dict[str, Any]) -> str:
+    pre_train_ppl = results["metrics"].get("pre_train_perplexity", float("nan"))
+    post_train_ppl = results["metrics"].get("train_perplexity", float("nan"))
+    pre_eval_ppl = results["metrics"].get("pre_eval_perplexity", float("nan"))
+    post_eval_ppl = results["metrics"].get("eval_perplexity", float("nan"))
     lines = [
         "# Qwen3 Tulu Subset Training",
         "",
@@ -150,6 +154,9 @@ def _render_report(results: dict[str, Any]) -> str:
         f"- Batch size: `{results['config']['batch_size']}`",
         f"- Eval batch size: `{results['config']['eval_batch_size']}`",
         f"- Grad accumulation: `{results['config']['grad_accum']}`",
+        f"- Save steps: `{results['config']['save_steps']}`",
+        f"- Eval steps: `{results['config']['eval_steps']}`",
+        f"- Log steps: `{results['config']['log_steps']}`",
         f"- Valid train rows: `{results['dataset']['train_rows']}` / `{results['dataset']['train_rows_before_filter']}`",
         f"- Valid eval rows: `{results['dataset']['eval_rows']}` / `{results['dataset']['eval_rows_before_filter']}`",
         "",
@@ -157,12 +164,108 @@ def _render_report(results: dict[str, Any]) -> str:
         "",
         f"- Train runtime: `{results['timings']['train_seconds']:.2f}` s",
         f"- Eval runtime: `{results['timings']['eval_seconds']:.2f}` s",
+        f"- Pre-train train perplexity: `{pre_train_ppl:.4f}`",
+        f"- Final train perplexity: `{post_train_ppl:.4f}`",
+        f"- Pre-train eval perplexity: `{pre_eval_ppl:.4f}`",
         f"- Final eval loss: `{results['metrics'].get('eval_loss', float('nan')):.6f}`",
         f"- Final eval perplexity: `{results['metrics'].get('eval_perplexity', float('nan')):.4f}`",
+        f"- Final global step: `{results['metrics'].get('train_global_step', float('nan'))}`",
         f"- Merged model dir: `{results['artifacts'].get('merged_model_dir', 'n/a')}`",
+        f"- Perplexity plot: `{results['artifacts'].get('perplexity_plot_png', 'n/a')}`",
         "",
+        "## Perplexity Change",
+        "",
+        f"- Train perplexity change: `{post_train_ppl - pre_train_ppl:+.4f}`",
+        f"- Eval perplexity change: `{post_eval_ppl - pre_eval_ppl:+.4f}`",
+        "",
+        "## Checkpoints",
+        "",
+        f"- Count: `{len(results['artifacts'].get('checkpoint_dirs', []))}`",
     ]
+    for checkpoint_dir in results["artifacts"].get("checkpoint_dirs", []):
+        lines.append(f"- `{checkpoint_dir}`")
+    lines.extend(
+        [
+            "",
+        "## Eval Perplexity During Training",
+        "",
+        "| step | eval_perplexity |",
+        "| ---: | ---: |",
+        ]
+    )
+    for row in results.get("eval_perplexity_curve", []):
+        lines.append(f"| {row['step']} | {row['eval_perplexity']:.4f} |")
+    lines.extend(
+        [
+            "",
+            "## Approximate Train Perplexity During Training",
+            "",
+            "| step | approx_train_perplexity |",
+            "| ---: | ---: |",
+        ]
+    )
+    for row in results.get("train_perplexity_curve", []):
+        lines.append(f"| {row['step']} | {row['train_perplexity']:.4f} |")
     return "\n".join(lines) + "\n"
+
+
+def _sanitize_log_history(log_history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    sanitized: list[dict[str, Any]] = []
+    for entry in log_history:
+        clean_entry: dict[str, Any] = {}
+        for key, value in entry.items():
+            if isinstance(value, (str, int, bool)):
+                clean_entry[key] = value
+            elif isinstance(value, float):
+                clean_entry[key] = value
+        sanitized.append(clean_entry)
+    return sanitized
+
+
+def _write_perplexity_plot(
+    output_dir: Path,
+    eval_perplexity_curve: list[dict[str, float | int]],
+    train_perplexity_curve: list[dict[str, float | int]],
+) -> dict[str, str | None]:
+    try:
+        import matplotlib.pyplot as plt
+    except Exception:
+        return {"png": None, "pdf": None}
+
+    if not eval_perplexity_curve and not train_perplexity_curve:
+        return {"png": None, "pdf": None}
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    if eval_perplexity_curve:
+        ax.plot(
+            [int(row["step"]) for row in eval_perplexity_curve],
+            [float(row["eval_perplexity"]) for row in eval_perplexity_curve],
+            marker="o",
+            linewidth=2,
+            label="Eval PPL",
+        )
+    if train_perplexity_curve:
+        ax.plot(
+            [int(row["step"]) for row in train_perplexity_curve],
+            [float(row["train_perplexity"]) for row in train_perplexity_curve],
+            marker="x",
+            linewidth=1.5,
+            alpha=0.8,
+            label="Approx Train PPL",
+        )
+    ax.set_xlabel("Global Step")
+    ax.set_ylabel("Perplexity")
+    ax.set_title("Perplexity During Training")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    fig.tight_layout()
+
+    png_path = output_dir / "perplexity_curve.png"
+    pdf_path = output_dir / "perplexity_curve.pdf"
+    fig.savefig(png_path, dpi=200)
+    fig.savefig(pdf_path)
+    plt.close(fig)
+    return {"png": str(png_path), "pdf": str(pdf_path)}
 
 
 def main() -> None:
@@ -178,7 +281,9 @@ def main() -> None:
     parser.add_argument("--learning-rate", type=float, default=1e-4)
     parser.add_argument("--num-epochs", type=float, default=1.0)
     parser.add_argument("--save-steps", type=int, default=100)
+    parser.add_argument("--save-total-limit", type=int, default=20)
     parser.add_argument("--log-steps", type=int, default=10)
+    parser.add_argument("--eval-steps", type=int, default=100)
     parser.add_argument("--warmup-steps", type=int, default=10)
     parser.add_argument("--weight-decay", type=float, default=0.01)
     parser.add_argument("--max-grad-norm", type=float, default=0.5)
@@ -260,11 +365,13 @@ def main() -> None:
         num_train_epochs=args.num_epochs,
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.eval_batch_size,
+        eval_strategy="steps",
+        eval_steps=args.eval_steps,
         gradient_accumulation_steps=args.grad_accum,
         learning_rate=args.learning_rate,
         logging_steps=args.log_steps,
         save_steps=args.save_steps,
-        save_total_limit=2,
+        save_total_limit=args.save_total_limit,
         bf16=bf16_ok,
         lr_scheduler_type="cosine",
         warmup_steps=args.warmup_steps,
@@ -284,6 +391,17 @@ def main() -> None:
         eval_dataset=eval_tok,
     )
 
+    pre_eval_metrics = trainer.evaluate(eval_dataset=eval_tok, metric_key_prefix="pre_eval")
+    pre_eval_loss = float(pre_eval_metrics.get("pre_eval_loss", float("nan")))
+    pre_eval_metrics["pre_eval_perplexity"] = (
+        float(math.exp(pre_eval_loss)) if math.isfinite(pre_eval_loss) else float("nan")
+    )
+    pre_train_metrics = trainer.evaluate(eval_dataset=train_tok, metric_key_prefix="pre_train")
+    pre_train_loss = float(pre_train_metrics.get("pre_train_loss", float("nan")))
+    pre_train_metrics["pre_train_perplexity"] = (
+        float(math.exp(pre_train_loss)) if math.isfinite(pre_train_loss) else float("nan")
+    )
+
     train_start = time.perf_counter()
     train_result = trainer.train()
     train_seconds = time.perf_counter() - train_start
@@ -296,6 +414,36 @@ def main() -> None:
     eval_loss = float(eval_metrics.get("eval_loss", float("nan")))
     eval_ppl = float(math.exp(eval_loss)) if math.isfinite(eval_loss) else float("nan")
     eval_metrics["eval_perplexity"] = eval_ppl
+    train_metrics = trainer.evaluate(eval_dataset=train_tok, metric_key_prefix="train")
+    train_loss = float(train_metrics.get("train_loss", float("nan")))
+    train_metrics["train_perplexity"] = float(math.exp(train_loss)) if math.isfinite(train_loss) else float("nan")
+
+    eval_perplexity_curve: list[dict[str, float | int]] = []
+    train_perplexity_curve: list[dict[str, float | int]] = []
+    for entry in trainer.state.log_history:
+        if "step" not in entry:
+            continue
+        step = int(entry["step"])
+        if "eval_loss" in entry:
+            eval_curve_loss = float(entry["eval_loss"])
+            eval_perplexity_curve.append(
+                {
+                    "step": step,
+                    "eval_perplexity": float(math.exp(eval_curve_loss))
+                    if math.isfinite(eval_curve_loss)
+                    else float("nan"),
+                }
+            )
+        if "loss" in entry and "eval_loss" not in entry:
+            train_curve_loss = float(entry["loss"])
+            train_perplexity_curve.append(
+                {
+                    "step": step,
+                    "train_perplexity": float(math.exp(train_curve_loss))
+                    if math.isfinite(train_curve_loss)
+                    else float("nan"),
+                }
+            )
 
     merged_model_dir = None
     if args.merge_after_train:
@@ -317,6 +465,10 @@ def main() -> None:
             "learning_rate": args.learning_rate,
             "num_epochs": args.num_epochs,
             "seed": args.seed,
+            "eval_steps": args.eval_steps,
+            "save_steps": args.save_steps,
+            "save_total_limit": args.save_total_limit,
+            "log_steps": args.log_steps,
         },
         "dataset": {
             "train_rows_before_filter": train_rows_before_filter,
@@ -330,14 +482,31 @@ def main() -> None:
         },
         "metrics": {
             **{key: float(value) for key, value in train_result.metrics.items() if isinstance(value, (int, float))},
+            **{key: float(value) for key, value in pre_train_metrics.items() if isinstance(value, (int, float))},
+            **{key: float(value) for key, value in pre_eval_metrics.items() if isinstance(value, (int, float))},
+            **{key: float(value) for key, value in train_metrics.items() if isinstance(value, (int, float))},
             **{key: float(value) for key, value in eval_metrics.items() if isinstance(value, (int, float))},
+            "train_global_step": int(trainer.state.global_step),
         },
+        "eval_perplexity_curve": eval_perplexity_curve,
+        "train_perplexity_curve": train_perplexity_curve,
+        "log_history": _sanitize_log_history(trainer.state.log_history),
         "artifacts": {
             "adapter_dir": str(output_dir),
             "merged_model_dir": str(merged_model_dir) if merged_model_dir is not None else None,
             "trainer_state_json": str(output_dir / "trainer_state.json"),
         },
     }
+
+    checkpoint_dirs = sorted(
+        str(path)
+        for path in output_dir.glob("checkpoint-*")
+        if path.is_dir()
+    )
+    plot_paths = _write_perplexity_plot(output_dir, eval_perplexity_curve, train_perplexity_curve)
+    results["artifacts"]["checkpoint_dirs"] = checkpoint_dirs
+    results["artifacts"]["perplexity_plot_png"] = plot_paths["png"]
+    results["artifacts"]["perplexity_plot_pdf"] = plot_paths["pdf"]
 
     results_path = output_dir / "results.json"
     report_path = output_dir / "report.md"

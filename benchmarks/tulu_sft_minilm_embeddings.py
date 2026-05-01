@@ -116,14 +116,14 @@ def _render_report(results: dict[str, Any]) -> str:
     artifacts = results["artifacts"]
     preview = results["sample_preview"]
     lines = [
-        "# Tulu-3 SFT MiniLM Embeddings",
+        "# Tulu-3 SFT Embeddings",
         "",
         "## What This Run Does",
         "",
         "Embeds a deterministic subset of `allenai/tulu-3-sft-mixture` for the",
         "Flash-SD-KDE real-application pipeline. Each record is rendered as one",
-        "conversation string with role prefixes, truncated to the MiniLM token limit,",
-        "and embedded with `sentence-transformers/all-MiniLM-L6-v2`.",
+        "conversation string with role prefixes, truncated to the embedding-model token limit,",
+        f"and embedded with `{config['embedding_model']}`.",
         "",
         "## Split",
         "",
@@ -174,7 +174,7 @@ def _render_report(results: dict[str, Any]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Create MiniLM embeddings for a Tulu-3 SFT subset.")
+    parser = argparse.ArgumentParser(description="Create embeddings for a Tulu-3 SFT subset.")
     parser.add_argument("--dataset-name", default="allenai/tulu-3-sft-mixture")
     parser.add_argument("--split", default="train")
     parser.add_argument("--subset", choices=("train_pool", "validation", "full"), default="train_pool")

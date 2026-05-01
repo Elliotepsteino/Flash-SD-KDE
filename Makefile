@@ -65,7 +65,7 @@ REAL_APP_TULU_EMBED_BATCH_SIZE ?= 256
 	run.sweep run.nd_runtime_sweep run.triton_scaling run.triton_sd_kde_nd \
 	rebuttal.figure1_16d_runtime rebuttal.icml2026.query_batching_sweep rebuttal.icml2026.tensorcore_ablation rebuttal.icml2026.fusion_memory_ablation rebuttal.icml2026.materialization_case rebuttal.icml2026.flash_laplace_negative_mass \
 	rebuttal.icml2026.operator_ablation rebuttal.icml2026.embedding_similarity \
-	rebuttal.icml2026.overall_report rebuttal.icml2026.c4_embedding_sanity \
+	rebuttal.icml2026.overall_report rebuttal.icml2026.c4_embedding_sanity rebuttal.icml2026.ace_paper_report rebuttal.icml2026.kdd99_public_http_report \
 	real_application.tulu_sft_embeddings \
 	bench.emp_score_kernel_speed
 
@@ -372,6 +372,19 @@ rebuttal.icml2026.c4_embedding_sanity:
 		--max-tokens "$(REBUTTAL_C4_EMBED_MAX_TOKENS)" \
 		--batch-size "$(REBUTTAL_C4_EMBED_BATCH_SIZE)" \
 		--output-tag benchmarks/c4_minilm_embedding_sanity
+
+rebuttal.icml2026.ace_paper_report:
+	$(PY) benchmarks/ace_paper_anomaly_report.py \
+		--device cuda \
+		--batch-size 4096 \
+		--datasets shuttle,aloi \
+		--output-tag benchmarks/ace_paper_comparison_njy1
+
+rebuttal.icml2026.kdd99_public_http_report:
+	$(PY) benchmarks/kdd99_public_http_report.py \
+		--device cuda \
+		--batch-size 4096 \
+		--output-tag benchmarks/kdd99_public_http_njy1
 
 real_application.tulu_sft_embeddings:
 	$(PY) benchmarks/tulu_sft_minilm_embeddings.py \
