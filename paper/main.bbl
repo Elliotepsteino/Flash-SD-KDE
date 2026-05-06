@@ -6,116 +6,116 @@
   \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
 
 \bibitem[Abramson(1982)]{abramson1982bandwidth}
-Abramson, I.~S.
+Ian~S. Abramson.
 \newblock On bandwidth variation in kernel estimates---a square root law.
 \newblock \emph{The Annals of Statistics}, 10\penalty0 (4):\penalty0
   1217--1223, 1982.
 \newblock \doi{10.1214/aos/1176345986}.
 
 \bibitem[Backurs et~al.(2019)Backurs, Indyk, and Wagner]{backurs2019space}
-Backurs, A., Indyk, P., and Wagner, T.
+Arturs Backurs, Piotr Indyk, and Tal Wagner.
 \newblock Space and time efficient kernel density estimation in high
   dimensions.
 \newblock In \emph{Advances in Neural Information Processing Systems},
   volume~32, 2019.
 
 \bibitem[Botev et~al.(2010)Botev, Grotowski, and Kroese]{botev2010diffusion}
-Botev, Z.~I., Grotowski, J.~F., and Kroese, D.~P.
+Zdravko~I. Botev, Joseph~F. Grotowski, and Dirk~P. Kroese.
 \newblock Kernel density estimation via diffusion.
 \newblock \emph{The Annals of Statistics}, 38\penalty0 (5):\penalty0
   2916--2957, 2010.
 \newblock \doi{10.1214/10-AOS799}.
 
-\bibitem[Charikar \& Siminelakis(2017)Charikar and
-  Siminelakis]{charikar2017hbe}
-Charikar, M. and Siminelakis, P.
+\bibitem[Charikar and Siminelakis(2017)]{charikar2017hbe}
+Moses Charikar and Paris Siminelakis.
 \newblock Hashing-based-estimators for kernel density in high dimensions.
 \newblock In \emph{2017 {IEEE} 58th Annual Symposium on Foundations of Computer
-  Science ({FOCS})}, pp.\  1032--1043, 2017.
+  Science ({FOCS})}, pages 1032--1043, 2017.
 \newblock \doi{10.1109/FOCS.2017.99}.
 
-\bibitem[Charikar \& Siminelakis(2019)Charikar and
-  Siminelakis]{charikar2019multi}
-Charikar, M. and Siminelakis, P.
+\bibitem[Charikar and Siminelakis(2019)]{charikar2019multi}
+Moses Charikar and Paris Siminelakis.
 \newblock Multi-resolution hashing for fast pairwise summations.
 \newblock In \emph{2019 {IEEE} 60th Annual Symposium on Foundations of Computer
-  Science ({FOCS})}, pp.\  769--792, 2019.
+  Science ({FOCS})}, pages 769--792, 2019.
 \newblock \doi{10.1109/FOCS.2019.00051}.
 
 \bibitem[Charikar et~al.(2020)Charikar, Kapralov, Nouri, and
   Siminelakis]{charikar2020kde}
-Charikar, M., Kapralov, M., Nouri, N., and Siminelakis, P.
+Moses Charikar, Michael Kapralov, Navid Nouri, and Paris Siminelakis.
 \newblock Kernel density estimation through density constrained near neighbor
   search.
 \newblock In \emph{2020 {IEEE} 61st Annual Symposium on Foundations of Computer
-  Science ({FOCS})}, pp.\  172--183, 2020.
+  Science ({FOCS})}, pages 172--183, 2020.
 \newblock \doi{10.1109/FOCS46700.2020.00025}.
 
 \bibitem[Charlier et~al.(2021)Charlier, Feydy, Glaun\`es, Collin, and
   Durif]{charlier2021keops}
-Charlier, B., Feydy, J., Glaun\`es, J.~A., Collin, F.-D., and Durif, G.
+Benjamin Charlier, Jean Feydy, Joan~Alexis Glaun\`es, Fran\c{c}ois-David
+  Collin, and Ghislain Durif.
 \newblock Kernel operations on the gpu, with autodiff, without memory
   overflows.
 \newblock \emph{Journal of Machine Learning Research}, 22\penalty0
   (74):\penalty0 1--6, 2021.
 \newblock URL \url{http://jmlr.org/papers/v22/20-275.html}.
 
-\bibitem[Coleman \& Shrivastava(2020)Coleman and Shrivastava]{coleman2020race}
-Coleman, B. and Shrivastava, A.
+\bibitem[Coleman and Shrivastava(2020)]{coleman2020race}
+Benjamin Coleman and Anshumali Shrivastava.
 \newblock Sub-linear {RACE} sketches for approximate kernel density estimation
   on streaming data.
-\newblock In \emph{Proceedings of The Web Conference 2020 ({WWW})}, pp.\
+\newblock In \emph{Proceedings of The Web Conference 2020 ({WWW})}, pages
   1739--1749, 2020.
 \newblock \doi{10.1145/3366423.3380244}.
 
 \bibitem[Dao et~al.(2022)Dao, Fu, Ermon, Rudra, and
   R{\'e}]{dao2022flashattention}
-Dao, T., Fu, D.~Y., Ermon, S., Rudra, A., and R{\'e}, C.
+Tri Dao, Daniel~Y. Fu, Stefano Ermon, Atri Rudra, and Christopher R{\'e}.
 \newblock Flashattention: Fast and memory-efficient exact attention with
   {IO}-awareness.
 \newblock \emph{arXiv preprint arXiv:2205.14135}, 2022.
 
-\bibitem[Dwivedi \& Mackey(2021)Dwivedi and Mackey]{dwivedi2021kernel}
-Dwivedi, R. and Mackey, L.
+\bibitem[Dwivedi and Mackey(2021)]{dwivedi2021kernel}
+Raaz Dwivedi and Lester Mackey.
 \newblock Kernel thinning.
 \newblock In \emph{Proceedings of the 34th Conference on Learning Theory
   ({COLT})}, volume 134, 2021.
 
 \bibitem[Epstein et~al.(2025)Epstein, Dwaraknath, Sornwanee, Winnicki, and
   Liu]{epstein2025sdkde}
-Epstein, E.~L., Dwaraknath, R.~V., Sornwanee, T., Winnicki, J., and Liu, J.~W.
+Elliot~L. Epstein, Rajat~Vadiraj Dwaraknath, Thanawat Sornwanee, John Winnicki,
+  and Jerry~Weihong Liu.
 \newblock {SD}-{KDE}: Score-debiased kernel density estimation.
 \newblock In \emph{The Thirty-ninth Annual Conference on Neural Information
   Processing Systems}, 2025.
 \newblock URL \url{https://openreview.net/forum?id=fvho95EtPu}.
 
-\bibitem[Fan \& Hu(1992)Fan and Hu]{fan1992bias}
-Fan, J. and Hu, T.-C.
+\bibitem[Fan and Hu(1992)]{fan1992bias}
+Jianqing Fan and Tien-Chung Hu.
 \newblock Bias correction and higher order kernel functions.
 \newblock \emph{Statistics \& Probability Letters}, 13\penalty0 (3):\penalty0
   235--243, 1992.
 \newblock \doi{10.1016/0167-7152(92)90053-8}.
 
-\bibitem[Greengard \& Strain(1991)Greengard and Strain]{greengard1991fast}
-Greengard, L. and Strain, J.
+\bibitem[Greengard and Strain(1991)]{greengard1991fast}
+Leslie Greengard and John Strain.
 \newblock The fast gauss transform.
 \newblock \emph{SIAM Journal on Scientific and Statistical Computing},
   12\penalty0 (1):\penalty0 79--94, 1991.
 \newblock \doi{10.1137/0912004}.
 
 \bibitem[Ho et~al.(2020)Ho, Jain, and Abbeel]{ho2020ddpm}
-Ho, J., Jain, A., and Abbeel, P.
+Jonathan Ho, Ajay Jain, and Pieter Abbeel.
 \newblock Denoising diffusion probabilistic models.
 \newblock \emph{arXiv preprint arXiv:2006.11239}, 2020.
 
 \bibitem[Hyv\"{a}rinen(2005)]{hyvarinen2005score}
-Hyv\"{a}rinen, A.
+Aapo Hyv\"{a}rinen.
 \newblock Estimation of non-normalized statistical models by score matching.
 \newblock \emph{Journal of Machine Learning Research}, 6:\penalty0 695--709,
   2005.
 
-\bibitem[Jones \& Signorini(1997)Jones and Signorini]{jones1997comparison}
-Jones, M.~C. and Signorini, D.~F.
+\bibitem[Jones and Signorini(1997)]{jones1997comparison}
+M.~C. Jones and D.~F. Signorini.
 \newblock A comparison of higher-order bias kernel density estimators.
 \newblock \emph{Journal of the American Statistical Association}, 92\penalty0
   (439):\penalty0 1063--1073, 1997.
@@ -123,35 +123,36 @@ Jones, M.~C. and Signorini, D.~F.
 
 \bibitem[Kacham et~al.(2024)Kacham, Mirrokni, and
   Zhong]{kacham2024polysketchformer}
-Kacham, P., Mirrokni, V., and Zhong, P.
+Praneeth Kacham, Vahab Mirrokni, and Peilin Zhong.
 \newblock {PolySketchFormer}: Fast transformers via sketching polynomial
   kernels.
 \newblock In \emph{Proceedings of the 41st International Conference on Machine
   Learning ({ICML})}, 2024.
 
-\bibitem[Li \& Turner(2017)Li and Turner]{li2017gradient}
-Li, Y. and Turner, R.~E.
+\bibitem[Li and Turner(2017)]{li2017gradient}
+Yingzhen Li and Richard~E. Turner.
 \newblock Gradient estimators for implicit models.
 \newblock \emph{arXiv preprint arXiv:1705.07107}, 2017.
 
-\bibitem[Luo \& Shrivastava(2018)Luo and Shrivastava]{luo2018ace}
-Luo, C. and Shrivastava, A.
+\bibitem[Luo and Shrivastava(2018)]{luo2018ace}
+Chen Luo and Anshumali Shrivastava.
 \newblock Arrays of (locality-sensitive) count estimators ({ACE}): Anomaly
   detection on the edge.
 \newblock In \emph{Proceedings of the 2018 World Wide Web Conference ({WWW})},
-  pp.\  1439--1448, 2018.
+  pages 1439--1448, 2018.
 \newblock \doi{10.1145/3178876.3186056}.
 
 \bibitem[Micikevicius et~al.(2017)Micikevicius, Narang, Alben, Diamos, Elsen,
   Garcia, Ginsburg, Houston, Kuchaiev, Venkatesh, and
   Wu]{micikevicius2017mixed}
-Micikevicius, P., Narang, S., Alben, J., Diamos, G., Elsen, E., Garcia, D.,
-  Ginsburg, B., Houston, M., Kuchaiev, O., Venkatesh, G., and Wu, H.
+Paulius Micikevicius, Sharan Narang, Jonah Alben, Gregory Diamos, Erich Elsen,
+  David Garcia, Boris Ginsburg, Michael Houston, Oleksii Kuchaiev, Ganesh
+  Venkatesh, and Hao Wu.
 \newblock Mixed precision training.
 \newblock \emph{arXiv preprint arXiv:1710.03740}, 2017.
 
 \bibitem[Parzen(1962)]{parzen1962estimation}
-Parzen, E.
+Emanuel Parzen.
 \newblock On estimation of a probability density function and mode.
 \newblock \emph{The Annals of Mathematical Statistics}, 33\penalty0
   (3):\penalty0 1065--1076, 1962.
@@ -160,10 +161,11 @@ Parzen, E.
 \bibitem[Paszke et~al.(2019)Paszke, Gross, Massa, Lerer, Bradbury, Chanan,
   Killeen, Lin, Gimelshein, Antiga, Desmaison, K{\"o}pf, Yang, DeVito, Raison,
   Tejani, Chilamkurthy, Steiner, Fang, Bai, and Chintala]{paszke2019pytorch}
-Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen,
-  T., Lin, Z., Gimelshein, N., Antiga, L., Desmaison, A., K{\"o}pf, A., Yang,
-  E., DeVito, Z., Raison, M., Tejani, A., Chilamkurthy, S., Steiner, B., Fang,
-  L., Bai, J., and Chintala, S.
+Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory
+  Chanan, Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, Alban
+  Desmaison, Andreas K{\"o}pf, Edward Yang, Zachary DeVito, Martin Raison,
+  Alykhan Tejani, Sasank Chilamkurthy, Benoit Steiner, Lu~Fang, Junjie Bai, and
+  Soumith Chintala.
 \newblock Pytorch: An imperative style, high-performance deep learning library.
 \newblock \emph{arXiv preprint arXiv:1912.01703}, 2019.
 
@@ -171,61 +173,62 @@ Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen,
   Grisel, Blondel, M{\"u}ller, Nothman, Louppe, Prettenhofer, Weiss, Dubourg,
   VanderPlas, Passos, Cournapeau, Brucher, Perrot, and
   Duchesnay]{pedregosa2011scikit}
-Pedregosa, F., Varoquaux, G., Gramfort, A., Michel, V., Thirion, B., Grisel,
-  O., Blondel, M., M{\"u}ller, A., Nothman, J., Louppe, G., Prettenhofer, P.,
-  Weiss, R., Dubourg, V., VanderPlas, J., Passos, A., Cournapeau, D., Brucher,
-  M., Perrot, M., and Duchesnay, {\'E}.
+Fabian Pedregosa, Ga{\"e}l Varoquaux, Alexandre Gramfort, Vincent Michel,
+  Bertrand Thirion, Olivier Grisel, Mathieu Blondel, Andreas M{\"u}ller, Joel
+  Nothman, Gilles Louppe, Peter Prettenhofer, Ron Weiss, Vincent Dubourg, Jake
+  VanderPlas, Alexandre Passos, David Cournapeau, Matthieu Brucher, Matthieu
+  Perrot, and {\'E}douard Duchesnay.
 \newblock Scikit-learn: Machine learning in {P}ython.
 \newblock \emph{Journal of Machine Learning Research}, 12:\penalty0 2825--2830,
   2011.
 
-\bibitem[Rahimi \& Recht(2007)Rahimi and Recht]{rahimi2007random}
-Rahimi, A. and Recht, B.
+\bibitem[Rahimi and Recht(2007)]{rahimi2007random}
+Ali Rahimi and Benjamin Recht.
 \newblock Random features for large-scale kernel machines.
 \newblock In \emph{Advances in Neural Information Processing Systems}, 2007.
 
 \bibitem[Rosenblatt(1956)]{rosenblatt1956remarks}
-Rosenblatt, M.
+Murray Rosenblatt.
 \newblock Remarks on some nonparametric estimates of a density function.
 \newblock \emph{The Annals of Mathematical Statistics}, 27\penalty0
   (3):\penalty0 832--837, 1956.
 \newblock \doi{10.1214/aoms/1177728190}.
 
 \bibitem[Shetty et~al.(2022)Shetty, Dwivedi, and Mackey]{shetty2022compress}
-Shetty, A., Dwivedi, R., and Mackey, L.
+Abhishek Shetty, Raaz Dwivedi, and Lester Mackey.
 \newblock Distribution compression in near-linear time.
 \newblock In \emph{Proceedings of the 10th International Conference on Learning
   Representations ({ICLR})}, 2022.
 
 \bibitem[Silverman(1986)]{silverman1986density}
-Silverman, B.~W.
+B.~W. Silverman.
 \newblock \emph{Density Estimation for Statistics and Data Analysis}.
 \newblock Chapman and Hall, 1986.
 \newblock \doi{10.1201/9781315140919}.
 
 \bibitem[Siminelakis et~al.(2019)Siminelakis, Rong, Bailis, Charikar, and
   Levis]{siminelakis2019rehashing}
-Siminelakis, P., Rong, K., Bailis, P., Charikar, M., and Levis, P.
+Paris Siminelakis, Kexin Rong, Peter Bailis, Moses Charikar, and Philip Levis.
 \newblock Rehashing kernel evaluation in high dimensions.
 \newblock In \emph{Proceedings of the 36th International Conference on Machine
-  Learning ({ICML})}, volume~97, pp.\  5789--5798, 2019.
+  Learning ({ICML})}, volume~97, pages 5789--5798, 2019.
 
-\bibitem[Song \& Ermon(2019)Song and Ermon]{song2019generative}
-Song, Y. and Ermon, S.
+\bibitem[Song and Ermon(2019)]{song2019generative}
+Yang Song and Stefano Ermon.
 \newblock Generative modeling by estimating gradients of the data distribution.
 \newblock \emph{arXiv preprint arXiv:1907.05600}, 2019.
 
 \bibitem[Song et~al.(2021)Song, Sohl-Dickstein, Kingma, Kumar, Ermon, and
   Poole]{song2021sde}
-Song, Y., Sohl-Dickstein, J., Kingma, D.~P., Kumar, A., Ermon, S., and Poole,
-  B.
+Yang Song, Jascha Sohl-Dickstein, Diederik~P. Kingma, Abhishek Kumar, Stefano
+  Ermon, and Ben Poole.
 \newblock Score-based generative modeling through stochastic differential
   equations.
 \newblock \emph{arXiv preprint arXiv:2011.13456}, 2021.
 \newblock ICLR 2021.
 
 \bibitem[Tillet et~al.(2019)Tillet, Kung, and Cox]{tillet2019triton}
-Tillet, P., Kung, H.~T., and Cox, D.
+Philippe Tillet, H.~T. Kung, and David Cox.
 \newblock Triton: An intermediate language and compiler for tiled neural
   network computations.
 \newblock In \emph{Proceedings of the 3rd {ACM} {SIGPLAN} International
@@ -233,21 +236,21 @@ Tillet, P., Kung, H.~T., and Cox, D.
 \newblock \doi{10.1145/3315508.3329973}.
 
 \bibitem[Vincent(2011)]{vincent2011connection}
-Vincent, P.
+Pascal Vincent.
 \newblock A connection between score matching and denoising autoencoders.
 \newblock \emph{Neural Computation}, 23\penalty0 (7):\penalty0 1661--1674,
   2011.
 \newblock \doi{10.1162/NECO_a_00142}.
 
-\bibitem[Wand \& Jones(1995)Wand and Jones]{wand1995kernel}
-Wand, M.~P. and Jones, M.~C.
+\bibitem[Wand and Jones(1995)]{wand1995kernel}
+M.~P. Wand and M.~C. Jones.
 \newblock \emph{Kernel Smoothing}.
 \newblock Chapman and Hall, 1995.
 \newblock \doi{10.1201/b14876}.
 
 \bibitem[Williams et~al.(2009)Williams, Waterman, and
   Patterson]{williams2009roofline}
-Williams, S., Waterman, A., and Patterson, D.
+Samuel Williams, Andrew Waterman, and David Patterson.
 \newblock Roofline: An insightful visual performance model for multicore
   architectures.
 \newblock \emph{Communications of the {ACM}}, 52\penalty0 (4):\penalty0 65--76,
@@ -256,18 +259,18 @@ Williams, S., Waterman, A., and Patterson, D.
 
 \bibitem[Yang et~al.(2003)Yang, Duraiswami, Gumerov, and
   Davis]{yang2003improved}
-Yang, C., Duraiswami, R., Gumerov, N.~A., and Davis, L.
+Chang Yang, Ramani Duraiswami, Nail~A. Gumerov, and Larry Davis.
 \newblock Improved fast gauss transform and efficient kernel density
   estimation.
 \newblock In \emph{Proceedings of the Ninth IEEE International Conference on
-  Computer Vision}, pp.\  664--671, 2003.
+  Computer Vision}, pages 664--671, 2003.
 \newblock \doi{10.1109/ICCV.2003.1238383}.
 
 \bibitem[Zandieh et~al.(2023)Zandieh, Han, Daliri, and
   Karbasi]{zandieh2023kdeformer}
-Zandieh, A., Han, I., Daliri, M., and Karbasi, A.
+Amir Zandieh, Insu Han, Majid Daliri, and Amin Karbasi.
 \newblock {KDEformer}: Accelerating transformers via kernel density estimation.
 \newblock In \emph{Proceedings of the 40th International Conference on Machine
-  Learning ({ICML})}, volume 202, pp.\  40605--40623, 2023.
+  Learning ({ICML})}, volume 202, pages 40605--40623, 2023.
 
 \end{thebibliography}

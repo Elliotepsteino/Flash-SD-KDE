@@ -1,18 +1,18 @@
 This is BibTeX, Version 0.99d (TeX Live 2022/dev/Debian)
 Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
 The top-level auxiliary file: main.aux
-The style file: icml2026/icml2026.bst
+The style file: plainnat.bst
 Database file #1: references.bib
 You've used 36 entries,
             2773 wiz_defined-function locations,
-            813 strings with 12399 characters,
+            812 strings with 12389 characters,
 and the built_in function-call counts, 19984 in all, are:
 = -- 1748
 > -- 1356
 < -- 30
 + -- 456
 - -- 420
-* -- 1661
+* -- 1649
 := -- 3044
 add.period$ -- 129
 call.type$ -- 36
@@ -28,7 +28,7 @@ int.to.str$ -- 1
 missing$ -- 38
 newline$ -- 209
 num.names$ -- 144
-pop$ -- 499
+pop$ -- 511
 preamble$ -- 1
 purify$ -- 212
 quote$ -- 0

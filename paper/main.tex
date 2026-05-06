@@ -1,43 +1,28 @@
 \documentclass{article}
 \newif\ifarxiv
-\arxivtrue   % uncomment for 
+\arxivtrue   % uncomment for arXiv / preprint
+%\arxivfalse % uncomment for anonymous NeurIPS submission
 
-
-%\arxivfalse    % uncomment for ICML
 \input{preamble}
 \input{macros}
 
-\icmltitlerunning{Flash-SD-KDE}
+\title{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
+
+\author{%
+  Elliot L.\ Epstein\\
+  ICME, Stanford University\\
+  \texttt{epsteine@stanford.edu}\\
+  \And
+  Rajat Vadiraj Dwaraknath\\
+  ICME, Stanford University\\
+  \And
+  John Winnicki\\
+  ICME, Stanford University\\
+}
 
 \begin{document}
 
-\twocolumn[
-  \icmltitle{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
-
-%  \ifarxiv
-  \begin{icmlauthorlist}
-    \icmlauthor{Elliot L.\ Epstein}{stanford}
-    \icmlauthor{Rajat Vadiraj Dwaraknath}{stanford}
-    \icmlauthor{John Winnicki}{stanford}
-  \end{icmlauthorlist}
-
-  \icmlaffiliation{stanford}{Institute for Computational and Mathematical Engineering, Stanford University}
-  \icmlcorrespondingauthor{Elliot L.\ Epstein}{epsteine@stanford.edu}
-%\else
-%  \begin{icmlauthorlist}
-%    \icmlauthor{}{}
-%  \end{icmlauthorlist}
-
-%  \icmlaffiliation{}{Affiliation withheld for blind review.}
-%  \icmlcorrespondingauthor{}{anon.email@domain.com}
-%\fi
-  \icmlkeywords{kernel density estimation, GPU kernels, SD-KDE}
-  \vskip 0.3in
-]
-%\ifarxiv
-%\else
-\printAffiliationsAndNotice{}  % required even if empty
-%\fi
+\maketitle
 
 \begin{abstract}
 \input{sections/00_abstract}
@@ -52,12 +37,12 @@
 \input{sections/05_optimizations}
 
 \input{sections/08_conclusion}
-\ificmlshowauthors
+\ifarxiv
 \input{sections/06_acknowledgements}
 \fi
 \input{sections/09_impact}
 
-\bibliographystyle{icml2026/icml2026}
+\bibliographystyle{plainnat}
 \bibliography{references}
 
 \input{sections/99_appendix}

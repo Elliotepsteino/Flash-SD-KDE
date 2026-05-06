@@ -24,6 +24,7 @@
 \citation{botev2010diffusion}
 \citation{epstein2025sdkde}
 \citation{silverman1986density,wand1995kernel}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
 \citation{rosenblatt1956remarks}
 \citation{parzen1962estimation}
 \citation{silverman1986density}
@@ -37,6 +38,11 @@
 \citation{vincent2011connection}
 \citation{song2019generative,song2021sde,ho2020ddpm}
 \citation{li2017gradient}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{section.2}\protected@file@percent }
+\newlabel{sec:related}{{2}{2}{Related Work}{section.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Kernel density estimation.}{2}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Bias reduction and adaptive smoothing.}{2}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Score estimation and score-based modeling.}{2}{section*.4}\protected@file@percent }
 \citation{greengard1991fast}
 \citation{yang2003improved}
 \citation{rahimi2007random}
@@ -45,82 +51,120 @@
 \citation{tillet2019triton}
 \citation{micikevicius2017mixed,williams2009roofline}
 \citation{dao2022flashattention}
-\newlabel{sec:related}{{2}{2}{}{section.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Fast evaluation of kernel sums and density models.}{3}{section*.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{GPU acceleration and tensor-core programming.}{3}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Hardware}{3}{section.3}\protected@file@percent }
+\newlabel{sec:hardware}{{3}{3}{Hardware}{section.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Method}{3}{section.4}\protected@file@percent }
+\newlabel{sec:method}{{4}{3}{Method}{section.4}{}}
 \citation{micikevicius2017mixed}
 \citation{tillet2019triton}
-\newlabel{sec:hardware}{{3}{3}{}{section.3}{}}
-\newlabel{sec:method}{{4}{3}{}{section.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Runtime comparison for 16-D KDE/SD-KDE across $n_{\text  {train}}$ up to $32{,}768$ ($n_{\text  {test}} = n_{\text  {train}}/8$).\relax }}{4}{figure.caption.7}\protected@file@percent }
 \providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{fig:nd_runtime}{{1}{4}{Runtime comparison for 16-D KDE/SD-KDE across $n_{\text {train}}$ up to $32{,}768$ ($n_{\text {test}} = n_{\text {train}}/8$).\relax }{figure.caption.1}{}}
+\newlabel{fig:nd_runtime}{{1}{4}{Runtime comparison for 16-D KDE/SD-KDE across $n_{\text {train}}$ up to $32{,}768$ ($n_{\text {test}} = n_{\text {train}}/8$).\relax }{figure.caption.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Arithmetic intensity in $d$ dimensions}{5}{subsection.4.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Total FLOPs.}{5}{section*.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Bytes moved.}{5}{section*.9}\protected@file@percent }
 \citation{williams2009roofline}
 \citation{fan1992bias,jones1997comparison}
 \citation{epstein2025sdkde}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Oracle error on a 16D mixture-of-Gaussians benchmark. We report MISE and MIAE versus $n_{\text  {train}}$ for KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE. The Laplace-corrected estimators can be slightly negative, so error is computed in a signed density manner.\relax }}{6}{figure.caption.11}\protected@file@percent }
+\newlabel{fig:oracle_16d_error_1d}{{2}{6}{Oracle error on a 16D mixture-of-Gaussians benchmark. We report MISE and MIAE versus $n_{\text {train}}$ for KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE. The Laplace-corrected estimators can be slightly negative, so error is computed in a signed density manner.\relax }{figure.caption.11}{}}
+\@writefile{toc}{\contentsline {paragraph}{Arithmetic intensity.}{6}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Laplace-corrected KDE}{6}{section.5}\protected@file@percent }
+\newlabel{sec:laplace_corrected}{{5}{6}{Laplace-corrected KDE}{section.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Oracle error on a 1D mixture-of-Gaussians benchmark. We report MISE and MIAE versus $n_{\text  {train}}$ for KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE. The Laplace-corrected estimators can be slightly negative, so error is computed on the signed density.\relax }}{7}{figure.caption.12}\protected@file@percent }
+\newlabel{fig:oracle_error_1d}{{3}{7}{Oracle error on a 1D mixture-of-Gaussians benchmark. We report MISE and MIAE versus $n_{\text {train}}$ for KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE. The Laplace-corrected estimators can be slightly negative, so error is computed on the signed density.\relax }{figure.caption.12}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Runtime and speedup for Laplace correction in 1D. The left panel shows total runtime for the fused Flash-Laplace-KDE kernel and a non-fused implementation. The right panel reports speedup ratios, including Flash-SD-KDE relative to Flash-Laplace-KDE for context.\relax }}{7}{figure.caption.13}\protected@file@percent }
+\newlabel{fig:laplace_speedup_1d}{{4}{7}{Runtime and speedup for Laplace correction in 1D. The left panel shows total runtime for the fused Flash-Laplace-KDE kernel and a non-fused implementation. The right panel reports speedup ratios, including Flash-SD-KDE relative to Flash-Laplace-KDE for context.\relax }{figure.caption.13}{}}
 \citation{epstein2025sdkde}
-\newlabel{sec:laplace_corrected}{{5}{5}{}{section.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Connection to SD-KDE.}{8}{section*.14}\protected@file@percent }
 \citation{pedregosa2011scikit}
 \citation{paszke2019pytorch}
 \citation{tillet2019triton}
-\newlabel{fig:oracle_16d_error_1d}{{2}{6}{Oracle error on a 16D mixture-of-Gaussians benchmark. We report MISE and MIAE versus $n_{\text {train}}$ for KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE. The Laplace-corrected estimators can be slightly negative, so error is computed in a signed density manner.\relax }{figure.caption.2}{}}
-\newlabel{fig:oracle_error_1d}{{3}{7}{Oracle error on a 1D mixture-of-Gaussians benchmark. We report MISE and MIAE versus $n_{\text {train}}$ for KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE. The Laplace-corrected estimators can be slightly negative, so error is computed on the signed density.\relax }{figure.caption.3}{}}
-\newlabel{sec:results}{{6}{7}{}{section.6}{}}
-\newlabel{tab:pykeops}{{1}{7}{Runtime comparison at $n_{\text {train}}=32\text {k}$, $n_{\text {test}}=4\text {k}$. PyKeOps rows report Gaussian KDE and SD-KDE (LazyTensor) runtimes, while Flash-SD-KDE executes the full SD-KDE pipeline.\relax }{table.caption.5}{}}
-\newlabel{fig:laplace_speedup_1d}{{4}{8}{Runtime and speedup for Laplace correction in 1D. The left panel shows total runtime for the fused Flash-Laplace-KDE kernel and a non-fused implementation. The right panel reports speedup ratios, including Flash-SD-KDE relative to Flash-Laplace-KDE for context.\relax }{figure.caption.4}{}}
-\newlabel{sec:conclusion}{{6.2}{8}{}{Item.5}{}}
-\bibstyle{icml2026/icml2026}
+\@writefile{toc}{\contentsline {paragraph}{Why we consider this correction.}{9}{section*.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Kernel fusion opportunity.}{9}{section*.16}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Results}{9}{section.6}\protected@file@percent }
+\newlabel{sec:results}{{6}{9}{Results}{section.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Runtime comparison at $n_{\text  {train}}=32\text  {k}$, $n_{\text  {test}}=4\text  {k}$. PyKeOps rows report Gaussian KDE and SD-KDE (LazyTensor) runtimes, while Flash-SD-KDE executes the full SD-KDE pipeline.\relax }}{9}{table.caption.17}\protected@file@percent }
+\newlabel{tab:pykeops}{{1}{9}{Runtime comparison at $n_{\text {train}}=32\text {k}$, $n_{\text {test}}=4\text {k}$. PyKeOps rows report Gaussian KDE and SD-KDE (LazyTensor) runtimes, while Flash-SD-KDE executes the full SD-KDE pipeline.\relax }{table.caption.17}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Oracle density benchmark for Laplace correction}{9}{subsection.6.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Utilization (percentage of RTX A6000 Tensor Core peak) for the 16-D SD-KDE pipeline, computed via the flop model from Section\nobreakspace  {}\ref  {sec:method}; bars are annotated with the observed runtimes (ms).\relax }}{10}{figure.caption.18}\protected@file@percent }
+\newlabel{fig:triton_sd_kde_nd_util}{{5}{10}{Utilization (percentage of RTX A6000 Tensor Core peak) for the 16-D SD-KDE pipeline, computed via the flop model from Section~\ref {sec:method}; bars are annotated with the observed runtimes (ms).\relax }{figure.caption.18}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Performance optimizations}{10}{subsection.6.2}\protected@file@percent }
+\newlabel{sec:conclusion}{{6.2}{10}{Performance optimizations}{Item.5}{}}
+\bibstyle{plainnat}
 \bibdata{references}
 \bibcite{abramson1982bandwidth}{{1}{1982}{{Abramson}}{{}}}
 \bibcite{backurs2019space}{{2}{2019}{{Backurs et~al.}}{{Backurs, Indyk, and Wagner}}}
 \bibcite{botev2010diffusion}{{3}{2010}{{Botev et~al.}}{{Botev, Grotowski, and Kroese}}}
-\bibcite{charikar2017hbe}{{4}{2017}{{Charikar \& Siminelakis}}{{Charikar and Siminelakis}}}
-\bibcite{charikar2019multi}{{5}{2019}{{Charikar \& Siminelakis}}{{Charikar and Siminelakis}}}
+\bibcite{charikar2017hbe}{{4}{2017}{{Charikar and Siminelakis}}{{}}}
+\bibcite{charikar2019multi}{{5}{2019}{{Charikar and Siminelakis}}{{}}}
 \bibcite{charikar2020kde}{{6}{2020}{{Charikar et~al.}}{{Charikar, Kapralov, Nouri, and Siminelakis}}}
-\newlabel{fig:triton_sd_kde_nd_util}{{5}{9}{Utilization (percentage of RTX A6000 Tensor Core peak) for the 16-D SD-KDE pipeline, computed via the flop model from Section~\ref {sec:method}; bars are annotated with the observed runtimes (ms).\relax }{figure.caption.6}{}}
 \bibcite{charlier2021keops}{{7}{2021}{{Charlier et~al.}}{{Charlier, Feydy, Glaun\`es, Collin, and Durif}}}
-\bibcite{coleman2020race}{{8}{2020}{{Coleman \& Shrivastava}}{{Coleman and Shrivastava}}}
+\bibcite{coleman2020race}{{8}{2020}{{Coleman and Shrivastava}}{{}}}
 \bibcite{dao2022flashattention}{{9}{2022}{{Dao et~al.}}{{Dao, Fu, Ermon, Rudra, and R{\'e}}}}
-\bibcite{dwivedi2021kernel}{{10}{2021}{{Dwivedi \& Mackey}}{{Dwivedi and Mackey}}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Conclusion}{11}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8}Acknowledgements}{11}{section.8}\protected@file@percent }
+\bibcite{dwivedi2021kernel}{{10}{2021}{{Dwivedi and Mackey}}{{}}}
 \bibcite{epstein2025sdkde}{{11}{2025}{{Epstein et~al.}}{{Epstein, Dwaraknath, Sornwanee, Winnicki, and Liu}}}
-\bibcite{fan1992bias}{{12}{1992}{{Fan \& Hu}}{{Fan and Hu}}}
-\bibcite{greengard1991fast}{{13}{1991}{{Greengard \& Strain}}{{Greengard and Strain}}}
+\bibcite{fan1992bias}{{12}{1992}{{Fan and Hu}}{{}}}
+\bibcite{greengard1991fast}{{13}{1991}{{Greengard and Strain}}{{}}}
 \bibcite{ho2020ddpm}{{14}{2020}{{Ho et~al.}}{{Ho, Jain, and Abbeel}}}
 \bibcite{hyvarinen2005score}{{15}{2005}{{Hyv\"{a}rinen}}{{}}}
-\bibcite{jones1997comparison}{{16}{1997}{{Jones \& Signorini}}{{Jones and Signorini}}}
+\bibcite{jones1997comparison}{{16}{1997}{{Jones and Signorini}}{{}}}
 \bibcite{kacham2024polysketchformer}{{17}{2024}{{Kacham et~al.}}{{Kacham, Mirrokni, and Zhong}}}
-\bibcite{li2017gradient}{{18}{2017}{{Li \& Turner}}{{Li and Turner}}}
-\bibcite{luo2018ace}{{19}{2018}{{Luo \& Shrivastava}}{{Luo and Shrivastava}}}
+\bibcite{li2017gradient}{{18}{2017}{{Li and Turner}}{{}}}
+\bibcite{luo2018ace}{{19}{2018}{{Luo and Shrivastava}}{{}}}
 \bibcite{micikevicius2017mixed}{{20}{2017}{{Micikevicius et~al.}}{{Micikevicius, Narang, Alben, Diamos, Elsen, Garcia, Ginsburg, Houston, Kuchaiev, Venkatesh, and Wu}}}
 \bibcite{parzen1962estimation}{{21}{1962}{{Parzen}}{{}}}
 \bibcite{paszke2019pytorch}{{22}{2019}{{Paszke et~al.}}{{Paszke, Gross, Massa, Lerer, Bradbury, Chanan, Killeen, Lin, Gimelshein, Antiga, Desmaison, K{\"o}pf, Yang, DeVito, Raison, Tejani, Chilamkurthy, Steiner, Fang, Bai, and Chintala}}}
 \bibcite{pedregosa2011scikit}{{23}{2011}{{Pedregosa et~al.}}{{Pedregosa, Varoquaux, Gramfort, Michel, Thirion, Grisel, Blondel, M{\"u}ller, Nothman, Louppe, Prettenhofer, Weiss, Dubourg, VanderPlas, Passos, Cournapeau, Brucher, Perrot, and Duchesnay}}}
-\bibcite{rahimi2007random}{{24}{2007}{{Rahimi \& Recht}}{{Rahimi and Recht}}}
+\bibcite{rahimi2007random}{{24}{2007}{{Rahimi and Recht}}{{}}}
 \bibcite{rosenblatt1956remarks}{{25}{1956}{{Rosenblatt}}{{}}}
 \bibcite{shetty2022compress}{{26}{2022}{{Shetty et~al.}}{{Shetty, Dwivedi, and Mackey}}}
 \bibcite{silverman1986density}{{27}{1986}{{Silverman}}{{}}}
 \bibcite{siminelakis2019rehashing}{{28}{2019}{{Siminelakis et~al.}}{{Siminelakis, Rong, Bailis, Charikar, and Levis}}}
-\bibcite{song2019generative}{{29}{2019}{{Song \& Ermon}}{{Song and Ermon}}}
+\bibcite{song2019generative}{{29}{2019}{{Song and Ermon}}{{}}}
 \bibcite{song2021sde}{{30}{2021}{{Song et~al.}}{{Song, Sohl-Dickstein, Kingma, Kumar, Ermon, and Poole}}}
 \bibcite{tillet2019triton}{{31}{2019}{{Tillet et~al.}}{{Tillet, Kung, and Cox}}}
 \bibcite{vincent2011connection}{{32}{2011}{{Vincent}}{{}}}
-\bibcite{wand1995kernel}{{33}{1995}{{Wand \& Jones}}{{Wand and Jones}}}
+\bibcite{wand1995kernel}{{33}{1995}{{Wand and Jones}}{{}}}
 \bibcite{williams2009roofline}{{34}{2009}{{Williams et~al.}}{{Williams, Waterman, and Patterson}}}
 \bibcite{yang2003improved}{{35}{2003}{{Yang et~al.}}{{Yang, Duraiswami, Gumerov, and Davis}}}
 \bibcite{zandieh2023kdeformer}{{36}{2023}{{Zandieh et~al.}}{{Zandieh, Han, Daliri, and Karbasi}}}
-\newlabel{app:additional}{{B}{11}{Impact Statement}{appendix.B}{}}
-\newlabel{app:baseline_sweep}{{B.1}{11}{Impact Statement}{subsection.B.1}{}}
-\newlabel{fig:flash_sd_kde}{{6}{12}{Average runtime (log-scale $y$-axis) of scikit-learn KDE, SD-KDE (Torch), and Flash-SD-KDE across $n_{\text {train}}$ in 1-D; annotations show observed runtimes.\relax }{figure.caption.9}{}}
-\newlabel{fig:triton_large_util}{{7}{12}{Utilization of the 1-D Flash-SD-KDE kernel and SD-KDE (Torch) for large $n_{\text {train}}$ (powers of two up to $2^{16}$). Labels show the observed runtime for each data size; error bars are omitted because a single seed is used per point.\relax }{figure.caption.10}{}}
-\newlabel{app:hardware}{{B.2}{12}{Impact Statement}{subsection.B.2}{}}
-\newlabel{app:query_batching}{{B.3}{12}{Impact Statement}{subsection.B.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Flash-SD-KDE in low dimensions}{13}{appendix.A}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Average runtime (log-scale $y$-axis) of scikit-learn KDE, SD-KDE (Torch), and Flash-SD-KDE across $n_{\text  {train}}$ in 1-D; annotations show observed runtimes.\relax }}{14}{figure.caption.21}\protected@file@percent }
+\newlabel{fig:flash_sd_kde}{{6}{14}{Average runtime (log-scale $y$-axis) of scikit-learn KDE, SD-KDE (Torch), and Flash-SD-KDE across $n_{\text {train}}$ in 1-D; annotations show observed runtimes.\relax }{figure.caption.21}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Utilization of the 1-D Flash-SD-KDE kernel and SD-KDE (Torch) for large $n_{\text  {train}}$ (powers of two up to $2^{16}$). Labels show the observed runtime for each data size; error bars are omitted because a single seed is used per point.\relax }}{14}{figure.caption.22}\protected@file@percent }
+\newlabel{fig:triton_large_util}{{7}{14}{Utilization of the 1-D Flash-SD-KDE kernel and SD-KDE (Torch) for large $n_{\text {train}}$ (powers of two up to $2^{16}$). Labels show the observed runtime for each data size; error bars are omitted because a single seed is used per point.\relax }{figure.caption.22}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {B}Additional Experiments}{14}{appendix.B}\protected@file@percent }
+\newlabel{app:additional}{{B}{14}{Additional Experiments}{appendix.B}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Average per-call runtime (ms) of exact 16-D SD-KDE implementations on the RTX\nobreakspace  {}A6000, lower is better. Columns are scikit-learn Gaussian KDE, the GEMM-based PyTorch SD-KDE, the same PyTorch implementation under \texttt  {torch.compile}, the PyKeOps LazyTensor SD-KDE, and our Flash-SD-KDE. Data are drawn from the 16-D Gaussian-mixture benchmark of Section\nobreakspace  {}\ref  {sec:results}, with $n_{\text  {test}} = n_{\text  {train}}/8$. One-time warmup and JIT compilation costs are excluded.\relax }}{15}{table.caption.23}\protected@file@percent }
+\newlabel{tab:rebuttal_baseline_sweep}{{2}{15}{Average per-call runtime (ms) of exact 16-D SD-KDE implementations on the RTX~A6000, lower is better. Columns are scikit-learn Gaussian KDE, the GEMM-based PyTorch SD-KDE, the same PyTorch implementation under \texttt {torch.compile}, the PyKeOps LazyTensor SD-KDE, and our Flash-SD-KDE. Data are drawn from the 16-D Gaussian-mixture benchmark of Section~\ref {sec:results}, with $n_{\text {test}} = n_{\text {train}}/8$. One-time warmup and JIT compilation costs are excluded.\relax }{table.caption.23}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Average per-call runtime (ms) on a Tesla V100-PCIE-16GB, using the same 16-D Gaussian-mixture benchmark and $n_{\text  {test}} = n_{\text  {train}}/8$ protocol as Table\nobreakspace  {}\ref  {tab:rebuttal_baseline_sweep}. Lower is better. One-time warmup and JIT costs are excluded.\relax }}{15}{table.caption.24}\protected@file@percent }
+\newlabel{tab:rebuttal_v100}{{3}{15}{Average per-call runtime (ms) on a Tesla V100-PCIE-16GB, using the same 16-D Gaussian-mixture benchmark and $n_{\text {test}} = n_{\text {train}}/8$ protocol as Table~\ref {tab:rebuttal_baseline_sweep}. Lower is better. One-time warmup and JIT costs are excluded.\relax }{table.caption.24}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.1}Extended baseline sweep on the RTX A6000}{15}{subsection.B.1}\protected@file@percent }
+\newlabel{app:baseline_sweep}{{B.1}{15}{Extended baseline sweep on the RTX A6000}{subsection.B.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}Generalization across GPU families}{15}{subsection.B.2}\protected@file@percent }
+\newlabel{app:hardware}{{B.2}{15}{Generalization across GPU families}{subsection.B.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.3}Effect of query batch size}{15}{subsection.B.3}\protected@file@percent }
+\newlabel{app:query_batching}{{B.3}{15}{Effect of query batch size}{subsection.B.3}{}}
 \citation{luo2018ace}
-\newlabel{tab:rebuttal_baseline_sweep}{{2}{13}{Average per-call runtime (ms) of exact 16-D SD-KDE implementations on the RTX~A6000, lower is better. Columns are scikit-learn Gaussian KDE, the GEMM-based PyTorch SD-KDE, the same PyTorch implementation under \texttt {torch.compile}, the PyKeOps LazyTensor SD-KDE, and our Flash-SD-KDE. Data are drawn from the 16-D Gaussian-mixture benchmark of Section~\ref {sec:results}, with $n_{\text {test}} = n_{\text {train}}/8$. One-time warmup and JIT compilation costs are excluded.\relax }{table.caption.11}{}}
-\newlabel{tab:rebuttal_v100}{{3}{13}{Average per-call runtime (ms) on a Tesla V100-PCIE-16GB, using the same 16-D Gaussian-mixture benchmark and $n_{\text {test}} = n_{\text {train}}/8$ protocol as Table~\ref {tab:rebuttal_baseline_sweep}. Lower is better. One-time warmup and JIT costs are excluded.\relax }{table.caption.12}{}}
-\newlabel{app:streaming_ablation}{{B.4}{13}{Impact Statement}{subsection.B.4}{}}
-\newlabel{app:tc_ablation}{{B.5}{13}{Impact Statement}{subsection.B.5}{}}
-\newlabel{app:ace}{{B.6}{13}{Impact Statement}{subsection.B.6}{}}
-\newlabel{tab:rebuttal_query_batch}{{4}{14}{Average per-call runtime (ms) on the RTX~A6000 as a function of the query batch size $n_{\text {test}}$, with $n_{\text {train}} = 32{,}768$ held fixed. Lower is better. Data are drawn from the 16-D Gaussian-mixture benchmark.\relax }{table.caption.13}{}}
-\newlabel{tab:rebuttal_materialization}{{5}{14}{Runtime and peak extra GPU memory at $n_{\text {train}} = 65{,}536$, $n_{\text {test}} = 8{,}192$ on the RTX~A6000. ``Streamed Flash'' is the production Flash-SD-KDE kernel; ``Full materialization'' explicitly forms the $n_{\text {train}} \times n_{\text {train}}$ and $n_{\text {test}} \times n_{\text {train}}$ kernel matrices in global memory. Peak alloc is reported above the input-tensor footprint and excludes shared workspace.\relax }{table.caption.14}{}}
-\newlabel{tab:rebuttal_tc_ablation}{{6}{14}{Tensor-Core ablation within the streamed Flash-SD-KDE kernel on the RTX~A6000. ``TC'' is the production kernel; ``no-TC'' is an otherwise identical kernel with Tensor-Core tiling disabled. The right-most column reports $\text {runtime}_{\text {no-TC}}/\text {runtime}_{\text {TC}}$, so values above $1\times $ mean the Tensor-Core path is faster. Lower runtime is better.\relax }{table.caption.15}{}}
-\newlabel{app:additional_literature}{{C}{14}{Impact Statement}{appendix.C}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Average per-call runtime (ms) on the RTX\nobreakspace  {}A6000 as a function of the query batch size $n_{\text  {test}}$, with $n_{\text  {train}} = 32{,}768$ held fixed. Lower is better. Data are drawn from the 16-D Gaussian-mixture benchmark.\relax }}{16}{table.caption.25}\protected@file@percent }
+\newlabel{tab:rebuttal_query_batch}{{4}{16}{Average per-call runtime (ms) on the RTX~A6000 as a function of the query batch size $n_{\text {test}}$, with $n_{\text {train}} = 32{,}768$ held fixed. Lower is better. Data are drawn from the 16-D Gaussian-mixture benchmark.\relax }{table.caption.25}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Runtime and peak extra GPU memory at $n_{\text  {train}} = 65{,}536$, $n_{\text  {test}} = 8{,}192$ on the RTX\nobreakspace  {}A6000. ``Streamed Flash'' is the production Flash-SD-KDE kernel; ``Full materialization'' explicitly forms the $n_{\text  {train}} \times n_{\text  {train}}$ and $n_{\text  {test}} \times n_{\text  {train}}$ kernel matrices in global memory. Peak alloc is reported above the input-tensor footprint and excludes shared workspace.\relax }}{16}{table.caption.26}\protected@file@percent }
+\newlabel{tab:rebuttal_materialization}{{5}{16}{Runtime and peak extra GPU memory at $n_{\text {train}} = 65{,}536$, $n_{\text {test}} = 8{,}192$ on the RTX~A6000. ``Streamed Flash'' is the production Flash-SD-KDE kernel; ``Full materialization'' explicitly forms the $n_{\text {train}} \times n_{\text {train}}$ and $n_{\text {test}} \times n_{\text {train}}$ kernel matrices in global memory. Peak alloc is reported above the input-tensor footprint and excludes shared workspace.\relax }{table.caption.26}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.4}Streaming versus full materialization}{16}{subsection.B.4}\protected@file@percent }
+\newlabel{app:streaming_ablation}{{B.4}{16}{Streaming versus full materialization}{subsection.B.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.5}Tensor-Core ablation within the streamed kernel}{16}{subsection.B.5}\protected@file@percent }
+\newlabel{app:tc_ablation}{{B.5}{16}{Tensor-Core ablation within the streamed kernel}{subsection.B.5}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Tensor-Core ablation within the streamed Flash-SD-KDE kernel on the RTX\nobreakspace  {}A6000. ``TC'' is the production kernel; ``no-TC'' is an otherwise identical kernel with Tensor-Core tiling disabled. The right-most column reports $\text  {runtime}_{\text  {no-TC}}/\text  {runtime}_{\text  {TC}}$, so values above $1\times $ mean the Tensor-Core path is faster. Lower runtime is better.\relax }}{17}{table.caption.27}\protected@file@percent }
+\newlabel{tab:rebuttal_tc_ablation}{{6}{17}{Tensor-Core ablation within the streamed Flash-SD-KDE kernel on the RTX~A6000. ``TC'' is the production kernel; ``no-TC'' is an otherwise identical kernel with Tensor-Core tiling disabled. The right-most column reports $\text {runtime}_{\text {no-TC}}/\text {runtime}_{\text {TC}}$, so values above $1\times $ mean the Tensor-Core path is faster. Lower runtime is better.\relax }{table.caption.27}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Anomaly recovery on Statlog Shuttle ($n=34{,}987$, $d=9$, $879$ true outliers). ``Reported'' is the number of points returned at the chosen threshold, ``Correct'' the number of those that are true outliers, and ``Missed'' the number of true outliers not recovered. Time is total execution time in seconds; ``vs ACE'' is the runtime ratio relative to the ACE row. Non-Flash-SD-KDE rows are reproduced from the ACE paper; Flash-SD-KDE is measured on the RTX\nobreakspace  {}A6000.\relax }}{17}{table.caption.28}\protected@file@percent }
+\newlabel{tab:rebuttal_ace_shuttle}{{7}{17}{Anomaly recovery on Statlog Shuttle ($n=34{,}987$, $d=9$, $879$ true outliers). ``Reported'' is the number of points returned at the chosen threshold, ``Correct'' the number of those that are true outliers, and ``Missed'' the number of true outliers not recovered. Time is total execution time in seconds; ``vs ACE'' is the runtime ratio relative to the ACE row. Non-Flash-SD-KDE rows are reproduced from the ACE paper; Flash-SD-KDE is measured on the RTX~A6000.\relax }{table.caption.28}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.6}Anomaly detection on the ACE benchmark}{17}{subsection.B.6}\protected@file@percent }
+\newlabel{app:ace}{{B.6}{17}{Anomaly detection on the ACE benchmark}{subsection.B.6}{}}
 \citation{charikar2017hbe}
 \citation{backurs2019space}
 \citation{siminelakis2019rehashing}
@@ -128,9 +172,12 @@
 \citation{charikar2020kde}
 \citation{luo2018ace}
 \citation{coleman2020race}
-\newlabel{tab:rebuttal_ace_shuttle}{{7}{15}{Anomaly recovery on Statlog Shuttle ($n=34{,}987$, $d=9$, $879$ true outliers). ``Reported'' is the number of points returned at the chosen threshold, ``Correct'' the number of those that are true outliers, and ``Missed'' the number of true outliers not recovered. Time is total execution time in seconds; ``vs ACE'' is the runtime ratio relative to the ACE row. Non-Flash-SD-KDE rows are reproduced from the ACE paper; Flash-SD-KDE is measured on the RTX~A6000.\relax }{table.caption.16}{}}
-\newlabel{tab:rebuttal_ace_aloi}{{8}{15}{Anomaly recovery on the ALOI object-image dataset ($n=50{,}000$, $d=27$, $1{,}508$ true outliers). Columns and source attribution match Table~\ref {tab:rebuttal_ace_shuttle}.\relax }{table.caption.17}{}}
-\newlabel{app:hbe_literature}{{C.1}{15}{Impact Statement}{subsection.C.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Anomaly recovery on the ALOI object-image dataset ($n=50{,}000$, $d=27$, $1{,}508$ true outliers). Columns and source attribution match Table\nobreakspace  {}\ref  {tab:rebuttal_ace_shuttle}.\relax }}{18}{table.caption.29}\protected@file@percent }
+\newlabel{tab:rebuttal_ace_aloi}{{8}{18}{Anomaly recovery on the ALOI object-image dataset ($n=50{,}000$, $d=27$, $1{,}508$ true outliers). Columns and source attribution match Table~\ref {tab:rebuttal_ace_shuttle}.\relax }{table.caption.29}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {C}Additional Literature Review}{18}{appendix.C}\protected@file@percent }
+\newlabel{app:additional_literature}{{C}{18}{Additional Literature Review}{appendix.C}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.1}Sub-quadratic approximate KDE via locality-sensitive hashing}{18}{subsection.C.1}\protected@file@percent }
+\newlabel{app:hbe_literature}{{C.1}{18}{Sub-quadratic approximate KDE via locality-sensitive hashing}{subsection.C.1}{}}
 \citation{dwivedi2021kernel}
 \citation{shetty2022compress}
 \citation{fan1992bias}
@@ -139,10 +186,17 @@
 \citation{kacham2024polysketchformer}
 \citation{coleman2020race}
 \citation{dao2022flashattention}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.2}Sample compression, coresets, and kernel thinning}{19}{subsection.C.2}\protected@file@percent }
+\newlabel{app:compression_literature}{{C.2}{19}{Sample compression, coresets, and kernel thinning}{subsection.C.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.3}Higher-order bias correction in KDE}{19}{subsection.C.3}\protected@file@percent }
+\newlabel{app:higher_order_literature}{{C.3}{19}{Higher-order bias correction in KDE}{subsection.C.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.4}KDE as a primitive in modern ML systems}{19}{subsection.C.4}\protected@file@percent }
+\newlabel{app:kde_attention_literature}{{C.4}{19}{KDE as a primitive in modern ML systems}{subsection.C.4}{}}
 \citation{charikar2017hbe,backurs2019space,siminelakis2019rehashing,charikar2019multi,charikar2020kde}
-\newlabel{app:compression_literature}{{C.2}{16}{Impact Statement}{subsection.C.2}{}}
-\newlabel{app:higher_order_literature}{{C.3}{16}{Impact Statement}{subsection.C.3}{}}
-\newlabel{app:kde_attention_literature}{{C.4}{16}{Impact Statement}{subsection.C.4}{}}
-\newlabel{app:future_work}{{C.5}{16}{Impact Statement}{subsection.C.5}{}}
 \citation{dwivedi2021kernel,shetty2022compress}
-\gdef \@abspage@last{17}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.5}Hybrid algorithmic--hardware directions for future work}{20}{subsection.C.5}\protected@file@percent }
+\newlabel{app:future_work}{{C.5}{20}{Hybrid algorithmic--hardware directions for future work}{subsection.C.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Approximate-score, exact-evaluation hybrids.}{20}{section*.30}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Spectral and grid-based score acceleration.}{20}{section*.31}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Coreset-then-accelerate.}{20}{section*.32}\protected@file@percent }
+\gdef \@abspage@last{20}
