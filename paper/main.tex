@@ -1,48 +1,32 @@
 \documentclass{article}
 \newif\ifarxiv
-\arxivtrue   % uncomment for 
+\arxivtrue   % uncomment for arXiv / preprint
+%\arxivfalse % uncomment for anonymous NeurIPS submission
 
-
-%\arxivfalse    % uncomment for ICML
 \input{preamble}
 \input{macros}
-\ifarxiv
-   \icmlshowauthorstrue
-   
-\fi
+% Revision markup for page-limit pass.  Deleted/moved chunks are preserved in
+% source comments with justifications; new or abbreviated replacement text is red.
+\newcommand{\revadd}[1]{\textcolor{red}{#1}}
+\newenvironment{revadded}{\begingroup\color{red}}{\endgroup}
 
-\icmltitlerunning{Flash-SD-KDE}
+\title{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
+
+\author{%
+  Elliot L.\ Epstein\\
+  ICME, Stanford University\\
+  \texttt{epsteine@stanford.edu}\\
+  \And
+  Rajat Vadiraj Dwaraknath\\
+  ICME, Stanford University\\
+  \And
+  John Winnicki\\
+  ICME, Stanford University\\
+}
 
 \begin{document}
 
-\twocolumn[
-  \icmltitle{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
-
-%  \ifarxiv
-  \begin{icmlauthorlist}
-    \icmlauthor{Elliot L.\ Epstein}{stanford}
-    \icmlauthor{Rajat Vadiraj Dwaraknath}{stanford}
-    \icmlauthor{John Winnicki}{stanford}
-    \icmlauthor{Thanawat Sornwanee}{stanford}
-  \end{icmlauthorlist}
-
-  \icmlaffiliation{stanford}{Stanford University, Stanford, CA 94305, USA}
-  \icmlcorrespondingauthor{Elliot L.\ Epstein}{epsteine@stanford.edu}
-%\else
-%  \begin{icmlauthorlist}
-%    \icmlauthor{}{}
-%  \end{icmlauthorlist}
-
-%  \icmlaffiliation{}{Affiliation withheld for blind review.}
-%  \icmlcorrespondingauthor{}{anon.email@domain.com}
-%\fi
-  \icmlkeywords{kernel density estimation, GPU acceleration, Triton, Tensor Cores}
-  \vskip 0.3in
-]
-%\ifarxiv
-%\else
-\printAffiliationsAndNotice{}  % required even if empty
-%\fi
+\maketitle
 
 \begin{abstract}
 \input{sections/00_abstract}
@@ -56,16 +40,29 @@
 \input{sections/04_results}
 \input{sections/05_optimizations}
 
-\ificmlshowauthors
-\input{sections/06_acknowledgements}
-\fi
-
-
 \input{sections/08_conclusion}
-\input{sections/09_impact}
+% [MOVED TO BACK MATTER AFTER REFERENCES: Acknowledgements and the standalone impact statement are not part of the technical story and count against the 9-page main body when placed before citations.  They are preserved verbatim after the bibliography, before the technical appendices.]
+% \ifarxiv
+% \input{sections/06_acknowledgements}
+% \fi
+% \input{sections/09_impact}
+% [END MOVED TO BACK MATTER AFTER REFERENCES]
 
-\bibliographystyle{icml2026/icml2026}
+\bibliographystyle{plainnat}
 \bibliography{references}
 
+% \begin{revadded}
+\ifarxiv
+\input{sections/06_acknowledgements}
+\fi
+\input{sections/09_impact}
+% \end{revadded}
+
 \input{sections/99_appendix}
+\input{sections/A_additional_experiments}
+\input{sections/B_additional_literature}
+
+\clearpage
+\input{checklist.tex}
+
 \end{document}

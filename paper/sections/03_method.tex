@@ -1,6 +1,34 @@
 \section{Method}
 \label{sec:method}
 
+We begin by recalling the standard KDE and SD-KDE definitions that the
+rest of the section will accelerate.
+Given samples $x_i \in \mathbb{R}^d$ and a bandwidth $h$, a Gaussian KDE is
+\[
+  \hat p(x)
+  =
+  \frac{1}{n h^d}
+  \sum_{i=1}^n
+  \varphi\!\left(\frac{x - x_i}{h}\right),
+\]
+and SD-KDE forms debiased samples
+$x_i^{\mathrm{SD}} = x_i + \tfrac{h^2}{2}\,\hat s(x_i)$ where $\hat s$ is
+an estimate of the score.
+In this work we always use an empirical score computed from the KDE
+itself.
+Assuming a standard Gaussian kernel $\varphi$ and writing the KDE
+explicitly in terms of the samples, the empirical score is
+\[
+  \hat s(x)
+  =
+  \frac{\nabla_x \hat p(x)}{\hat p(x)}
+  =
+  \frac{\sum_{i=1}^n \bigl[-({x - x_i})\,\varphi\!\left(\tfrac{x - x_i}{h}\right)\bigr]}
+       {h^2 \sum_{i=1}^n \varphi\!\left(\tfrac{x - x_i}{h}\right)}.
+\]
+The score therefore has the same $O(n^2)$ pairwise structure as the KDE
+sum itself, which is the cost we target in what follows.
+
 Our goal is to take $n_{\text{train}}$ samples in $d$ dimensions, form the
 empirical SD-KDE (score + shift), and evaluate the resulting density on
 $n_{\text{test}}$ queries.  Writing the computation in matrix form highlights

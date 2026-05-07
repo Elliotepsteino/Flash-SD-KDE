@@ -1,4 +1,5 @@
 \section{Results}
+\label{sec:results}
 
 We now summarize the empirical behavior of the 16-D implementation on the
 RTX~A6000.  For each $n_{\text{train}}$ in $\{2\text{k}, 4\text{k}, 8\text{k}, 16\text{k},
@@ -7,14 +8,30 @@ simple 16-D Gaussian mixture, and run three baselines: scikit-learn KDE~\citep{p
 Torch SD-KDE (GEMM-based, implemented in PyTorch~\citep{paszke2019pytorch}), and
 Flash-SD-KDE (Tensor-Core GEMMs for both KDE and score, implemented in
 Triton~\citep{tillet2019triton}).  Figure~\ref{fig:nd_runtime} shows that the Flash-SD-KDE rapidly
-outpaces both baselines as $n$ grows.
+outpaces both baselines as $n$ grows. Appendix~\ref{app:baseline_sweep} expands this comparison to a fuller set of
+exact baselines, adding \texttt{torch.compile} and PyKeOps across the full
+$n_{\text{train}}$ sweep.  Flash-SD-KDE is the fastest exact method at every
+measured problem size.  In the averaged $n_{\text{train}}=32{,}768$ setting, it
+is roughly $7.7\times$ faster than PyKeOps, $12.2\times$ faster than
+\texttt{torch.compile}, $40.6\times$ faster than eager PyTorch SD-KDE, and over
+three orders of magnitude faster than scikit-learn. The ordering is not specific to the RTX~A6000: Appendix~\ref{app:hardware}
+repeats the same 16-D sweep on a Tesla V100-PCIE-16GB, where Flash-SD-KDE
+again remains the fastest method at every measured size.
 
 We also measure utilization by combining the flop model above with the
 measured runtimes.  As shown in Figure~\ref{fig:triton_sd_kde_nd_util}, the Flash-SD-KDE GPU utilization is high into the multi-digit range once
 $n_{\text{train}}$ exceeds $8\text{k}$, despite a lot of operations such as exponential computations that can't utilize tensor cores.  This confirms that the 16-D
 Tensor-Core formulation is firmly compute-bound and that additional tuning
-effort should focus on kernel fusion and occupancy rather than memory traffic.
+effort should focus on kernel fusion and occupancy rather than memory traffic. The score-dominated profile also makes the end-to-end runtime nearly flat in
+the query batch size over a wide practical range.  Appendix~\ref{app:query_batching}
+fixes $n_{\text{train}}=32{,}768$ and sweeps $n_{\text{test}}$ from $4$ to
+$16{,}384$; Flash-SD-KDE remains between $1.91$ and $2.75$ ms, while the
+baselines show a larger increase at the largest query batches.  This regime is
+common in anomaly and out-of-distribution scoring, where many workflows compare
+a small set of candidate points against a large reference sample. 
 
+% [MOVED TO Appendix~\ref{app:baseline_sweep}: This single-point table duplicates the stronger full exact-baseline sweep already promoted in the main text.  It is preserved in Appendix~\ref{app:baseline_sweep} so the PyKeOps KDE/SD-KDE reference point is not lost.]
+\begin{comment}
 To compare against a specialized KDE implementation, we also benchmarked PyKeOps
 LazyTensor operators at $n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k}$.
 PyKeOps currently represents the state of the art for large-scale kernel
@@ -32,7 +49,7 @@ than the PyKeOps 16-D SD-KDE implementation.
     Method & Runtime (ms) & Rel. to Flash-SD-KDE \\
     \midrule
     16-D Flash-SD-KDE & $2.11$ & $1\times$ \\
-    PyKeOps 16-D KDE   & $3.33$ & $1.57\times$ \\
+    PyKeOps 16-D KDE   & $3.33$ & $1.4\times$ \\
     PyKeOps 16-D SD-KDE& $16.91$ & $7.99\times$ \\
     \bottomrule
   \end{tabular}
@@ -42,6 +59,20 @@ than the PyKeOps 16-D SD-KDE implementation.
            pipeline.}
   \label{tab:pykeops}
 \end{table}
+\end{comment}
+% [END MOVED TO Appendix~\ref{app:baseline_sweep}]
+
+% % \begin{revadded}
+Appendix~\ref{app:baseline_sweep} additionally reports the fixed
+$n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k}$ PyKeOps check,
+separating Gaussian KDE from SD-KDE.  At this operating point, Flash-SD-KDE
+runs in $2.11$ ms, compared with $3.33$ ms for PyKeOps Gaussian KDE and
+$16.91$ ms for PyKeOps SD-KDE, showing that the speedup remains even against
+a specialized kernel-reduction implementation and is especially large for the
+full score-debiased estimator.
+% \end{revadded}
+
+
 
 
 
@@ -52,7 +83,16 @@ The Laplace-corrected variants achieve the lowest MISE throughout, and the fused
 In MIAE, Flash-SD-KDE attains the lowest error, while the Laplace-corrected estimators show a sharp drop between the smallest $n_{\text{train}}$ and $10^4$, followed by a small non-monotonic “kink” (a slight increase at intermediate $n_{\text{train}}$). 
 The kink lies within the uncertainty bands and is consistent with finite-sample variability and the greater sensitivity of an absolute-error metric to the signed tail correction. 
 Both metrics continue to decrease as $n_{\text{train}}$ grows. Because the Laplace-corrected kernel is not guaranteed to remain nonnegative, we compute MISE/MIAE on the signed estimator and separately log the integrated negative mass as a diagnostic.
+% \begin{revadded}
+Appendix~\ref{app:laplace_derivation} reports the corresponding 1D oracle-density
+and fusion-runtime experiments.  The 1D results show the same estimator-level
+behavior: Flash-Laplace-KDE matches the non-fused Laplace correction in error,
+but is consistently faster because the correction is applied inside the same
+kernel pass.
+% \end{revadded}
 
+% [MOVED TO Appendix~\ref{app:laplace_derivation}: The 1D oracle and fusion-runtime discussion supports Flash-Laplace-KDE, but the main results section should focus on the 16D benchmark and real-data anomaly-detection evidence.  The full discussion is preserved with the figures in Appendix~\ref{app:laplace_derivation}.]
+\begin{comment}
 We also evaluate Laplace-corrected KDE on a 1D oracle density.
 Figure~\ref{fig:oracle_error_1d} compares KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE.
 The Laplace-corrected estimators can take small negative values for large $\lVert x - x_i \rVert$.
@@ -61,5 +101,20 @@ We therefore compute errors on the signed density, and we report the negative-ma
 Figure~\ref{fig:laplace_speedup_1d} shows the runtime advantage of fusion.
 The fused Flash-Laplace-KDE kernel consistently outperforms the non-fused Laplace correction across $n_{\text{train}}$.
 For context, the same plot also reports the Flash-SD-KDE to Flash-Laplace-KDE runtime ratio.
+\end{comment}
+% [END MOVED TO Appendix~\ref{app:laplace_derivation}]
 
 
+\subsection{Real-data anomaly detection}
+
+To test whether the accelerated estimator remains useful outside synthetic
+mixtures, Appendix~\ref{app:ace} evaluates Flash-SD-KDE as an inverse-density
+anomaly score on real anomaly-detection benchmarks from the ACE study.  On
+Statlog Shuttle, Flash-SD-KDE recovers $807$ of $879$ true outliers at the
+chosen threshold, compared with $610$ for the strongest published non-Flash
+baseline in the ACE table and $273$ for ACE itself, while running in $0.60$ s
+on the A6000.  On ALOI, it recovers $437$ true outliers, within $20\%$ of the
+best published recovery, while running in $0.09$ s on the A6000.  On a larger
+public KDD-Cup~99 HTTP release with $n=620{,}098$ and $d=29$, Flash-SD-KDE
+achieves ROC-AUC $0.92$ in $7.27$ s.  Full thresholding details and baseline
+tables are reported in Appendix~\ref{app:ace}.

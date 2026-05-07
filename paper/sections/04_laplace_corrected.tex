@@ -9,6 +9,8 @@
   \label{fig:oracle_16d_error_1d}
 \end{figure*}
 
+% [MOVED TO Appendix~\ref{app:laplace_derivation}: The 1D Laplace oracle/fusion figures are useful support for Flash-Laplace-KDE, but the main paper needs to prioritize the 16D headline result.  The figures are moved intact and discussed in Appendix~\ref{app:laplace_derivation}.]
+\begin{comment}
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/fig_oracle_error_vs_n_1d.pdf}
@@ -26,6 +28,9 @@
            The right panel reports speedup ratios, including Flash-SD-KDE relative to Flash-Laplace-KDE for context.}
   \label{fig:laplace_speedup_1d}
 \end{figure*}
+\end{comment}
+% [END MOVED TO Appendix~\ref{app:laplace_derivation}]
+
 Score-debiased KDE offers better asymptotic error rates, but its empirical score step adds a full quadratic pass over the data.
 A natural approximation is to replace the explicit debiasing with a correction to the kernel itself, in the spirit of classical higher-order bias corrections for KDE\footnote{Laplace kernel has $0$ second moment, but non-zero fourth moment, so it is a fourth-order kernel.}~\citep{fan1992bias,jones1997comparison}.
 This yields a Laplace-corrected KDE that captures the same leading-order bias reduction of SD-KDE~\citep{epstein2025sdkde} while avoiding the empirical score computation at the cost of admitting possibly negative values.
@@ -61,8 +66,12 @@ The estimator becomes
 SD-KDE~\citep{epstein2025sdkde} forms debiased samples $x_i^{\text{SD}} = x_i + \tfrac{h^2}{2}\,\hat s(x_i)$ using an empirical score $\hat s$.
 Evaluating a KDE on the shifted samples and linearizing in $h^2$ yields a correction proportional to $\Delta K_h$.
 When $\hat s$ is taken to be the KDE score, this linearized estimator coincides with the Laplace-corrected kernel above.
-Thus $\hat p_{\text{LC}}$ can be viewed as a first-order approximation to SD-KDE that preserves its leading bias reduction while avoiding an explicit score pass.
+Thus $\hat p_{\text{LC}}$ can be viewed as a first-order approximation to SD-KDE that preserves its leading bias reduction while avoiding a score pass.
+The heat-semigroup derivation showing the shared $O(h^4)$ leading-bias behavior of Laplace-corrected KDE and oracle SD-KDE, together with the caveat for empirical scores, is given in Appendix~\ref{app:laplace_derivation}.
 
+
+% [MOVED TO Appendix~\ref{app:laplace_derivation}: The full heat-semigroup argument is important theoretical intuition, but it is supporting detail rather than the core systems contribution.  The main text keeps the first-order connection and points readers to the full derivation.]
+\begin{comment}
 As an intuitive explanation of why both methods achieve the same leading bias reduction, we can first view vanilla KDE\footnote{Throughout, we assume that the kernel is Gaussian for simplicity.} as a heat semigroup (kernel) $P_{t} = e^{\frac{t}{2}\Delta}$ with $t = h^2$ applying to the empirical density  function $f_n$ (sampled with replacement) to be
 \begin{align*}
     \hat{f} = P_t f_n.
@@ -88,7 +97,7 @@ The Laplace kernel deals with this leading term by using an operator $\left(I-\f
 
 The SD-KDE algorithm approaches this debias task differently by applying a \textbf{non-linear}\footnote{Even when the transportation kernel has a non-linear transportation. The kernel itself is linear.} transportation kernel $T_{\frac{t}{2}\nabla \log f}$ before applying a standard heat kernel $P_t$, making its bias
 \begin{align*}
-    &\mathbb{E}\left[\hat{f}^{\text{SD-KDE}}\right]-f\\ &= \left[P_tT_{\frac{t}{2}\nabla \log f}-I\right]f\\
+    &\mathbb{E}\left[\hat{f}^{\text{SD-KDE}}\right]-f\\ &= \left[P_tT_{\frac{t}{2}\nabla f}-I\right]f\\
     &=
     \left[P_t\left(f - \frac{t}{2}\nabla \cdot \left(f\nabla \log f\right) + O(t^2)\right)-f\right]\\
     &=
@@ -108,6 +117,8 @@ where $t'=\frac{h^2}{2}$ is the bandwidth for the kernel used for score estimati
     \hat{f}^{\text{Emp SD-KDE}} = T_{\frac{t}{2}\nabla \log \left(P_{t'} f_n\right)} f_n,
 \end{align*}
 which is no longer linear in $f_n$.
+\end{comment}
+% [END MOVED TO Appendix~\ref{app:laplace_derivation}]
 
 
 \paragraph{Why we consider this correction.}
