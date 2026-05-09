@@ -12,8 +12,8 @@ outpaces both baselines as $n$ grows. Appendix~\ref{app:baseline_sweep} expands 
 exact baselines, adding \texttt{torch.compile} and PyKeOps across the full
 $n_{\text{train}}$ sweep.  Flash-SD-KDE is the fastest exact method at every
 measured problem size.  In the averaged $n_{\text{train}}=32{,}768$ setting, it
-is roughly $7.7\times$ faster than PyKeOps, $12.2\times$ faster than
-\texttt{torch.compile}, $40.6\times$ faster than eager PyTorch SD-KDE, and over
+is roughly $9.0\times$ faster than PyKeOps, $14.3\times$ faster than
+\texttt{torch.compile}, $47.2\times$ faster than eager PyTorch SD-KDE, and over
 three orders of magnitude faster than scikit-learn. The ordering is not specific to the RTX~A6000: Appendix~\ref{app:hardware}
 repeats the same 16-D sweep on a Tesla V100-PCIE-16GB, where Flash-SD-KDE
 again remains the fastest method at every measured size.
@@ -29,49 +29,6 @@ $16{,}384$; Flash-SD-KDE remains between $1.91$ and $2.75$ ms, while the
 baselines show a larger increase at the largest query batches.  This regime is
 common in anomaly and out-of-distribution scoring, where many workflows compare
 a small set of candidate points against a large reference sample. 
-
-% [MOVED TO Appendix~\ref{app:baseline_sweep}: This single-point table duplicates the stronger full exact-baseline sweep already promoted in the main text.  It is preserved in Appendix~\ref{app:baseline_sweep} so the PyKeOps KDE/SD-KDE reference point is not lost.]
-\begin{comment}
-To compare against a specialized KDE implementation, we also benchmarked PyKeOps
-LazyTensor operators at $n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k}$.
-PyKeOps currently represents the state of the art for large-scale kernel
-reductions, so we report both its Gaussian KDE runtime and its SD-KDE runtime as
-a reference point.  Table~\ref{tab:pykeops} shows that Flash-SD-KDE runs
-$1.57\times$ faster than the PyKeOps 16-D KDE baseline and $7.99\times$ faster
-than the PyKeOps 16-D SD-KDE implementation.
-
-\begin{table}[h]
-  \centering
-  \small
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{lcc}
-    \toprule
-    Method & Runtime (ms) & Rel. to Flash-SD-KDE \\
-    \midrule
-    16-D Flash-SD-KDE & $2.11$ & $1\times$ \\
-    PyKeOps 16-D KDE   & $3.33$ & $1.4\times$ \\
-    PyKeOps 16-D SD-KDE& $16.91$ & $7.99\times$ \\
-    \bottomrule
-  \end{tabular}
-  \caption{Runtime comparison at $n_{\text{train}}=32\text{k}$,
-           $n_{\text{test}}=4\text{k}$.  PyKeOps rows report Gaussian KDE and
-           SD-KDE (LazyTensor) runtimes, while Flash-SD-KDE executes the full SD-KDE
-           pipeline.}
-  \label{tab:pykeops}
-\end{table}
-\end{comment}
-% [END MOVED TO Appendix~\ref{app:baseline_sweep}]
-
-% % \begin{revadded}
-Appendix~\ref{app:baseline_sweep} additionally reports the fixed
-$n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k}$ PyKeOps check,
-separating Gaussian KDE from SD-KDE.  At this operating point, Flash-SD-KDE
-runs in $2.11$ ms, compared with $3.33$ ms for PyKeOps Gaussian KDE and
-$16.91$ ms for PyKeOps SD-KDE, showing that the speedup remains even against
-a specialized kernel-reduction implementation and is especially large for the
-full score-debiased estimator.
-% \end{revadded}
-
 
 
 

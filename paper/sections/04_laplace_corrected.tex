@@ -124,7 +124,7 @@ which is no longer linear in $f_n$.
 \paragraph{Why we consider this correction.}
 The Laplace-corrected estimator is appealing when the full SD-KDE score is too expensive or when a fast bias-reduction surrogate is sufficient.
 It requires only the same pairwise distances and exponentials as standard KDE, plus a simple affine factor in the kernel value.
-The correction can be negative for large $\lVert x - x_i \rVert$, so $\hat p_{\text{LC}}$ is not guaranteed to be nonnegative, which we account for in our experiments.
+The correction can be negative for large $\lVert x - x_i \rVert$, so $\hat p_{\text{LC}}$ is not guaranteed to be nonnegative.
 
 \paragraph{Kernel fusion opportunity.}
 Computing $K_h^{\text{LC}}$ reuses the same scaled distances used to compute $K_h$.

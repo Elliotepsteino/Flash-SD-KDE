@@ -68,9 +68,8 @@ the final SD-KDE evaluation uses the train--query Gram matrix
 
 On
 modern NVIDIA GPUs this GEMM can be mapped to Tensor Cores~\citep{micikevicius2017mixed} and evaluated at
-5--10$\times$ the throughput of standard FP32 SIMT arithmetic, particularly
-when we restrict to $d$ that are multiples of 16 and use Triton's
-\texttt{tl.dot} interface~\citep{tillet2019triton}.  The remaining operations---vector norms,
+5--10$\times$ the throughput of standard FP32 SIMT arithmetic.
+The remaining operations---vector norms,
 broadcasted additions, and exponentials---are all $O(n_{\text{train}}
  n_{\text{test}})$ but quickly become a small fraction of the total FLOPs as
 $d$ grows.
@@ -100,8 +99,7 @@ we can decompose the first term in the numerator into a elementwise sum, and the
 \]
 Thus both the KDE evaluation and the SD-KDE score numerator reduce to
 Tensor-Core-accelerable matrix multiplies, plus $O(n^2)$ scalar work for the
-norms and exponentials.  In this paper we focus on the $d=16$ case, which
-aligns naturally with the Tensor Core tile sizes on the RTX~A6000.
+norms and exponentials.
 
 \subsection{Arithmetic intensity in $d$ dimensions}
 
@@ -177,29 +175,7 @@ so the total GDDR6 traffic is
 \]
 
 \paragraph{Arithmetic intensity.}
-Dividing FLOPs by bytes gives
-\[
-  \begin{aligned}
-    I_d(k)
-    &=
-    \frac{\text{FLOPs}_d(k)}{\text{Bytes}_d(k)} \\
-    &\approx
-    \frac{\bigl(4 d + 12 + \tfrac{d}{4} + \tfrac{3}{2}\bigr) k^2}
-         {4\bigl(\tfrac{9}{8} d k + \tfrac{k}{8}\bigr)} \\
-    &\sim
-    C(d)\,k
-    \quad\text{for large }k,
-  \end{aligned}
-\]
-with
-\[
-  C(d)
-  \approx
-  \frac{4 d + 12 + d/4 + 3/2}{4\cdot (9 d/8)}
-  =
-  \frac{(17/4)\,d + 27/2}{9 d/2}.
-\]
-For $d=16$ this simplifies to
+Dividing FLOPs by bytes, and substituting $d=16$, gives
 \[
   I_{16}(k)
   \approx

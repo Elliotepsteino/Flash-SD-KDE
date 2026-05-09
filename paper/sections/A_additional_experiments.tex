@@ -1,3 +1,4 @@
+\appendix
 \section{Additional Experiments}
 \label{app:additional}
 
@@ -29,11 +30,11 @@ Table~\ref{tab:rebuttal_baseline_sweep} reports runtimes on the RTX A6000.
     $n_{\text{train}}$ & $n_{\text{test}}$ &
     sklearn & Torch & \texttt{torch.compile} & PyKeOps & Flash-SD-KDE \\
     \midrule
-    $2{,}048$  & $256$  & $30.7$    & $1.1$   & $6.0$  & $1.9$  & $0.7$ \\
-    $4{,}096$  & $512$  & $132.6$   & $2.2$   & $2.9$  & $2.5$  & $0.5$ \\
-    $8{,}192$  & $1{,}024$ & $509.7$   & $7.5$   & $5.0$  & $3.6$  & $0.5$ \\
-    $16{,}384$ & $2{,}048$ & $1{,}895.7$ & $29.0$  & $11.3$ & $6.7$  & $1.1$ \\
-    $32{,}768$ & $4{,}096$ & $7{,}292.7$ & $113.6$ & $34.3$ & $21.7$ & $2.8$ \\
+    $2{,}048$  & $256$  & $33.0$      & $0.9$   & $6.0$  & $1.9$  & $0.5$ \\
+    $4{,}096$  & $512$  & $126.2$     & $2.1$   & $2.9$  & $2.5$  & $0.4$ \\
+    $8{,}192$  & $1{,}024$ & $527.6$     & $7.5$   & $5.0$  & $3.6$  & $0.5$ \\
+    $16{,}384$ & $2{,}048$ & $2{,}149.2$ & $28.8$  & $11.3$ & $6.7$  & $1.0$ \\
+    $32{,}768$ & $4{,}096$ & $8{,}017.0$ & $113.3$ & $34.3$ & $21.7$ & $2.4$ \\
     \bottomrule
   \end{tabular}
   \caption{Average per-call runtime (ms) of exact 16-D SD-KDE implementations
@@ -49,51 +50,14 @@ Table~\ref{tab:rebuttal_baseline_sweep} reports runtimes on the RTX A6000.
 \end{table*}
 
 Flash-SD-KDE is the fastest exact method at every problem size in the sweep.
-At $n_{\text{train}} = 32{,}768$, it is roughly $7.7\times$ faster than PyKeOps,
-$12.2\times$ faster than \texttt{torch.compile}, $40.6\times$ faster than the
+At $n_{\text{train}} = 32{,}768$, it is roughly $9.0\times$ faster than PyKeOps,
+$14.3\times$ faster than \texttt{torch.compile}, $47.2\times$ faster than the
 eager PyTorch baseline, and over three orders of magnitude faster than
 scikit-learn.
 The PyTorch-based baselines slow down rapidly with $n_{\text{train}}$,
 while PyKeOps and Flash-SD-KDE both scale gracefully; among these two,
 Flash-SD-KDE retains a consistent margin throughout the sweep.
 
-
-% \begin{revadded}
-\paragraph{Single-point PyKeOps reference.}
-The following single-point PyKeOps KDE/SD-KDE comparison was moved from the main text because Table~\ref{tab:rebuttal_baseline_sweep} is the stronger evidence: it compares PyKeOps, \texttt{torch.compile}, eager PyTorch, scikit-learn, and Flash-SD-KDE across the full sweep.  We keep the single-point table here because it directly separates PyKeOps KDE and PyKeOps SD-KDE at the commonly reported $32\text{k}/4\text{k}$ setting.
-% \end{revadded}
-
-% [RED WRAP MOVED PYKEOPS SINGLE-POINT TABLE]
-% \begin{revadded}
-To compare against a specialized KDE implementation, we also benchmarked PyKeOps
-LazyTensor operators at $n_{\text{train}}=32\text{k}$, $n_{\text{test}}=4\text{k}$.
-PyKeOps currently represents the state of the art for large-scale kernel
-reductions, so we report both its Gaussian KDE runtime and its SD-KDE runtime as
-a reference point.  Table~\ref{tab:pykeops} shows that Flash-SD-KDE runs
-$1.57\times$ faster than the PyKeOps 16-D KDE baseline and $7.99\times$ faster
-than the PyKeOps 16-D SD-KDE implementation.
-
-\begin{table}[h]
-  \centering
-  \small
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{lcc}
-    \toprule
-    Method & Runtime (ms) & Rel. to Flash-SD-KDE \\
-    \midrule
-    16-D Flash-SD-KDE & $2.11$ & $1\times$ \\
-    PyKeOps 16-D KDE   & $3.33$ & $1.58\times$ \\
-    PyKeOps 16-D SD-KDE& $16.91$ & $8.01\times$ \\
-    \bottomrule
-  \end{tabular}
-  \caption{Runtime comparison at $n_{\text{train}}=32\text{k}$,
-           $n_{\text{test}}=4\text{k}$.  PyKeOps rows report Gaussian KDE and
-           SD-KDE (LazyTensor) runtimes, while Flash-SD-KDE executes the full SD-KDE
-           pipeline.}
-  \label{tab:pykeops}
-\end{table}
-% \end{revadded}
-% [END RED WRAP MOVED PYKEOPS SINGLE-POINT TABLE]
 
 \subsection{Generalization across GPU families}
 \label{app:hardware}
@@ -389,8 +353,8 @@ the RTX~A6000 using the same datasets and the same top-$K$ protocol.
     ACE           & $7{,}216$  & $340$ & $1{,}168$ & $1.26$   & $1\times$    \\
     LOF           & $4{,}476$  & $519$ & $989$     & $72.31$  & $57.4\times$ \\
     kNN           & $5{,}428$  & $447$ & $1{,}061$ & $63.27$  & $50.2\times$ \\
-    kNNW          & $5{,}558$  & $329$ & $1{,}508$ & $89.96$  & $71.4\times$ \\
-    LoOP          & $5{,}121$  & $253$ & $1{,}179$ & $59.97$  & $47.6\times$ \\
+    kNNW          & $5{,}558$  & $329$ & $1{,}179$ & $89.96$  & $71.4\times$ \\
+    LoOP          & $5{,}121$  & $253$ & $1{,}255$ & $59.97$  & $47.6\times$ \\
     LDOF          & $7{,}501$  & $470$ & $1{,}038$ & $60.39$  & $47.9\times$ \\
     ODIN          & $10{,}110$ & $162$ & $1{,}346$ & $72.69$  & $57.6\times$ \\
     KDEOS         & $9{,}515$  & $404$ & $1{,}104$ & $55.89$  & $44.4\times$ \\
