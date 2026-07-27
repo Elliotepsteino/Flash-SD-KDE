@@ -2,7 +2,35 @@
 
 ---
 
-## Response to Reviewer 39iH
+## Meta Review — Area Chair LN3f (for reference)
+
+> **Metareview:** The paper presents a systems-oriented acceleration of the existing SD-KDE estimator, whose empirical score computation introduces substantial quadratic computational and memory costs. It reorganizes the score-estimation and density-evaluation stages into Tensor-Core-friendly matrix operations and implements them using tiled, streaming Triton kernels that avoid materializing full pairwise interaction matrices. The reported results include speedups of up to 47× over an eager PyTorch SD-KDE implementation and over 3,300× over scikit-learn KDE. The paper also introduces Flash-Laplace-KDE, a fused surrogate to provide similar bias-reduction benefits without explicit score-estimation pass.
+>
+> The principal strength is the magnitude of the reported performance gains and their potential to make SD-KDE practical at substantially larger scales. The GEMM reformulation and streaming accumulation are regarded as technically sound and well aligned with modern GPU architectures. The implementation coherently combines Tensor-Core execution, tiling, and memory-aware streaming to reduce both runtime and the storage required for pairwise interactions. The reviews also highlight the effective use of Triton for managing tiling and the memory hierarchy, as well as the ablation studies that help explain where the acceleration arises.
+>
+> A recurring concern is whether the reported gains reflect the implementation advances beyond a conventional GEMM-based PyTorch or cuBLAS formulation. In particular, current presentation does not clarify whether the PyTorch and torch.compile baselines already use Tensor Cores under comparable datatype and precision settings, or which aspects of the custom implementation account for the remaining performance difference. A second recurring concern is the numerical impact of TF32 or other reduced-precision execution. The evaluation does not directly establish whether datatype casting or Tensor-Core arithmetic materially affects the accuracy of the estimated scores or density values. The reviewers also have disagreements on the novelty, especially the limited novelty in methodology by primarily combining established GPU techniques. In addition, concerns are raised on the performance at dimensions above 32, particularly 64 and 128; possible negative density values and the behavior of Flash-Laplace-KDE on non-Gaussian or heavy-tailed distributions; roofline analysis and broader application evidence; and a more detailed latency breakdown together with clarification of whether the score-estimation and KDE stages could be fused.
+>
+> Regarding the rebuttal, the most consequential issues are baseline comparability, performance attribution, and numerical fidelity. The authors should clarify which implementation choices provide benefits beyond a standard GEMM formulation and whether the PyTorch and torch.compile baselines already use Tensor Cores. A detailed compiled graph for the torch.compile baseline would make this comparison more concrete. The response should also explain whether the datatype casting required for Tensor-Core execution, including the use of TF32 or other reduced-precision arithmetic, materially affects SD-KDE accuracy. A pass-level latency breakdown would help clarify where the reported speedups arise and strengthen the attribution of the performance gains. Results or analysis at dimensions such as 64 and 128 would also clarify whether the acceleration extends beyond the primarily evaluated low-dimensional regime. For Flash-Laplace-KDE, clarification of its behavior on non-Gaussian or heavy-tailed distributions and the practical implications of possible negative density values would address the remaining concern about this auxiliary contribution.
+
+---
+
+## Review 1 — Reviewer 39iH (Rating 3: Borderline reject; Confidence 3)
+
+> **Summary:** This paper accelerates score-debiased kernel density estimation (SD-KDE) by reformulating its computation as Tensor Core–friendly matrix multiplications (GEMMs) combined with lightweight elementwise operations. The approach avoids storing large pairwise interaction matrices through streaming accumulation, substantially reducing computational overhead. In 16-dimensional experiments, the optimized implementation achieves up to 47× speedup over a strong PyTorch SD-KDE baseline and 3,300× speedup over scikit-learn KDE, enabling SD-KDE to scale to ~1 million training samples and ~131k query points in 2.3 seconds on a single GPU.
+>
+> **Strengths And Weaknesses:** The reformulation into GEMM plus streaming accumulation optimization is interesting and well aligned with modern GPU architectures. The reported speedups are outstanding: up to 47× over Torch SD-KDE, over 3300× over scikit-learn, million-scale SD-KDE in only 2.3 seconds on a single GPU. The work could make SD-KDE practical for a wide range of real-world challenging applications.
+>
+> **Quality:** 2: not good. **Clarity:** 2: not good. **Significance:** 2: not good. **Originality:** 3: good.
+>
+> **Questions:**
+> 1. The use of Tensor Cores is not sufficiently explained. Because Tensor Cores are designed for GEMM and are already supported by cuBLAS, it is unclear what makes the proposed implementation different from a standard GEMM-based implementation.
+> 2. it is difficult to connect the work to Tensor Core since CUDA core is also applicable
+> 3. The implementation relies on Tensor Cores with TF32 precision (19 bit), what is the impact of reduced numerical precision on SD-KDE accuracy?
+> 4. Can you show the Roofline analysis result?
+>
+> **Limitations:** Numerical accuracy is insufficiently discussed when using the Tensor Core. It would be stronger if it demonstrated benefits in broader ML applications, e..g diffusion models, uncertainty estimation ......
+
+## Rebuttal 1 — Response to Reviewer 39iH
 
 Thank you for your detailed review. To address your questions we ran several new experiments on the same RTX A6000 workstation used in the paper; all numbers below are new measurements and will be added to the appendix of the revision.
 
@@ -50,7 +78,23 @@ The kernel sits above the FP32 roof and below the pure-TC balance point, exactly
 
 ---
 
-## Response to Reviewer 3kmd
+## Review 2 — Reviewer 3kmd (Rating 5: Accept; Confidence 3)
+
+> **Summary:** This paper provides a new technique to speed up Score-Debiased Kernel Density Estimation (SD-KDE) by leveraging specific tensor cores in commercial GPUs available today. SD-KDE provides superior asymptotic convergence compared to standard KDE, but if suffers from the high computational cost of its empirical score estimation. The authors demonstrate that the complexity of SD-KDE is not an insurmountable barrier, but rather a dataflow problem. By reordering the score and KDE computations to expose matrix-multiplication structures, they leverage Tensor Cores and streaming accumulation to achieve significant speedups. Additionally, they propose a Flash-Laplace KDE surrogate that provides similar bias-reduction benefits without the explicit score-estimation overhead.
+>
+> **Strengths And Weaknesses:** This work addresses the central challenge of making statistically efficient nonparametric density estimation viable for large-scale machine learning applications. The paper is technically robust, characterized by a clear derivation of the matrix-form SD-KDE and arithmetic intensity analysis that aligns with the performance characteristics of the NVIDIA RTX A6000.
+>
+> *Strengths.* The implementation, utilizing Triton to manage tiling and memory hierarchy, is quite nice. The authors successfully move the computation into the compute-bound regime, effectively utilizing the hardware's Tensor Cores. The paper is well-structured and easy to follow. I also appreciated the clarity and definitions of SD-KDE, followed by the mapping to the hardware-native matrix implementation. The claims of the paper are well-supported by empirical evidence. The speedups reported (up to 47× over PyTorch baselines and 3,300× over scikit-learn) are transformative for practitioners who require exact density estimation at scale. These are STRONG numbers. The application of Flash-style streaming/tiling to the SD-KDE pipeline is a clever adaptation of existing attention-acceleration techniques.
+>
+> *Weaknesses.* The main weakness is that the paper primarily focuses on d=16. While this dimension is useful for many anomaly detection tasks, the performance characteristics of these kernels in higher-dimensional spaces (where KDE typically struggles) remain an open question. Additionally, the Laplace-corrected variant's potential for negative density values is a minor concern that requires careful integration into downstream workflows.
+>
+> **Quality:** 3: good. **Clarity:** 4: excellent. **Significance:** 3: good. **Originality:** 3: good.
+>
+> **Questions:**
+> 1. As d increases, the "curse of dimensionality" typically forces bandwidth h to change, which impacts the GEMM structure. How does the performance scale as d approaches 64 or 128? It would be important to see an ablation study on the impact of d on Tensor Core utilization. If the authors could provide a more detailed analysis of the performance trade-offs in higher dimensions (d>32) or demonstrate that the implementation remains compute-bound when using static, lower-precision data types, that would help me give a better score to the paper.
+> 2. Further, I want to understand the impact of proposed Laplace-corrected surrogate compared to the full SD-KDE on non-Gaussian, heavy-tailed distributions.
+
+## Rebuttal 2 — Response to Reviewer 3kmd
 
 Thank you for your thorough and positive review. To address your questions we ran new experiments on the same RTX A6000 workstation used in the paper; all numbers below are new measurements and will be added to the appendix of the revision.
 
@@ -84,7 +128,22 @@ Full SD-KDE improves on KDE by $1.9$–$3.1\times$ in ISE at *every* $n$, so the
 
 ---
 
-## Response to Reviewer YaGf
+## Review 3 — Reviewer YaGf (Rating 3: Borderline reject; Confidence 3)
+
+> **Summary:** This paper accelerates SD-KDE using GPU's Tensor Core to make it computationally practical. The authors reform pairwise squared distances as few matrix multiplications, enabling Tensor Core acceleration via a custom Triton kernel. Instead of materializing the full matrix, the authors stream submatrices to keep memory footprint linear. Also, they propose Flash-Laplace-KDE, which replaces the empirical score with an analytically-derived Laplace-corrected kernel, which shares the same bias as SD-KDE but requires no score pass, enabling kernel fusion in a single pass. The results show that the proposed Flash-SD-KDE runs 47x faster than a strong PyTorch baseline.
+>
+> **Strengths And Weaknesses:** The paper is technically sound, with a GEMM reformulation using algebraic decompositions, and ablation studies to show where the speedup comes from. The paper is clearly written and well-organized. SD-KDE has been computationally impractical at scale, but this paper brings a 1M-sample case down to 2.3s on a single GPU. However, while this work is well-motivated and brings practicability of SD-KDE, most of the techniques on GPU are known and lack novelty. Also, the baseline's Tensor Core usage is not clear -- I think Tensor Core will be used when each ops is casted properly. Especially, please provide a detailed compiled graph of torch.compile since torch.compile can do the tiling.
+>
+> **Quality:** 3: good. **Clarity:** 3: good. **Significance:** 3: good. **Originality:** 2: not good.
+>
+> **Questions:**
+> 1. Can you please provide a latency breakdown of the existing SD-KDE steps of the baseline (CPU/Torch/etc) and Flash-SD-KDE?
+> 2. Tensor Core works on certain dtypes. Are there any numerical impacts in the use case when you cast the numbers?
+> 3. Is kernel fusion between score and KDE passes possible?
+>
+> **Limitations:** Please refer to the Weakness section above.
+
+## Rebuttal 3 — Response to Reviewer YaGf
 
 Thank you for your insightful review. To address your questions we ran new experiments on the same RTX A6000 workstation used in the paper; all numbers below are new measurements and will be added to the appendix of the revision.
 
