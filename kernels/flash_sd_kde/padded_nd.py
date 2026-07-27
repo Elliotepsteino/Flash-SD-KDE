@@ -73,6 +73,16 @@ def _gaussian_kde_padded_atomic_kernel(
     tl.atomic_add(out_ptr + offs_m, tl.sum(phi, axis=1), mask=query_mask)
 
 
+def _resolve_block_k(block_k: int, dim_pad: int, kernel_name: str) -> int:
+    """Clamp block_k to dim_pad and require exact K-tiling."""
+    bk = min(int(block_k), dim_pad)
+    if bk <= 0 or dim_pad % bk != 0:
+        raise ValueError(
+            f"{kernel_name}: block_k={block_k} must be positive and divide dim_pad={dim_pad}."
+        )
+    return bk
+
+
 def gaussian_kde_triton_padded_nd(
     data: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
     queries: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
@@ -80,6 +90,7 @@ def gaussian_kde_triton_padded_nd(
     *,
     block_m: int = 64,
     block_n: int = 64,
+    block_k: int = _GENERAL_TILE_K,
     num_warps: int = 4,
     num_stages: int = 2,
     device: str | torch.device = "cuda",
@@ -127,6 +138,7 @@ def gaussian_kde_triton_padded_nd(
     stride_data = train.stride(0)
     use_ieee = precision_mode == PRECISION_FP32_IEEE
     allow_tf32 = precision_mode == PRECISION_FAST_TF32
+    resolved_block_k = _resolve_block_k(block_k, dim_pad, "gaussian_kde_triton_padded_nd")
     for q_start in range(0, n_query, max_queries_per_launch):
         q_end = min(n_query, q_start + max_queries_per_launch)
         query_chunk = query[q_start:q_end]
@@ -157,7 +169,7 @@ def gaussian_kde_triton_padded_nd(
             DIM_PAD=dim_pad,
             BLOCK_M=chunk_block_m,
             BLOCK_N=chunk_block_n,
-            BLOCK_K=_GENERAL_TILE_K,
+            BLOCK_K=resolved_block_k,
             num_warps=num_warps,
             num_stages=num_stages,
         )
@@ -265,6 +277,7 @@ def emp_score_padded_nd_flash_sd_kde(
     *,
     block_m: int = 64,
     block_n: int = 64,
+    block_k: int = _GENERAL_TILE_K,
     num_warps: int = 4,
     num_stages: int = 2,
     device: str | torch.device = "cuda",
@@ -295,6 +308,7 @@ def emp_score_padded_nd_flash_sd_kde(
     inv_h2 = 1.0 / (bandwidth * bandwidth)
     use_ieee = precision_mode == PRECISION_FP32_IEEE
     allow_tf32 = precision_mode == PRECISION_FAST_TF32
+    resolved_block_k = _resolve_block_k(block_k, dim_pad, "emp_score_padded_nd_flash_sd_kde")
     max_queries_per_launch = max(block_m, block_m * _CUDA_MAX_GRID_DIM_X)
     stride_data = train.stride(0)
     for q_start in range(0, n_data, max_queries_per_launch):
@@ -328,7 +342,7 @@ def emp_score_padded_nd_flash_sd_kde(
             DIM_PAD=dim_pad,
             BLOCK_M=chunk_block_m,
             BLOCK_N=chunk_block_n,
-            BLOCK_K=_GENERAL_TILE_K,
+            BLOCK_K=resolved_block_k,
             num_warps=num_warps,
             num_stages=num_stages,
         )
@@ -344,6 +358,7 @@ def empirical_sd_kde_triton_padded_nd(
     *,
     block_m: int = 64,
     block_n: int = 64,
+    block_k: int = _GENERAL_TILE_K,
     num_warps: int = 4,
     num_stages: int = 2,
     device: str | torch.device = "cuda",
@@ -359,6 +374,7 @@ def empirical_sd_kde_triton_padded_nd(
         bandwidth,
         block_m=block_m,
         block_n=block_n,
+        block_k=block_k,
         num_warps=num_warps,
         num_stages=num_stages,
         device=device,
