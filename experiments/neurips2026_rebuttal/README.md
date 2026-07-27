@@ -13,3 +13,4 @@ All runs use an RTX A6000 and the repo kernels; run from the repo root with
 Timing scripts (`exp2`, `exp3`) require an otherwise-idle GPU; accuracy scripts
 (`exp1`, `exp4`, and the metric/memory parts of `exp5`) are load-insensitive.
 - `exp6_tiled_torch.py` — can pure PyTorch close the gap: manually tiled eager (row-chunked), torch.compile default and mode="max-autotune", vs Flash-SD-KDE; all with TF32 enabled.
+- `exp7_output_code.py` / `exp7_inductor_call_plan.txt` — TORCH_LOGS=output_code capture of the Inductor execution plan for the compiled score pass (quoted in the YaGf response).

@@ -1,0 +1,30 @@
+    def call(self, args):
+        arg0_1, = args
+        args.clear()
+        assert_size_stride(arg0_1, (32768, 16), (16, 1))
+        with torch.cuda._DeviceGuard(0):
+            torch.cuda.set_device(0)
+            buf0 = empty_strided_cuda((32768, 1), (1, 32768), torch.float32)
+            # Topologically Sorted Source Nodes: [mul, xn], Original ATen: [aten.mul, aten.sum]
+            stream0 = get_raw_stream(0)
+            triton_per_fused_mul_sum_0.run(arg0_1, buf0, 32768, 16, stream=stream0)
+            buf1 = empty_strided_cuda((32768, 32768), (32768, 1), torch.float32)
+            # Topologically Sorted Source Nodes: [getattr_2, matmul], Original ATen: [aten.permute, aten.mm]
+            extern_kernels.mm(arg0_1, reinterpret_tensor(arg0_1, (16, 32768), (1, 16), 0), out=buf1)
+            buf2 = buf1; del buf1  # reuse
+            buf4 = empty_strided_cuda((32768, 1), (1, 32768), torch.float32)
+            # Topologically Sorted Source Nodes: [getattr_1, add, mul_1, sub, d2, mul_2, mul_3, phi, sum_2], Original ATen: [aten.permute, aten.add, aten.mul, aten.sub, aten.clamp, aten.exp, aten.sum]
+            stream0 = get_raw_stream(0)
+            triton_red_fused_add_clamp_exp_mul_permute_sub_sum_1.run(buf2, buf0, buf4, 32768, 32768, stream=stream0)
+            del buf0
+            buf3 = empty_strided_cuda((32768, 16), (16, 1), torch.float32)
+            # Topologically Sorted Source Nodes: [matmul_1], Original ATen: [aten.mm]
+            extern_kernels.mm(buf2, arg0_1, out=buf3)
+            del buf2
+            buf5 = buf3; del buf3  # reuse
+            # Topologically Sorted Source Nodes: [add_1, truediv, sub_1, mul_4, mul_5, add_2], Original ATen: [aten.add, aten.div, aten.sub, aten.mul]
+            stream0 = get_raw_stream(0)
+            triton_poi_fused_add_div_mul_sub_2.run(buf5, arg0_1, buf4, 524288, stream=stream0)
+            del arg0_1
+            del buf4
+        return (buf5, )
