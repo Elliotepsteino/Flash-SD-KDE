@@ -1,0 +1,10 @@
+{
+  "fast_tf32": {
+    "mean_rel_err_vs_oracle": 1.2421970450846227,
+    "mean_sq_err_vs_oracle": 2.164868551290956e-08
+  },
+  "fp32_ieee": {
+    "mean_rel_err_vs_oracle": 1.263269162891034,
+    "mean_sq_err_vs_oracle": 2.1648430030380095e-08
+  }
+}

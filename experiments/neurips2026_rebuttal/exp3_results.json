@@ -1,0 +1,86 @@
+[
+  {
+    "d": 16,
+    "bandwidth": 0.90784582304453,
+    "cfg_tf32": [
+      256,
+      4
+    ],
+    "cfg_ieee": [
+      64,
+      2
+    ],
+    "flash_tf32_ms_min": 4.317678511142731,
+    "flash_tf32_ms_mean": 4.366654297336936,
+    "flash_ieee_no_tc_ms_min": 14.292827807366848,
+    "flash_ieee_no_tc_ms_mean": 14.340356830507517,
+    "torch_tf32_ms_min": 112.79474571347237,
+    "torch_tf32_ms_mean": 112.83642081543803,
+    "speedup_vs_torch_tf32": 26.123933364279072,
+    "tc_speedup": 3.3103038520540666,
+    "flash_model_tflops": 20.26782643269087
+  },
+  {
+    "d": 32,
+    "bandwidth": 1.1428762165869788,
+    "cfg_tf32": [
+      128,
+      4
+    ],
+    "cfg_ieee": [
+      128,
+      4
+    ],
+    "flash_tf32_ms_min": 12.850644066929817,
+    "flash_tf32_ms_mean": 12.961135478690267,
+    "flash_ieee_no_tc_ms_min": 19.394605420529842,
+    "flash_ieee_no_tc_ms_mean": 19.63231908157468,
+    "torch_tf32_ms_min": 113.90233784914017,
+    "torch_tf32_ms_mean": 113.97301009856164,
+    "speedup_vs_torch_tf32": 8.863550904990001,
+    "tc_speedup": 1.5092321691828992,
+    "flash_model_tflops": 12.491545314922984
+  },
+  {
+    "d": 64,
+    "bandwidth": 1.3091858733856048,
+    "cfg_tf32": [
+      128,
+      4
+    ],
+    "cfg_ieee": [
+      128,
+      4
+    ],
+    "flash_tf32_ms_min": 24.430408142507076,
+    "flash_tf32_ms_mean": 24.472864205017686,
+    "flash_ieee_no_tc_ms_min": 38.421763107180595,
+    "flash_ieee_no_tc_ms_mean": 38.8965399004519,
+    "torch_tf32_ms_min": 115.14833010733128,
+    "torch_tf32_ms_mean": 115.28907204046845,
+    "speedup_vs_torch_tf32": 4.713319950925495,
+    "tc_speedup": 1.5727024650206156,
+    "flash_model_tflops": 12.548021668889776
+  },
+  {
+    "d": 128,
+    "bandwidth": 1.4091623354172953,
+    "cfg_tf32": [
+      256,
+      4
+    ],
+    "cfg_ieee": [
+      128,
+      4
+    ],
+    "flash_tf32_ms_min": 47.1686664968729,
+    "flash_tf32_ms_mean": 47.390104783698916,
+    "flash_ieee_no_tc_ms_min": 75.65583381801844,
+    "flash_ieee_no_tc_ms_mean": 76.28045221790671,
+    "torch_tf32_ms_min": 116.38897005468607,
+    "torch_tf32_ms_mean": 116.68389486148953,
+    "speedup_vs_torch_tf32": 2.4675060521883143,
+    "tc_speedup": 1.6039426050561367,
+    "flash_model_tflops": 12.6908626284715
+  }
+]
