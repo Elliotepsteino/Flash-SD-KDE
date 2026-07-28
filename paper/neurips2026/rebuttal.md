@@ -56,7 +56,7 @@ Rows 1 to 3 are bounded by the $\approx 21$ ms floor above. Row 2 makes the attr
 
 **Q2 (CUDA cores are also applicable):** Agreed, and paper Table 5 measures precisely this ablation: the *identical* streamed kernel with Tensor-Core tiling disabled (FP32 CUDA-core `tl.dot`) is $4.94\times$ slower at $n=32{,}768$ and $4.80\times$ at $n=65{,}536$.
 
-**Q3/Limitation 1(impact of TF32 precision):** *Short answer: no statistically detectable effect. The TF32 perturbation is $\approx 40\times$ below the estimator's statistical error and leaves oracle accuracy unchanged to 4 significant digits, and an exact FP32-IEEE mode is a one-flag fallback.* Mechanically, TF32 rounds only the `tl.dot` *inputs* to a 10-bit mantissa; storage and accumulation remain FP32, and no data is cast to FP16. New experiment: $d=16$, $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$, against an FP64 reference of the full SD-KDE pipeline:
+**Q3/Limitation 1(impact of TF32 precision):** *Short answer: no statistically detectable effect. The TF32 perturbation is $\approx 40\times$ below the estimator's statistical error and leaves oracle accuracy unchanged to 4 significant digits, and an exact FP32-IEEE mode is a one-flag fallback.* Mechanically, TF32 rounds only the `tl.dot` *inputs* to a 10-bit mantissa; storage and accumulation remain FP32, and no data is cast to FP16. We compared each implementation against an FP64 reference of the full SD-KDE pipeline at $d=16$, $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$:
 
 | Variant | Max rel. err. vs FP64 | Mean rel. err. vs FP64 |
 |---|---|---|
@@ -103,7 +103,7 @@ The kernel sits above the FP32 roof and below the pure-TC balance point, exactly
 
 Thank you for your thorough and positive review. To address your questions we ran new experiments on the same RTX A6000 workstation used in the paper; all numbers below are new measurements and will be added to the appendix of the revision.
 
-**Q1 (performance as $d$ approaches 64 or 128, Tensor-Core utilization vs. $d$):** *Short answer: Flash-SD-KDE remains the fastest exact method at every $d$ up to 128 (see table), and larger $d$ makes the kernel more compute-bound, not less.* The bandwidth $h$ enters only through the scalar $\exp(-r^2/2h^2)$, so growing $h$ with $d$ does not affect the GEMM structure; $d$ is the reduction (K) dimension of the GEMM, and the arithmetic-intensity model of Section 4.1 gives $I_d(k) \sim C(d)\,k$ with $C(d)$ increasing in $d$. New experiment: $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$, generic padded-tile kernel with a per-$d$ launch-parameter sweep (as in Appendix A.4), Tensor-Core on/off within the identical kernel, and the eager PyTorch baseline with TF32 *enabled*:
+**Q1 (performance as $d$ approaches 64 or 128, Tensor-Core utilization vs. $d$):** *Short answer: Flash-SD-KDE remains the fastest exact method at every $d$ up to 128 (see table), and larger $d$ makes the kernel more compute-bound, not less.* The bandwidth $h$ enters only through the scalar $\exp(-r^2/2h^2)$, so growing $h$ with $d$ does not affect the GEMM structure; $d$ is the reduction (K) dimension of the GEMM, and the arithmetic-intensity model of Section 4.1 gives $I_d(k) \sim C(d)\,k$ with $C(d)$ increasing in $d$. We swept $d$ at $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$ with the generic padded-tile kernel, tuning launch parameters per $d$ as in Appendix A.4, and measured Tensor-Core on/off within the identical kernel alongside the eager PyTorch baseline with TF32 *enabled*:
 
 | $d$ | Flash-SD-KDE (ms) | Flash, Tensor Cores off (ms) | TC speedup | PyTorch eager, TF32 on (ms) | Flash speedup |
 |---|---|---|---|---|---|
@@ -116,7 +116,7 @@ Runtime grows roughly linearly in $d$ from 32 to 128 as the FLOP model predicts,
 
 **Q2 (compute-bound with lower-precision types):** We do not cast to FP16/BF16: inputs and accumulation are FP32 and TF32 rounds only the `tl.dot` inputs. On numerical impact (new experiment against an FP64 reference, $n=32{,}768$): TF32 perturbs the density pointwise by $3.2\%$ on average, $\approx 40\times$ below the statistical error of the estimator at the same $n$ (mean relative deviation from the oracle: $126\%$), and the oracle MSE is unchanged to 4 significant digits ($2.16487\times10^{-8}$ vs. $2.16484\times10^{-8}$). A `precision_mode="fp32_ieee"` flag gives bit-comparable-to-FP32 results (max rel. err. $5.5\times10^{-6}$) at the no-Tensor-Core runtime of Table 5.
 
-**Q3 (Laplace surrogate vs. full SD-KDE on non-Gaussian, heavy-tailed distributions):** *Short answer: full SD-KDE stays robust on heavy tails ($1.9\times$ to $3.1\times$ better ISE than KDE at every $n$); the Laplace surrogate is the most accurate at small $n$ but degrades at large $n$, so we recommend full SD-KDE when tails are unknown.* New experiment: 1-D two-component Student-$t_3$ mixture (infinite fourth moment), Silverman bandwidth, ISE against the true density over 5 seeds ($\times 10^3$, mean $\pm$ std):
+**Q3 (Laplace surrogate vs. full SD-KDE on non-Gaussian, heavy-tailed distributions):** *Short answer: full SD-KDE stays robust on heavy tails ($1.9\times$ to $3.1\times$ better ISE than KDE at every $n$); the Laplace surrogate is the most accurate at small $n$ but degrades at large $n$, so we recommend full SD-KDE when tails are unknown.* We evaluated all three estimators on a 1-D two-component Student-$t_3$ mixture, which has infinite fourth moment, using the Silverman bandwidth and reporting ISE against the true density over 5 seeds ($\times 10^3$, mean $\pm$ std):
 
 | $n$ | KDE | Flash-SD-KDE | Flash-Laplace-KDE |
 |---|---|---|---|
@@ -148,7 +148,7 @@ Full SD-KDE improves on KDE at *every* $n$, so the estimator we accelerate is ro
 
 ## Rebuttal 3: Response to Reviewer YaGf
 
-Thank you for your insightful review. To address your questions we ran new experiments on the same RTX A6000 workstation used in the paper; all numbers below are new measurements and will be added to the appendix of the revision.
+Thank you for your insightful review. To address your questions we ran new experiments on the same RTX A6000 workstation used in the paper.
 
 **W1 (novelty of the GPU techniques):** The individual techniques (tiling, streaming, mixed precision) are indeed known, as they were for FlashAttention, whose contribution was showing that reordering one specific primitive unlocks a new capability regime. Our contributions are estimator-specific and not obtainable from generic tooling: (i) the algebraic reordering $\sum_j (x_i - x_j)\varphi_{ij} = x_i \sum_j \varphi_{ij} - (\Phi X)_i$, which turns the empirical-score numerator into two GEMMs; (ii) the streaming formulation that makes *exact* SD-KDE run at $n \approx 10^6$ on one GPU for the first time; and (iii) Flash-Laplace-KDE, a new fused surrogate estimator with the same leading-order bias correction and no score pass. The strongest evidence that generic tooling does not get there: `torch.compile`, which has tiling, fusion, and Tensor Cores available, lands at 34.3 ms on the Table 1 workload vs. our 2.4 ms, a $14\times$ gap, and we show below why.
 
@@ -179,7 +179,7 @@ triton_poi_fused_add_div_mul_sub_2                    # debias epilogue, negligi
 
 This plan shows Inductor doing everything right *within its execution model*: every elementwise op is fused into two Triton kernels, and the memory planner keeps a single $n^2$ allocation alive by overwriting the Gram with $\Phi$. But the two `extern_kernels.mm` calls are opaque cuBLAS launches, so that buffer must still be written and read twice through HBM (Gram write + read, $\Phi$ write + read $= 16$ GB $\approx 21$ ms at 770 GB/s), which accounts for the bulk of its runtime. Our implementation replaces the `mm` $\to$ fused $\to$ `mm` sandwich with one streamed Triton kernel whose tiles never leave registers/shared memory (8.1 MB peak extra vs. 4.10 GB).
 
-**Q1 (latency breakdown):** New experiment: $d=16$, $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$, interleaved min-of-30 on the paper's A6000 workstation:
+**Q1 (latency breakdown):** We measured the score and KDE passes separately for each implementation at $d=16$, $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$ on the paper's A6000 workstation, reporting the minimum over 30 interleaved repetitions:
 
 | Method | Score pass (ms) | KDE pass (ms) | Total (ms) | Score share |
 |---|---|---|---|---|
@@ -187,8 +187,6 @@ This plan shows Inductor doing everything right *within its execution model*: ev
 | PyTorch eager, TF32 enabled | 100.8 | 12.1 | 112.8 | 89% |
 | Flash-SD-KDE | 2.07 | 0.27 | 2.34 | 88% |
 
-This confirms the Nsight finding in the paper that the score pass is 90 to 95% of end-to-end runtime for every implementation.
-
 **Q2 (numerical impact of dtype casting):** Inputs are stored FP32, accumulation is FP32, and TF32 only rounds the `tl.dot` inputs' mantissas. New experiment ($n=32{,}768$): relative to the identical kernel run in full FP32 without Tensor Cores (`precision_mode="fp32_ieee"`), the Tensor-Core TF32 path perturbs the density pointwise by $3.2\%$ on average, which is $\approx 40\times$ below the estimator's statistical error at the same $n$ (mean relative deviation from the true density: $126\%$), and the two modes agree on oracle MSE to 4 significant digits ($2.16487\times10^{-8}$ vs. $2.16484\times10^{-8}$). The FP32 mode itself matches an FP64 reference to within $5.5\times10^{-6}$ and remains available as a one-flag fallback, at the cost of forgoing Tensor Cores ($\approx 5\times$ slower at scale, Table 5).
 
-**Q3 (fusing the score and KDE passes):** It is possible, but Amdahl's law caps the benefit: the score pass is around 90% of runtime (Q1 above and Appendix A.6), so fusing the two passes saves at most 10% for nontrivial code complexity, which is why we kept the two-kernel structure. Where fusion does pay is *within* a pass: Flash-Laplace-KDE is exactly the fully fused single-pass variant (correction applied inside the same tile loop), and it is $2\times$ to $5\times$ faster than the non-fused Laplace implementation across $n$ (Figure 7) while matching its accuracy.
+**Q3 (fusing the score and KDE passes):** It is possible, but Amdahl's law caps the benefit: the score pass is around 90% of runtime (see Appendix A.6), so fusing the two passes saves at most 10% for nontrivial code complexity, which is why we kept the two-kernel structure. Where fusion does pay is *within* a pass: Flash-Laplace-KDE is exactly the fully fused single-pass variant (correction applied inside the same tile loop), and it is $2\times$ to $5\times$ faster than the non-fused Laplace implementation across $n$ (Figure 7) while matching its accuracy.
