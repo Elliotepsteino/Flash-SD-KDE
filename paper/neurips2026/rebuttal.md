@@ -179,10 +179,11 @@ triton_poi_fused_add_div_mul_sub_2                    # debias epilogue, negligi
 
 This plan shows Inductor doing everything right *within its execution model*: every elementwise op is fused into two Triton kernels, and the memory planner keeps a single $n^2$ allocation alive by overwriting the Gram with $\Phi$. But the two `extern_kernels.mm` calls are opaque cuBLAS launches, so that buffer must still be written and read twice through HBM (Gram write + read, $\Phi$ write + read $= 16$ GB $\approx 21$ ms at 770 GB/s), which accounts for the bulk of its runtime. Our implementation replaces the `mm` $\to$ fused $\to$ `mm` sandwich with one streamed Triton kernel whose tiles never leave registers/shared memory (8.1 MB peak extra vs. 4.10 GB).
 
-**Q1 (latency breakdown):** We measured the score and KDE passes separately for each implementation at $d=16$, $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$ on the paper's A6000 workstation, reporting the minimum over 30 interleaved repetitions:
+**Q1 (latency breakdown):** We measured the score and KDE passes separately for each implementation at $d=16$, $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$ on the paper's workstation, reporting the minimum over repeated interleaved runs. The CPU row runs the same eager formulation on the host's dual EPYC 7763 with 128 threads, since the scikit-learn baseline of Table 1 has no score pass to break down:
 
 | Method | Score pass (ms) | KDE pass (ms) | Total (ms) | Score share |
 |---|---|---|---|---|
+| PyTorch eager on CPU (dual EPYC 7763) | 6,245 | 767 | 7,012 | 89% |
 | PyTorch eager, FP32 (Table 1 baseline) | 100.8 | 11.9 | 112.8 | 89% |
 | PyTorch eager, TF32 enabled | 100.8 | 12.1 | 112.8 | 89% |
 | Flash-SD-KDE | 2.07 | 0.27 | 2.34 | 88% |
