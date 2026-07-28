@@ -15,3 +15,4 @@ Timing scripts (`exp2`, `exp3`) require an otherwise-idle GPU; accuracy scripts
 - `exp6_tiled_torch.py` — can pure PyTorch close the gap: manually tiled eager (row-chunked), torch.compile default and mode="max-autotune", vs Flash-SD-KDE; all with TF32 enabled.
 - `exp7_output_code.py` / `exp7_inductor_call_plan.txt` — TORCH_LOGS=output_code capture of the Inductor execution plan for the compiled score pass (quoted in the YaGf response).
 - `exp9_tiled2d.py` — 2-D tiled cuBLAS score pass at L2-resident tile sizes: tests whether small tiles can bypass the HBM-traffic floor (they cannot; launch-bound).
+- `exp10_materialization_32k.json` — full-materialization ablation of our kernel at n=32,768 (ladder row 2), via `python -m experiments.runtime.benchmark_rebuttal_16d_materialization_case --n-train 32768 --n-test 4096`.
