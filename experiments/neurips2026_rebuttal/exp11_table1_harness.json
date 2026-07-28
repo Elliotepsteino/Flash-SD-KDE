@@ -1,0 +1,43 @@
+{
+  "baseline_repeats": 3,
+  "device": "cuda",
+  "end_power": 15,
+  "figure": "rebuttal_figure1_16d_runtime",
+  "flash_repeats": 10,
+  "rows": [
+    {
+      "bandwidth": 0.9076208134880605,
+      "delta_max_flash_vs_pykeops": 7.690829306739033e-09,
+      "delta_max_flash_vs_torch": 7.69060193306359e-09,
+      "delta_max_flash_vs_torch_compile": 7.691127734688052e-09,
+      "flash_sd_kde_ms": 2.2534435614943504,
+      "flash_sd_kde_ms_min": 2.2357329726219177,
+      "flash_sd_kde_ms_std": 0.016880394492826658,
+      "n_test": 4096.0,
+      "n_train": 32768.0,
+      "rel_l2_flash_vs_pykeops": 0.028972145169973373,
+      "rel_l2_flash_vs_torch": 0.028972387313842773,
+      "rel_l2_flash_vs_torch_compile": 0.028972333297133446,
+      "sd_pykeops_ms": 15.63662632058064,
+      "sd_pykeops_ms_min": 15.597790479660034,
+      "sd_pykeops_ms_std": 0.04168819356737571,
+      "sd_torch_compile_ms": 80.19221449891727,
+      "sd_torch_compile_ms_min": 27.20292005687952,
+      "sd_torch_compile_ms_std": 74.8541768108325,
+      "sd_torch_ms": 112.85821317384641,
+      "sd_torch_ms_min": 112.82851919531822,
+      "sd_torch_ms_std": 0.02109420009812372,
+      "seed": 0.0,
+      "sklearn_kde_ms": 7630.4364297539,
+      "sklearn_kde_ms_min": 7412.819402292371,
+      "sklearn_kde_ms_std": 271.4223900907892,
+      "speedup_flash_vs_pykeops": 6.938991766987657,
+      "speedup_flash_vs_sklearn": 3386.122714648263,
+      "speedup_flash_vs_torch": 50.08255591677899,
+      "speedup_flash_vs_torch_compile": 35.58652005721348
+    }
+  ],
+  "seed": 0,
+  "start_power": 15,
+  "warmup": 1
+}

@@ -17,3 +17,4 @@ Timing scripts (`exp2`, `exp3`) require an otherwise-idle GPU; accuracy scripts
 - `exp9_tiled2d.py` — 2-D tiled cuBLAS score pass at L2-resident tile sizes: tests whether small tiles can bypass the HBM-traffic floor (they cannot; launch-bound).
 - `exp10_materialization_32k.json` — full-materialization ablation of our kernel at n=32,768 (ladder row 2), via `python -m experiments.runtime.benchmark_rebuttal_16d_materialization_case --n-train 32768 --n-test 4096`.
 - `exp2_results_papertorch271.json` — the exp2 breakdown rerun in the paper conda env (torch 2.7.1+cu118); numbers quoted in the YaGf Q1 table.
+- `exp11_table1_harness.json` — rerun of the paper Table 1 harness (n=32,768, paper env): shows the torch.compile mean is contaminated by occasional recompilations (mean 80.2 / min 27.2 / std 74.9 ms over 3 repeats); steady state ~25.6 ms. Table 1 compile (and likely PyKeOps) entries should be refreshed for the revision.
