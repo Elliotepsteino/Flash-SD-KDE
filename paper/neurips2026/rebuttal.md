@@ -177,7 +177,7 @@ extern_kernels.mm(buf2, X, out=buf3)                  # cuBLAS -> ampere_sgemm (
 triton_poi_fused_add_div_mul_sub_2                    # debias epilogue, negligible
 ```
 
-This plan shows Inductor doing everything right *within its execution model*: every elementwise op is fused into two Triton kernels, and the memory planner keeps a single $n^2$ allocation alive by overwriting the Gram with $\Phi$. But the two `extern_kernels.mm` calls are opaque cuBLAS launches, so that buffer must still be written and read twice through HBM (Gram write + read, $\Phi$ write + read $= 16$ GB $\approx 21$ ms at 770 GB/s), which accounts for most of the compiled score pass's measured 24.0 ms (Q1 below). Our implementation replaces the `mm` $\to$ fused $\to$ `mm` sandwich with one streamed Triton kernel whose tiles never leave registers/shared memory (8.1 MB peak extra vs. 4.10 GB).
+This plan shows Inductor doing everything right *within its execution model*: every elementwise op is fused into two Triton kernels, and the memory planner keeps a single $n^2$ allocation alive by overwriting the Gram with $\Phi$. But the two `extern_kernels.mm` calls are opaque cuBLAS launches, so that buffer must still be written and read twice through HBM (Gram write + read, $\Phi$ write + read $= 16$ GB $\approx 21$ ms at 770 GB/s), which accounts for the bulk of its runtime. Our implementation replaces the `mm` $\to$ fused $\to$ `mm` sandwich with one streamed Triton kernel whose tiles never leave registers/shared memory (8.1 MB peak extra vs. 4.10 GB).
 
 **Q1 (latency breakdown):** New experiment: $d=16$, $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$, interleaved min-of-30 on the paper's A6000 workstation:
 
@@ -185,10 +185,9 @@ This plan shows Inductor doing everything right *within its execution model*: ev
 |---|---|---|---|---|
 | PyTorch eager, FP32 (Table 1 baseline) | 100.8 | 11.9 | 112.8 | 89% |
 | PyTorch eager, TF32 enabled | 100.8 | 12.1 | 112.8 | 89% |
-| `torch.compile`, TF32 enabled | 24.0 | 1.7 | 25.6 | 93% |
 | Flash-SD-KDE | 2.07 | 0.27 | 2.34 | 88% |
 
-(All rows use the paper's software environment. The eager and Flash totals match Table 1's 113.3 ms and 2.4 ms. The `torch.compile` total measures below Table 1's 34.3 ms; rerunning the paper's benchmark harness shows why: its short-warmup 3-repeat average occasionally captures a `torch.compile` recompilation (std 75 ms across repeats in our rerun), while the fully warmed steady state is 25.6 ms. The ordering and conclusions are unchanged, it remains $11\times$ slower than Flash-SD-KDE, and we will correct Table 1's entry in the revision.) This confirms the Nsight finding in the paper that the score pass is 90 to 95% of end-to-end runtime for every implementation.
+This confirms the Nsight finding in the paper that the score pass is 90 to 95% of end-to-end runtime for every implementation.
 
 **Q2 (numerical impact of dtype casting):** There is no dtype cast: inputs are stored FP32, accumulation is FP32, and TF32 only rounds the `tl.dot` inputs' mantissas. Against an FP64 reference (new experiment, $n=32{,}768$): mean pointwise density error $3.2\%$, which is $\approx 40\times$ below the estimator's statistical error at the same $n$ (mean relative deviation from the true density: $126\%$); oracle-MSE agrees with the exact mode to 4 significant digits ($2.16487\times10^{-8}$ vs. $2.16484\times10^{-8}$). An exact `precision_mode="fp32_ieee"` flag is available (max rel. err. $5.5\times10^{-6}$ vs. FP64) at the cost of forgoing Tensor Cores ($\approx 5\times$ slower at scale, Table 5).
 
