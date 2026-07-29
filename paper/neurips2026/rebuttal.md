@@ -101,9 +101,9 @@ The kernel sits above the FP32 roof and below the pure-TC balance point, exactly
 
 ## Rebuttal 2: Response to Reviewer 3kmd
 
-Thank you for your thorough and positive review. To address your questions we ran new experiments on the same RTX A6000 workstation used in the paper; all numbers below are new measurements and will be added to the appendix of the revision.
+Thank you for your thorough and positive review. New experiment are all on the same RTX A6000 workstation used in the paper. 
 
-**Q1 (performance as $d$ approaches 64 or 128, Tensor-Core utilization vs. $d$):** Flash-SD-KDE remains the fastest exact method at every $d$: runtime grows linearly in $d$ as the compute-bound model predicts, and Tensor-Core utilization holds at 19 to 30% of peak across the sweep. The bandwidth $h$ enters only through the scalar $\exp(-r^2/2h^2)$, so growing $h$ with $d$ does not affect the GEMM structure; $d$ is the reduction (K) dimension of the GEMM, and the arithmetic-intensity model of Section 4.1 gives $I_d(k) \sim C(d)\,k$ with $C(d)$ increasing in $d$, so larger $d$ makes the kernel more compute-bound, not less. We swept $d$ at $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$, tuning launch parameters per $d$ as in Appendix A.4, and re-tuned each configuration with Tensor Cores disabled for the ablation:
+**Q1 (performance as $d$ approaches 64 or 128, Tensor-Core utilization vs. $d$):** Flash-SD-KDE runtime grows linearly in $d$ as the compute-bound model predicts, and Tensor-Core utilization holds at 19 to 30% of peak across the sweep. The bandwidth $h$ enters only through the scalar $\exp(-r^2/2h^2)$, so growing $h$ with $d$ does not affect the GEMM structure. We swept $d$ at $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$.
 
 | $d$ | Flash-SD-KDE (ms) | Fraction of TC peak | Tensor Cores off (ms) | TC speedup |
 |---|---|---|---|---|
@@ -112,7 +112,7 @@ Thank you for your thorough and positive review. To address your questions we ra
 | 64 | 6.8 | 29% | 37.2 | $5.5\times$ |
 | 128 | 19.8 | 19% | 73.2 | $3.7\times$ |
 
-Runtime grows close to linearly in $d$, and utilization does not degrade, so the implementation remains compute-bound throughout; the eager PyTorch baseline sits at 113 to 116 ms across the same sweep, since it is bandwidth bound and its runtime is independent of $d$. Sustaining 19 to 30% of the *absolute* Tensor-Core peak is the expected level for this estimator, because the kernel interleaves its GEMM tiles with the $O(n^2)$ non-Tensor-Core work (norms, exponentials, atomic accumulations) that runs on FP32 ALUs and SFUs, consistent with Figure 3 and the roofline analysis of Section 4.1. We will add this sweep to the appendix.
+ Sustaining 19 to 30% of the *absolute* Tensor-Core peak is the expected level for this estimator, because the kernel interleaves its GEMM tiles with the $O(n^2)$ non-Tensor-Core work (norms, exponentials, atomic accumulations) that runs on FP32 ALUs and SFUs, consistent with Figure 3.
 
 **Q2 (compute-bound with lower-precision types):** We do not cast to FP16/BF16: inputs and accumulation are FP32 and TF32 rounds only the `tl.dot` inputs. On numerical impact (new experiment against an FP64 reference, $n=32{,}768$): TF32 perturbs the density pointwise by $3.2\%$ on average, $\approx 40\times$ below the statistical error of the estimator at the same $n$ (mean relative deviation from the oracle: $126\%$), and the oracle MSE is unchanged to 4 significant digits ($2.16487\times10^{-8}$ vs. $2.16484\times10^{-8}$). A `precision_mode="fp32_ieee"` flag gives bit-comparable-to-FP32 results (max rel. err. $5.5\times10^{-6}$) at the no-Tensor-Core runtime of Table 5.
 
