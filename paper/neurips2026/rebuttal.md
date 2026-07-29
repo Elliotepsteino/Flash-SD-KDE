@@ -116,14 +116,13 @@ Thank you for your thorough and positive review. New experiment are all on the s
 
 **Q2 (compute-bound with lower-precision types):** We do not cast to FP16/BF16: inputs and accumulation are FP32 and TF32 rounds only the `tl.dot` inputs. On numerical impact (new experiment against an FP64 reference, $n=32{,}768$): TF32 perturbs the density pointwise by $3.2\%$ on average, $\approx 40\times$ below the statistical error of the estimator at the same $n$ (mean relative deviation from the oracle: $126\%$), and the oracle MSE is unchanged to 4 significant digits ($2.16487\times10^{-8}$ vs. $2.16484\times10^{-8}$). A `precision_mode="fp32_ieee"` flag gives bit-comparable-to-FP32 results (max rel. err. $5.5\times10^{-6}$) at the no-Tensor-Core runtime of Table 5.
 
-**Q3 (Laplace surrogate vs. full SD-KDE on non-Gaussian, heavy-tailed distributions):** Full SD-KDE stays robust on heavy tails, while the Laplace surrogate is the most accurate at small $n$ but degrades at large $n$, so we recommend full SD-KDE when tails are unknown. We evaluated all three estimators on a 1-D two-component Student-$t_3$ mixture, which has infinite fourth moment, using the Silverman bandwidth and reporting ISE against the true density over 5 seeds ($\times 10^3$, mean $\pm$ std):
+**Q3 (Laplace surrogate vs. full SD-KDE on non-Gaussian, heavy-tailed distributions):** Full SD-KDE stays robust on heavy tails, while the Laplace surrogate is the most accurate at small $n$ but improves less at large $n$, so we recommend full SD-KDE when tails are unknown. We evaluated all three estimators on a 1-D two-component Student-$t_3$ mixture, which has infinite fourth moment, using the Silverman bandwidth and reporting integrated squared error (ISE) against the true density over 5 seeds ($\times 10^3$, mean $\pm$ std):
 
 | $n$ | KDE | Flash-SD-KDE | Flash-Laplace-KDE |
 |---|---|---|---|
 | 1,024 | $10.02 \pm 1.48$ | $5.35 \pm 1.15$ | $\mathbf{2.95 \pm 0.84}$ |
 | 4,096 | $5.71 \pm 0.24$ | $2.32 \pm 0.16$ | $\mathbf{1.38 \pm 0.16}$ |
 | 16,384 | $2.88 \pm 0.25$ | $\mathbf{0.94 \pm 0.13}$ | $1.23 \pm 0.13$ |
-| 65,536 | $1.99 \pm 0.06$ | $\mathbf{0.86 \pm 0.06}$ | $2.53 \pm 0.18$ |
 
 The surrogate's signed tail correction $(1 + d/2 - \|x\|^2/2h^2)$ amplifies variance where $t_3$ places many distant samples, and $t_3$ lacks the fourth moments that fourth-order kernels exploit asymptotically.
 
