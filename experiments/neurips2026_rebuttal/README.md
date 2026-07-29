@@ -21,3 +21,4 @@ Timing scripts (`exp2`, `exp3`) require an otherwise-idle GPU; accuracy scripts
 - `exp12_cpu_breakdown.py` — CPU score/KDE pass breakdown: same eager formulation with torch-CPU on the dual EPYC 7763, 128 threads (YaGf Q1 CPU row).
 - `exp8_dsweep_tuned.py` / `exp8_tuned_dsweep_results.jsonl` — d-sweep with staged per-(d, pass, precision) launch autotune over block_m/n/k, warps, stages; tuned numbers quoted in the 3kmd Q1 table (d=128 row pending).
 - `exp14_chunked.py` / `exp15_final_dsweep.py` — chunk-streaming general-d score kernel (single-pass port of the specialized 16-D structure): head-to-head vs the two-pass padded kernel, and the final end-to-end d-sweep behind the 3kmd Q1 table (d>=32 rows; d=16 row quotes Table 1 / Table 5).
+- `exp16_d128_notc.py` / `exp16.log` — targeted no-TC launch tune at d=128 confirming the (32,128,32,4,2) config behind the Q1 tables d=128 Tensor-Cores-off cell (71.4 ms, vs 73.2 in the interleaved protocol).
