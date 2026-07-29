@@ -46,9 +46,9 @@ Thank you for your detailed review. To address your questions we ran several new
 
 | # | Implementation | Idea added | Total (ms) | Cumulative speedup |
 |---|---|---|---|---|
-| 1 | PyTorch eager, cuBLAS GEMMs + separate elementwise kernels (Table 1; TF32 Tensor Cores) | (baseline) | 113.3 | $1\times$ |
-| 2 | Our GEMM formulation, un-tiled: full $n^2$ materialization, Tensor Cores on (new; same runtime with Tensor Cores off) | Tensor-Core GEMM reformulation alone; $n^2$ intermediates still round-trip HBM | 100.4 | $1.1\times$ |
-| 3 | `torch.compile` (Table 1; `mode="max-autotune"` does not improve it) | fuses all elementwise chains; still materializes one $n^2$ buffer for cuBLAS | 34.3 | $3.3\times$ |
+| 1 | PyTorch eager with TF32 Tensor Cores | (baseline) | 113.3 | $1\times$ |
+| 2 | Our GEMM formulation, un-tiled| Tensor-Core GEMM reformulation alone; $n^2$ intermediates still round-trip HBM | 100.4 | $1.1\times$ |
+| 3 | `torch.compile` | fuses all elementwise chains; still materializes one $n^2$ buffer for cuBLAS | 34.3 | $3.3\times$ |
 | 4 | Our streamed Triton kernel, Tensor Cores disabled (Table 5) | full fusion + streaming: $n^2$ tiles never leave registers/shared memory | 10.5 | $10.8\times$ |
 | 5 | **Flash-SD-KDE** (Table 1; row 4 + Tensor-Core tiles) | GEMM tiles execute on Tensor Cores | **2.4** | $\mathbf{47\times}$ |
 
@@ -64,9 +64,9 @@ Row 2 shows the attribution directly: the GEMM reformulation with Tensor Cores b
 | Flash-SD-KDE, FP32-IEEE mode | $5.5\times10^{-6}$ | $1.1\times10^{-6}$ |
 | Eager PyTorch FP32 | $1.1\times10^{-5}$ | $1.6\times10^{-6}$ |
 
-TF32 perturbs each density estimate by $3.2\%$ on average; re-drawing the full $n$-point training set perturbs the same estimates by $7.2\%$ on average, so the hardware effect is within the estimator's sampling noise, and the debiased sample positions move by at most $1.1\%$ of $h$. 
+TF32 perturbs each density estimate by 3.2% on average; re-drawing the full $n$-point training set perturbs the same estimates by 7.2% on average, so the hardware effect is within the estimator's sampling noise, and the debiased sample positions move by at most 1.1% of $h$. 
 
-**Q4 (roofline analysis):** Section 4.1 contains the quantitative roofline analysis; we will add the figure to the appendix. Summary for the score kernel at $n=32{,}768$ on the A6000:
+**Q4 (roofline analysis):** Section 4.1 contains the quantitative roofline analysis. Summary for the score kernel at $n=32{,}768$ on the A6000:
 
 | Quantity | Value |
 |---|---|
@@ -74,12 +74,12 @@ TF32 perturbs each density estimate by $3.2\%$ on average; re-drawing the full $
 | Arithmetic intensity, Nsight-measured | $\approx 95$ FLOPs/byte |
 | FP32 roofline knee | $\approx 50$ FLOPs/byte |
 | TF32 Tensor-Core roofline knee | $\approx 200$ FLOPs/byte |
-| Nsight "Speed of Light" SM / L1 throughput | $\approx 68\%$ / $\approx 90\%$ |
+| Nsight "Speed of Light" SM / L1 throughput | 68% / 90% |
 | Sustained fraction of absolute TC peak (Fig. 3, $n \geq 131$k) | 25 to 27% ($\approx 40$ TFLOP/s) |
 
-The kernel sits above the FP32 roof and below the pure-TC balance point, exactly as expected for a mixed GEMM + FP32-scalar workload; this is why we stopped low-level tuning at $\approx 68\%$ SM throughput.
+The kernel sits above the FP32 roof and below the pure-TC balance point, exactly as expected for a mixed GEMM + FP32-scalar workload; this is why we stopped low-level tuning at 68% SM throughput.
 
-**Limitation (broader ML applications):** The paper evaluates Flash-SD-KDE on three real, non-synthetic workloads (Appendix A.7): Statlog Shuttle (recovers 807/879 true outliers vs. 610 for the best published baseline, in 0.60 s), ALOI (0.09 s), and KDD-Cup 99 HTTP with $n=620{,}098$ (ROC-AUC 0.92 in 7.27 s). These are exactly the density/OOD-scoring workloads where a fast exact estimator matters. Applications such as diffusion-model components are out of scope for a systems paper about making exact SD-KDE practical, but we note (Appendix C.4) that the same kernels are drop-in for KDE-primitive pipelines such as KDE-based attention approximations and embedding-space OOD scoring.
+**Limitation (broader ML applications):** The paper evaluates Flash-SD-KDE on three real, non-synthetic workloads (Appendix A.7): Statlog Shuttle (recovers 807/879 true outliers vs. 610 for the best published baseline, in 0.60 s), ALOI (0.09 s), and KDD-Cup 99 HTTP with $n=620{,}098$ (ROC-AUC 0.92 in 7.27 s). These are exactly the density/OOD-scoring workloads where a fast exact estimator matters. We also note (Appendix C.4) that the same kernels are drop-in for KDE-primitive pipelines such as KDE-based attention approximations and embedding-space OOD scoring.Applications such as diffusion-model components were considered in the original SD-KDE paper, but given the small scale of those experiments, we don't think Flash-SD-KDE would unlock new capabilities at that scale. However, larger scale diffusion-model experiments is an interesting avenue for future work. 
 
 ---
 
@@ -114,7 +114,7 @@ Thank you for your thorough and positive review. New experiment are all on the s
 
  Sustaining 19 to 30% of the *absolute* Tensor-Core peak is the expected level for this estimator, because the kernel interleaves its GEMM tiles with the $O(n^2)$ non-Tensor-Core work (norms, exponentials, atomic accumulations) that runs on FP32 ALUs and SFUs, consistent with Figure 3.
 
-**Q2 (compute-bound with lower-precision types):** We do not cast to FP16/BF16: inputs and accumulation are FP32 and TF32 rounds only the `tl.dot` inputs. On numerical impact (new experiment, $n=32{,}768$): relative to the same kernel in exact FP32 arithmetic, TF32 perturbs each density estimate by $3.2\%$ on average; re-drawing the full $n$-point training set perturbs the same estimates by $7.2\%$ on average, so the hardware effect is within the estimator's sampling noise.
+**Q2 (compute-bound with lower-precision types):** We do not cast to FP16/BF16: inputs and accumulation are FP32 and TF32 rounds only the `tl.dot` inputs. On numerical impact (new experiment, $n=32{,}768$): relative to the same kernel in exact FP32 arithmetic, TF32 perturbs each density estimate by 3.2% on average; re-drawing the full $n$-point training set perturbs the same estimates by 7.2% on average, so the hardware effect is within the estimator's sampling noise.
 
 **Q3 (Laplace surrogate vs. full SD-KDE on non-Gaussian, heavy-tailed distributions):** Full SD-KDE stays robust on heavy tails, while the Laplace surrogate is the most accurate at small $n$ but improves less at large $n$, so we recommend full SD-KDE when tails are unknown. We evaluated all three estimators on a 1-D two-component Student-$t_3$ mixture, which has infinite fourth moment, using the Silverman bandwidth and reporting integrated squared error against the true density over 5 seeds ($\times 10^3$, mean $\pm$ std):
 
@@ -147,23 +147,15 @@ The surrogate's signed tail correction $(1 + d/2 - \|x\|^2/2h^2)$ amplifies vari
 
 ## Rebuttal 3: Response to Reviewer YaGf
 
-Thank you for your insightful review. To address your questions we ran new experiments on the same RTX A6000 workstation used in the paper.
+Thank you for your insightful review.
 
-**W1 (novelty of the GPU techniques):** The individual techniques (tiling, streaming, mixed precision) are indeed known, as they were for FlashAttention, whose contribution was showing that reordering one specific primitive unlocks a new capability regime. Our contributions are estimator-specific and not obtainable from generic tooling: (i) the algebraic reordering $\sum_j (x_i - x_j)\varphi_{ij} = x_i \sum_j \varphi_{ij} - (\Phi X)_i$, which turns the empirical-score numerator into two GEMMs; (ii) the streaming formulation that makes *exact* SD-KDE run at $n \approx 10^6$ on one GPU for the first time; and (iii) Flash-Laplace-KDE, a new fused surrogate estimator with the same leading-order bias correction and no score pass. 
+**W1 (novelty of the GPU techniques):** The individual techniques (tiling, streaming, mixed precision) are indeed known, as they were for FlashAttention, whose contribution was showing that reordering one specific primitive unlocks a new capability regime. Our contributions are estimator-specific and not obtainable from generic tooling: (i) the algebraic reordering $\sum_j (x_i - x_j)\varphi_{ij} = x_i \sum_j \varphi_{ij} - (\Phi X)_i$, which turns the empirical-score numerator into two GEMMs; (ii) the streaming formulation that makes exact SD-KDE run at $n \approx 10^6$ on one GPU for the first time; and (iii) Flash-Laplace-KDE, a new fused surrogate estimator with the same leading-order bias correction and no score pass. 
 
-**W2 (whether `torch.compile`'s tiling could derive this kernel):** The reviewer is correct that `torch.compile` (TorchInductor) performs tiling, but only for the class of programs it can express: fusions of pointwise, reduction, and scatter ops, plus matmuls with limited prologue/epilogue fusion. Our kernel requires fusing *through* two matmuls: it computes the pairwise inner products $XX^\top$, applies `exp` elementwise, and immediately consumes the result $\Phi$ in both a row-reduction and a second matmul $\Phi X$, keeping each tile of the $n \times n$ matrix $\Phi$ in registers. Inductor does not fuse the output of one matmul into the input of another; matmuls dispatch as separate kernels (cuBLAS or Triton templates), so $\Phi$ must be materialized in HBM between them (see W3 for details). This is precisely the transformation that motivated FlashAttention (Dao et al., 2022), which shares the matmul $\to$ elementwise $\to$ matmul structure.
+**W2 (whether `torch.compile`'s tiling could derive this kernel):** The reviewer is correct that `torch.compile` (TorchInductor) performs tiling, but only for the class of programs it can express: fusions of pointwise, reduction, and scatter ops, plus matmuls with limited prologue/epilogue fusion. Our kernel requires fusing through two matmuls: it computes the pairwise inner products $XX^\top$, applies `exp` elementwise, and immediately consumes the result $\Phi$ in both a row-reduction and a second matmul $\Phi X$, keeping each tile of the $n \times n$ matrix $\Phi$ in registers. Inductor does not fuse the output of one matmul into the input of another; matmuls dispatch as separate kernels (cuBLAS or Triton templates), so $\Phi$ must be materialized in HBM between them (see W3 for details). This is precisely the transformation that motivated FlashAttention (Dao et al., 2022), which shares the matmul $\to$ elementwise $\to$ matmul structure.
 
-**W3 (baseline Tensor-Core usage; compiled graph of `torch.compile`):**  Yes, the baselines use Tensor Cores. However, Tensor Cores make little difference to the baseline because it is bandwidth bound, with only $11\%$ of its runtime in GEMMs. By Amdahl's law even free GEMMs would improve the baseline by at most $1.13\times$, against the $47\times$ gap to Flash-SD-KDE. The other $89\%$ of the time is spent moving $n^2$ intermediates through global memory, which no kernel-by-kernel implementation can avoid because separate kernels communicate only through it: writing and reading the Gram matrix and $\Phi$ (4 GB each) costs $\approx 16$ GB $\approx 21$ ms at 770 GB/s before any arithmetic, and tiling merely caps peak memory without reducing the bytes moved. Tensor Cores become useful once fusion removes the $n^2$ traffic entirely, at which point the same hardware yields $4.94\times$ inside our streamed kernel (Table 5). The ladder isolates each idea ($n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$, $d=16$):
+**W3 (baseline Tensor-Core usage, compiled graph of `torch.compile`):**  Yes, the baselines use Tensor Cores. However, Tensor Cores make little difference to the baseline because it is bandwidth bound, with only 11% of its runtime in GEMMs. The other 89% of the time is spent moving $n^2$ intermediates through global memory, which no kernel-by-kernel implementation can avoid because separate kernels communicate through it. Tensor Cores become useful once fusion removes the $n^2$ traffic, at which point the same hardware yields $4.94\times$ inside our streamed kernel (Table 5). 
 
-| # | Implementation | Idea added | Total (ms) | Cumulative speedup |
-|---|---|---|---|---|
-| 1 | PyTorch eager, cuBLAS GEMMs + separate elementwise kernels with TF32 Tensor Cores enabled | (baseline) | 113.3 | $1\times$ |
-| 2 | Our GEMM formulation, un-tiled: full $n^2$ materialization, Tensor Cores on (new; same runtime with Tensor Cores off) | Tensor-Core GEMM reformulation alone; $n^2$ intermediates still round-trip HBM | 100.4 | $1.1\times$ |
-| 3 | `torch.compile` (Table 1; `mode="max-autotune"` does not improve it) | fuses all elementwise chains; still materializes one $n^2$ buffer for cuBLAS | 34.3 | $3.3\times$ |
-| 4 | Our streamed Triton kernel, Tensor Cores disabled (Table 5) | full fusion + streaming: $n^2$ tiles never leave registers/shared memory | 10.5 | $10.8\times$ |
-| 5 | **Flash-SD-KDE** (Table 1; row 4 + Tensor-Core tiles) | GEMM tiles execute on Tensor Cores | **2.4** | $\mathbf{47\times}$ |
-
-The requested compiled graph, the complete Inductor execution plan for the compiled score pass captured via `TORCH_LOGS=output_code`, is:
+The requested compiled graph, the complete Inductor execution plan for the compiled score pass is:
 
 ```
 buf0 = empty_strided_cuda((32768, 1))                 # row norms
@@ -178,7 +170,7 @@ extern_kernels.mm(buf2, X, out=buf3)                  # cuBLAS -> ampere_sgemm (
 triton_poi_fused_add_div_mul_sub_2                    # debias epilogue, negligible
 ```
 
-Every elementwise op is fused into two Triton kernels, and the memory planner reuses the single $n^2$ buffer by overwriting the Gram with $\Phi$. The two `extern_kernels.mm` calls are opaque cuBLAS launches, so that buffer still crosses HBM twice ($\approx 21$ ms of traffic, the bulk of its runtime), and even `mode="max-autotune"` cannot fuse the chain GEMM $\to$ (`exp`, row-sum) $\to$ GEMM because $\Phi$ has two consumers, one of them a matmul. So `torch.compile` can indeed tile, but only within each kernel it generates; the tiling that produces the large speedup is a different program, a single loop nest that carries each tile through the GEMM, the `exp`, and both accumulations while it stays in registers, and Inductor does not search over such cross-operation restructurings of the algorithm. Our implementation is exactly that program: it replaces the `mm` $\to$ fused $\to$ `mm` sandwich with one streamed Triton kernel whose tiles never leave registers/shared memory (8.1 MB peak extra vs. 4.10 GB).
+Every elementwise op is fused into two Triton kernels, and the memory planner reuses the single $n^2$ buffer by overwriting the Gram with $\Phi$. So `torch.compile` can indeed tile, but only within each kernel it generates.
 
 **Q1 (latency breakdown):** We measured the score and KDE passes separately for each implementation at $d=16$, $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$ on the paper's workstation, reporting the minimum over repeated interleaved runs. The CPU row runs the same eager formulation on the host's dual EPYC 7763 with 128 threads, since the scikit-learn baseline of Table 1 has no score pass to break down:
 
@@ -188,6 +180,6 @@ Every elementwise op is fused into two Triton kernels, and the memory planner re
 | PyTorch (Table 1 baseline) | 100.8 | 12.1 | 112.8 | 89% |
 | Flash-SD-KDE | 2.07 | 0.27 | 2.34 | 88% |
 
-**Q2 (numerical impact of dtype casting):** Inputs are stored FP32, accumulation is FP32, and TF32 only rounds the `tl.dot` inputs' mantissas. New experiment ($n=32{,}768$): relative to the identical kernel run in full FP32 without Tensor Cores (`precision_mode="fp32_ieee"`), TF32 perturbs each density estimate by $3.2\%$ on average; re-drawing the full $n$-point training set perturbs the same estimates by $7.2\%$ on average, so the hardware effect is within the estimator's sampling noise. 
+**Q2 (numerical impact of dtype casting):** Inputs are stored FP32, accumulation is FP32, and TF32 only rounds the `tl.dot` inputs' mantissas. New experiment ($n=32{,}768$): relative to the identical kernel run in full FP32 without Tensor Cores (`precision_mode="fp32_ieee"`), TF32 perturbs each density estimate by 3.2% on average; re-drawing the full $n$-point training set perturbs the same estimates by 7.2% on average, so the hardware effect is within the estimator's sampling noise. 
 
-**Q3 (fusing the score and KDE passes):** It is possible, but Amdahl's law caps the benefit: the score pass is around 90% of runtime (see Appendix A.6), so fusing the two passes saves at most 10% for nontrivial code complexity, which is why we kept the two-kernel structure. Where fusion does pay is *within* a pass: Flash-Laplace-KDE is exactly the fully fused single-pass variant (correction applied inside the same tile loop), and it is $2\times$ to $5\times$ faster than the non-fused Laplace implementation across $n$ (Figure 7) while matching its accuracy.
+**Q3 (fusing the score and KDE passes):** It is possible, but Amdahl's law caps the benefit: the score pass is around 90% of runtime (see Appendix A.6), so fusing the two passes saves at most 10% for nontrivial code complexity, which is why we kept the two-kernel structure. 
