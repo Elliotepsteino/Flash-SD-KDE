@@ -56,7 +56,7 @@ Rows 1 to 3 are bounded by the $\approx 21$ ms floor above. Row 2 makes the attr
 
 **Q2 (CUDA cores are also applicable):** Agreed, and paper Table 5 measures precisely this ablation: the *identical* streamed kernel with Tensor-Core tiling disabled (FP32 CUDA-core `tl.dot`) is $4.94\times$ slower at $n=32{,}768$ and $4.80\times$ at $n=65{,}536$.
 
-**Q3/Limitation 1(impact of TF32 precision):** *Short answer: no statistically detectable effect. TF32 shifts the density estimates by orders of magnitude less than the estimator's statistical error, oracle accuracy is unchanged to 4 significant digits, and an exact FP32-IEEE mode is a one-flag fallback.* Mechanically, TF32 rounds only the `tl.dot` *inputs* to a 10-bit mantissa; storage and accumulation remain FP32, and no data is cast to FP16. We compared each implementation against an FP64 reference of the full SD-KDE pipeline at $d=16$, $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$:
+**Q3/Limitation 1(impact of TF32 precision):** *Short answer: no statistically detectable effect. TF32 perturbs the density estimates by less than the estimator's own sampling noise, and an exact FP32-IEEE mode is a one-flag fallback.* Mechanically, TF32 rounds only the `tl.dot` *inputs* to a 10-bit mantissa; storage and accumulation remain FP32, and no data is cast to FP16. We compared each implementation against an FP64 reference of the full SD-KDE pipeline at $d=16$, $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$:
 
 | Variant | Max rel. err. vs FP64 | Mean rel. err. vs FP64 |
 |---|---|---|
@@ -64,7 +64,7 @@ Rows 1 to 3 are bounded by the $\approx 21$ ms floor above. Row 2 makes the attr
 | Flash-SD-KDE, FP32-IEEE mode | $5.5\times10^{-6}$ | $1.1\times10^{-6}$ |
 | Eager PyTorch FP32 | $1.1\times10^{-5}$ | $1.6\times10^{-6}$ |
 
-In absolute terms, TF32 shifts the density estimates by $8.6\times10^{-10}$ on average (at most $9.1\times10^{-9}$); for comparison, the estimates differ from the true density by $2.9\times10^{-5}$ on average at this $n$, and the debiased sample positions move by at most $1.1\%$ of $h$. At the metric level the two modes are indistinguishable: mean squared error against the oracle density is $2.16487\times10^{-8}$ (TF32) vs. $2.16484\times10^{-8}$ (FP32-IEEE). 
+TF32 perturbs each density estimate by $3.2\%$ on average; re-drawing the full $n$-point training set perturbs the same estimates by $7.2\%$ on average, so the hardware effect is within the estimator's sampling noise, and the debiased sample positions move by at most $1.1\%$ of $h$. 
 
 **Q4 (roofline analysis):** Section 4.1 contains the quantitative roofline analysis; we will add the figure to the appendix. Summary for the score kernel at $n=32{,}768$ on the A6000:
 
@@ -114,7 +114,7 @@ Thank you for your thorough and positive review. New experiment are all on the s
 
  Sustaining 19 to 30% of the *absolute* Tensor-Core peak is the expected level for this estimator, because the kernel interleaves its GEMM tiles with the $O(n^2)$ non-Tensor-Core work (norms, exponentials, atomic accumulations) that runs on FP32 ALUs and SFUs, consistent with Figure 3.
 
-**Q2 (compute-bound with lower-precision types):** We do not cast to FP16/BF16: inputs and accumulation are FP32 and TF32 rounds only the `tl.dot` inputs. On numerical impact (new experiment, $n=32{,}768$): relative to the same kernel in exact FP32 arithmetic, TF32 shifts the density estimates by $8.6\times10^{-10}$ on average (at most $9.1\times10^{-9}$); for comparison, the estimates differ from the true density by $2.9\times10^{-5}$ on average at this $n$, and the oracle MSE is unchanged to 4 significant digits ($2.16487\times10^{-8}$ vs. $2.16484\times10^{-8}$).
+**Q2 (compute-bound with lower-precision types):** We do not cast to FP16/BF16: inputs and accumulation are FP32 and TF32 rounds only the `tl.dot` inputs. On numerical impact (new experiment, $n=32{,}768$): relative to the same kernel in exact FP32 arithmetic, TF32 perturbs each density estimate by $3.2\%$ on average; re-drawing the full $n$-point training set perturbs the same estimates by $7.2\%$ on average, so the hardware effect is within the estimator's sampling noise.
 
 **Q3 (Laplace surrogate vs. full SD-KDE on non-Gaussian, heavy-tailed distributions):** Full SD-KDE stays robust on heavy tails, while the Laplace surrogate is the most accurate at small $n$ but improves less at large $n$, so we recommend full SD-KDE when tails are unknown. We evaluated all three estimators on a 1-D two-component Student-$t_3$ mixture, which has infinite fourth moment, using the Silverman bandwidth and reporting integrated squared error against the true density over 5 seeds ($\times 10^3$, mean $\pm$ std):
 
@@ -188,6 +188,6 @@ The plan shows Inductor doing everything right within its execution model: every
 | PyTorch (Table 1 baseline) | 100.8 | 12.1 | 112.8 | 89% |
 | Flash-SD-KDE | 2.07 | 0.27 | 2.34 | 88% |
 
-**Q2 (numerical impact of dtype casting):** Inputs are stored FP32, accumulation is FP32, and TF32 only rounds the `tl.dot` inputs' mantissas. New experiment ($n=32{,}768$): relative to the identical kernel run in full FP32 without Tensor Cores (`precision_mode="fp32_ieee"`), TF32 shifts the density estimates by $8.6\times10^{-10}$ on average (at most $9.1\times10^{-9}$); for comparison, the estimates differ from the true density by $2.9\times10^{-5}$ on average at this $n$, and the two modes agree on oracle MSE to 4 significant digits ($2.16487\times10^{-8}$ vs. $2.16484\times10^{-8}$). 
+**Q2 (numerical impact of dtype casting):** Inputs are stored FP32, accumulation is FP32, and TF32 only rounds the `tl.dot` inputs' mantissas. New experiment ($n=32{,}768$): relative to the identical kernel run in full FP32 without Tensor Cores (`precision_mode="fp32_ieee"`), TF32 perturbs each density estimate by $3.2\%$ on average; re-drawing the full $n$-point training set perturbs the same estimates by $7.2\%$ on average, so the hardware effect is within the estimator's sampling noise. 
 
 **Q3 (fusing the score and KDE passes):** It is possible, but Amdahl's law caps the benefit: the score pass is around 90% of runtime (see Appendix A.6), so fusing the two passes saves at most 10% for nontrivial code complexity, which is why we kept the two-kernel structure. Where fusion does pay is *within* a pass: Flash-Laplace-KDE is exactly the fully fused single-pass variant (correction applied inside the same tile loop), and it is $2\times$ to $5\times$ faster than the non-fused Laplace implementation across $n$ (Figure 7) while matching its accuracy.
