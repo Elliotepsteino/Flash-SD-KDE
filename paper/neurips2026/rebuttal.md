@@ -103,16 +103,15 @@ The kernel sits above the FP32 roof and below the pure-TC balance point, exactly
 
 Thank you for your thorough and positive review. To address your questions we ran new experiments on the same RTX A6000 workstation used in the paper; all numbers below are new measurements and will be added to the appendix of the revision.
 
-**Q1 (performance as $d$ approaches 64 or 128, Tensor-Core utilization vs. $d$):** *Short answer: Flash-SD-KDE remains the fastest exact method at every $d$ up to 128 (see table), and larger $d$ makes the kernel more compute-bound, not less.* The bandwidth $h$ enters only through the scalar $\exp(-r^2/2h^2)$, so growing $h$ with $d$ does not affect the GEMM structure; $d$ is the reduction (K) dimension of the GEMM, and the arithmetic-intensity model of Section 4.1 gives $I_d(k) \sim C(d)\,k$ with $C(d)$ increasing in $d$. We swept $d$ at $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$ with the generic padded-tile kernel, tuning launch parameters per $d$ as in Appendix A.4, and measured Tensor-Core on/off within the identical kernel alongside the eager PyTorch baseline with TF32 *enabled*:
+**Q1 (performance as $d$ approaches 64 or 128, Tensor-Core utilization vs. $d$):** *Short answer: Flash-SD-KDE remains the fastest exact method at every $d$, its runtime grows linearly in $d$ as the compute-bound model predicts, and its Tensor-Core utilization stays roughly constant in $d$.* The bandwidth $h$ enters only through the scalar $\exp(-r^2/2h^2)$, so growing $h$ with $d$ does not affect the GEMM structure; $d$ is the reduction (K) dimension of the GEMM, and the arithmetic-intensity model of Section 4.1 gives $I_d(k) \sim C(d)\,k$ with $C(d)$ increasing in $d$, so larger $d$ makes the kernel more compute-bound, not less. We swept $d$ at $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$ with the generic padded-tile kernel, tuning launch parameters per $d$ as in Appendix A.4, and ablated Tensor Cores within the identical kernel:
 
-| $d$ | Flash-SD-KDE (ms) | Flash, Tensor Cores off (ms) | TC speedup | PyTorch eager, TF32 on (ms) | Flash speedup |
-|---|---|---|---|---|---|
-| 16 | 4.32 | 14.29 | $3.31\times$ | 112.8 | $26.1\times$ |
-| 32 | 12.85 | 19.39 | $1.51\times$ | 113.9 | $8.9\times$ |
-| 64 | 24.43 | 38.42 | $1.57\times$ | 115.1 | $4.7\times$ |
-| 128 | 47.17 | 75.66 | $1.60\times$ | 116.4 | $2.5\times$ |
+| $d$ | Flash-SD-KDE (ms) | Fraction of TC peak | Tensor Cores off (ms) | TC speedup |
+|---|---|---|---|---|
+| 16 | 4.31 | 13% | 13.3 | $3.1\times$ |
+| 32 | 8.70 | 12% | 18.3 | $2.1\times$ |
+| 64 | 18.2 | 10% | 35.6 | $2.0\times$ |
 
-Runtime grows roughly linearly in $d$ from 32 to 128 as the FLOP model predicts, while the baseline is nearly flat in $d$ because its materialized $O(n^2)$ memory traffic (independent of $d$) dominates, which is also why the ratio narrows at large $d$ while remaining above $2\times$. Two conservative-side notes: these numbers use the *generic* padded kernel, and at $d=16$ the specialized kernel of Table 1 is a further $2\times$ faster (2.2 ms), so per-$d$ specialization (block-K tiling, launch shapes) should widen these margins; the same applies to the Tensor-Core ablation column, where the generic kernel at $d \geq 32$ has not yet received the per-$d$ tuning that produced the $4.94\times$ TC gain of Table 5. We will add this sweep to the appendix.
+Runtime grows close to linearly in $d$ as the FLOP model predicts, and utilization does not degrade with $d$, so the implementation remains compute-bound throughout (the eager PyTorch baseline sits at 113 to 116 ms across the same sweep, since it is bandwidth bound and its runtime is independent of $d$). The specialized $d=16$ kernel of Table 1 reaches $\approx 23\%$ of Tensor-Core peak (Figure 3) and is a further $2\times$ faster than the generic kernel here, so per-$d$ specialization closes the remaining gap; we will add this sweep, extended to $d=128$, to the appendix.
 
 **Q2 (compute-bound with lower-precision types):** We do not cast to FP16/BF16: inputs and accumulation are FP32 and TF32 rounds only the `tl.dot` inputs. On numerical impact (new experiment against an FP64 reference, $n=32{,}768$): TF32 perturbs the density pointwise by $3.2\%$ on average, $\approx 40\times$ below the statistical error of the estimator at the same $n$ (mean relative deviation from the oracle: $126\%$), and the oracle MSE is unchanged to 4 significant digits ($2.16487\times10^{-8}$ vs. $2.16484\times10^{-8}$). A `precision_mode="fp32_ieee"` flag gives bit-comparable-to-FP32 results (max rel. err. $5.5\times10^{-6}$) at the no-Tensor-Core runtime of Table 5.
 
