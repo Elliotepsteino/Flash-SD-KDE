@@ -271,6 +271,85 @@ def _emp_score_padded_atomic_kernel(
         tl.atomic_add(w_ptrs, weighted_chunk, mask=query_mask[:, None])
 
 
+@triton.jit
+def _emp_score_padded_chunked_kernel(
+    data_ptr,
+    query_ptr,
+    pdf_ptr,
+    weighted_ptr,
+    n_data,
+    n_query,
+    stride_data,
+    stride_query,
+    stride_weighted_query,
+    stride_weighted_k,
+    inv_h2,
+    USE_IEEE: tl.constexpr,
+    ALLOW_TF32: tl.constexpr,
+    DIM_PAD: tl.constexpr,
+    BLOCK_M: tl.constexpr,
+    BLOCK_N: tl.constexpr,
+    BLOCK_N_CHUNK: tl.constexpr,
+):
+    """General-d port of the specialized 16-D score kernel structure.
+
+    The query block and the running `weighted` accumulator stay register
+    resident for a whole BLOCK_N macro-tile while the data streams through in
+    BLOCK_N_CHUNK-row slices; each phi chunk is consumed immediately by both
+    accumulations, so the data is read once and one atomic add is issued per
+    macro-tile. DIM_PAD is the K dimension of both dots.
+    """
+    pid_m = tl.program_id(axis=0)
+    pid_n = tl.program_id(axis=1)
+
+    offs_m = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
+    offs_n_base = pid_n * BLOCK_N
+    offs_k = tl.arange(0, DIM_PAD)
+    query_mask = offs_m < n_query
+
+    q_ptrs = query_ptr + offs_m[:, None] * stride_query + offs_k[None, :]
+    q_block = tl.load(q_ptrs, mask=query_mask[:, None], other=0.0)
+    q_norm = tl.sum(q_block * q_block, axis=1)
+
+    phi_sum = tl.zeros((BLOCK_M,), dtype=tl.float32)
+    weighted = tl.zeros((BLOCK_M, DIM_PAD), dtype=tl.float32)
+
+    for n_start in range(0, BLOCK_N, BLOCK_N_CHUNK):
+        offs_n_chunk = offs_n_base + n_start + tl.arange(0, BLOCK_N_CHUNK)
+        data_mask_chunk = offs_n_chunk < n_data
+
+        d_ptrs = data_ptr + offs_n_chunk[:, None] * stride_data + offs_k[None, :]
+        d_chunk = tl.load(d_ptrs, mask=data_mask_chunk[:, None], other=0.0)
+        d_norm_chunk = tl.sum(d_chunk * d_chunk, axis=1)
+
+        if USE_IEEE:
+            dot_chunk = tl.dot(q_block, tl.trans(d_chunk), input_precision="ieee")
+        else:
+            dot_chunk = tl.dot(q_block, tl.trans(d_chunk), allow_tf32=ALLOW_TF32)
+        dist_chunk = tl.maximum(
+            q_norm[:, None] + d_norm_chunk[None, :] - 2.0 * dot_chunk, 0.0
+        )
+        phi_chunk = tl.exp(-0.5 * dist_chunk * inv_h2)
+        phi_chunk = tl.where(
+            query_mask[:, None] & data_mask_chunk[None, :], phi_chunk, 0.0
+        )
+
+        phi_sum += tl.sum(phi_chunk, axis=1)
+        if USE_IEEE:
+            weighted += tl.dot(phi_chunk, d_chunk, input_precision="ieee")
+        else:
+            weighted += tl.dot(phi_chunk, d_chunk, allow_tf32=ALLOW_TF32)
+
+    tl.atomic_add(pdf_ptr + offs_m, phi_sum, mask=query_mask)
+
+    w_ptrs = (
+        weighted_ptr
+        + offs_m[:, None] * stride_weighted_query
+        + offs_k[None, :] * stride_weighted_k
+    )
+    tl.atomic_add(w_ptrs, weighted, mask=query_mask[:, None])
+
+
 def emp_score_padded_nd_flash_sd_kde(
     data: Sequence[float] | Sequence[Sequence[float]] | torch.Tensor,
     bandwidth: float,
@@ -283,8 +362,15 @@ def emp_score_padded_nd_flash_sd_kde(
     device: str | torch.device = "cuda",
     synchronize: bool = True,
     precision_mode: str = PRECISION_FAST_TF32,
+    chunked: bool = False,
+    block_n_chunk: int = 16,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Compute empirical-score accumulators for any dimension via padded Triton kernels."""
+    """Compute empirical-score accumulators for any dimension via padded Triton kernels.
+
+    With ``chunked=True`` the launch uses the single-pass chunk-streaming kernel
+    (the general-d port of the specialized 16-D structure); ``block_n`` must then
+    be a multiple of ``block_n_chunk``, and ``block_k`` is ignored.
+    """
     if bandwidth <= 0:
         raise ValueError("bandwidth must be positive.")
 
@@ -309,6 +395,11 @@ def emp_score_padded_nd_flash_sd_kde(
     use_ieee = precision_mode == PRECISION_FP32_IEEE
     allow_tf32 = precision_mode == PRECISION_FAST_TF32
     resolved_block_k = _resolve_block_k(block_k, dim_pad, "emp_score_padded_nd_flash_sd_kde")
+    if chunked and (block_n_chunk < 16 or block_n % block_n_chunk != 0):
+        raise ValueError(
+            f"chunked launch requires block_n_chunk >= 16 dividing block_n, got "
+            f"{block_n_chunk} and {block_n}."
+        )
     max_queries_per_launch = max(block_m, block_m * _CUDA_MAX_GRID_DIM_X)
     stride_data = train.stride(0)
     for q_start in range(0, n_data, max_queries_per_launch):
@@ -325,6 +416,29 @@ def emp_score_padded_nd_flash_sd_kde(
             kernel_name="emp_score_padded_nd_flash_sd_kde",
         )
         grid = (grid_m, grid_n)
+        if chunked:
+            _emp_score_padded_chunked_kernel[grid](
+                train,
+                query_chunk,
+                pdf_chunk,
+                weighted_chunk,
+                n_data,
+                chunk_n_query,
+                stride_data,
+                query_chunk.stride(0),
+                weighted_chunk.stride(0),
+                weighted_chunk.stride(1),
+                inv_h2,
+                USE_IEEE=use_ieee,
+                ALLOW_TF32=allow_tf32,
+                DIM_PAD=dim_pad,
+                BLOCK_M=chunk_block_m,
+                BLOCK_N=chunk_block_n,
+                BLOCK_N_CHUNK=block_n_chunk,
+                num_warps=num_warps,
+                num_stages=num_stages,
+            )
+            continue
         _emp_score_padded_atomic_kernel[grid](
             train,
             query_chunk,
@@ -365,6 +479,8 @@ def empirical_sd_kde_triton_padded_nd(
     return_tensor: bool = False,
     synchronize: bool = True,
     precision_mode: str = PRECISION_FAST_TF32,
+    chunked: bool = False,
+    block_n_chunk: int = 16,
 ) -> tuple[torch.Tensor | np.ndarray, float]:
     """Run one-step empirical SD-KDE debiasing on CUDA for any feature dimension."""
     device = torch.device(device)
@@ -380,6 +496,8 @@ def empirical_sd_kde_triton_padded_nd(
         device=device,
         synchronize=synchronize,
         precision_mode=precision_mode,
+        chunked=chunked,
+        block_n_chunk=block_n_chunk,
     )
     eps = 1e-12
     score = (weighted_sum / (pdf_sum[:, None] + eps) - train) * (1.0 / (bandwidth * bandwidth))
