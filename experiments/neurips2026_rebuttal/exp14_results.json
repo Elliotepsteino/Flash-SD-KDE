@@ -1,0 +1,94 @@
+[
+  {
+    "d": 16,
+    "chunked_cfg_fast_tf32": [
+      64,
+      2048,
+      32,
+      2,
+      1
+    ],
+    "chunked_ms_fast_tf32": 1.9423393532633781,
+    "twopass_ms_fast_tf32": 4.415395669639111,
+    "chunked_cfg_fp32_ieee": [
+      32,
+      2048,
+      32,
+      4,
+      1
+    ],
+    "chunked_ms_fp32_ieee": 12.91622780263424,
+    "twopass_ms_fp32_ieee": 13.027356937527657,
+    "speedup_tf32": 2.2732359627171648,
+    "tc_speedup_chunked": 6.649830669874102
+  },
+  {
+    "d": 32,
+    "chunked_cfg_fast_tf32": [
+      64,
+      2048,
+      32,
+      4,
+      1
+    ],
+    "chunked_ms_fast_tf32": 3.4091509878635406,
+    "twopass_ms_fast_tf32": 8.976249024271965,
+    "chunked_cfg_fp32_ieee": [
+      64,
+      2048,
+      32,
+      2,
+      2
+    ],
+    "chunked_ms_fp32_ieee": 14.014091342687607,
+    "twopass_ms_fp32_ieee": 18.764124251902103,
+    "speedup_tf32": 2.632986645715341,
+    "tc_speedup_chunked": 4.110727683396038
+  },
+  {
+    "d": 64,
+    "chunked_cfg_fast_tf32": [
+      64,
+      2048,
+      16,
+      4,
+      2
+    ],
+    "chunked_ms_fast_tf32": 6.980530917644501,
+    "twopass_ms_fast_tf32": 20.01214772462845,
+    "chunked_cfg_fp32_ieee": [
+      32,
+      2048,
+      32,
+      4,
+      2
+    ],
+    "chunked_ms_fp32_ieee": 38.803551346063614,
+    "twopass_ms_fp32_ieee": 36.72716300934553,
+    "speedup_tf32": 2.8668518140997383,
+    "tc_speedup_chunked": 5.558825224594439
+  },
+  {
+    "d": 128,
+    "chunked_cfg_fast_tf32": [
+      32,
+      2048,
+      32,
+      4,
+      2
+    ],
+    "chunked_ms_fast_tf32": 20.312275737524033,
+    "twopass_ms_fast_tf32": 39.1507800668478,
+    "chunked_cfg_fp32_ieee": [
+      16,
+      2048,
+      32,
+      4,
+      1
+    ],
+    "chunked_ms_fp32_ieee": 149.38161987811327,
+    "twopass_ms_fp32_ieee": 73.21975007653236,
+    "speedup_tf32": 1.9274442988444824,
+    "tc_speedup_chunked": 7.3542532510107685
+  }
+]

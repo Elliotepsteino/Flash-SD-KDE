@@ -103,15 +103,16 @@ The kernel sits above the FP32 roof and below the pure-TC balance point, exactly
 
 Thank you for your thorough and positive review. To address your questions we ran new experiments on the same RTX A6000 workstation used in the paper; all numbers below are new measurements and will be added to the appendix of the revision.
 
-**Q1 (performance as $d$ approaches 64 or 128, Tensor-Core utilization vs. $d$):** *Short answer: Flash-SD-KDE remains the fastest exact method at every $d$, its runtime grows linearly in $d$ as the compute-bound model predicts, and its Tensor-Core utilization stays roughly constant in $d$.* The bandwidth $h$ enters only through the scalar $\exp(-r^2/2h^2)$, so growing $h$ with $d$ does not affect the GEMM structure; $d$ is the reduction (K) dimension of the GEMM, and the arithmetic-intensity model of Section 4.1 gives $I_d(k) \sim C(d)\,k$ with $C(d)$ increasing in $d$, so larger $d$ makes the kernel more compute-bound, not less. We swept $d$ at $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$ with the generic padded-tile kernel, tuning launch parameters per $d$ as in Appendix A.4, and ablated Tensor Cores within the identical kernel:
+**Q1 (performance as $d$ approaches 64 or 128, Tensor-Core utilization vs. $d$):** Flash-SD-KDE remains the fastest exact method at every $d$: runtime grows linearly in $d$ as the compute-bound model predicts, and Tensor-Core utilization holds at 19 to 30% of peak across the sweep. The bandwidth $h$ enters only through the scalar $\exp(-r^2/2h^2)$, so growing $h$ with $d$ does not affect the GEMM structure; $d$ is the reduction (K) dimension of the GEMM, and the arithmetic-intensity model of Section 4.1 gives $I_d(k) \sim C(d)\,k$ with $C(d)$ increasing in $d$, so larger $d$ makes the kernel more compute-bound, not less. We swept $d$ at $n_{\text{train}}=32{,}768$, $n_{\text{test}}=4{,}096$, tuning launch parameters per $d$ as in Appendix A.4, and re-tuned each configuration with Tensor Cores disabled for the ablation:
 
 | $d$ | Flash-SD-KDE (ms) | Fraction of TC peak | Tensor Cores off (ms) | TC speedup |
 |---|---|---|---|---|
-| 16 | 4.31 | 13% | 13.3 | $3.1\times$ |
-| 32 | 8.70 | 12% | 18.3 | $2.1\times$ |
-| 64 | 18.2 | 10% | 35.6 | $2.0\times$ |
+| 16 | 2.4 | 23% | 10.5 | $4.4\times$ |
+| 32 | 3.5 | 30% | 18.3 | $5.3\times$ |
+| 64 | 6.8 | 29% | 37.2 | $5.5\times$ |
+| 128 | 19.8 | 19% | 73.2 | $3.7\times$ |
 
-Runtime grows close to linearly in $d$ as the FLOP model predicts, and utilization does not degrade with $d$, so the implementation remains compute-bound throughout (the eager PyTorch baseline sits at 113 to 116 ms across the same sweep, since it is bandwidth bound and its runtime is independent of $d$). The specialized $d=16$ kernel of Table 1 reaches $\approx 23\%$ of Tensor-Core peak (Figure 3) and is a further $2\times$ faster than the generic kernel here, so per-$d$ specialization closes the remaining gap; we will add this sweep, extended to $d=128$, to the appendix.
+Runtime grows close to linearly in $d$, and utilization does not degrade, so the implementation remains compute-bound throughout; the eager PyTorch baseline sits at 113 to 116 ms across the same sweep, since it is bandwidth bound and its runtime is independent of $d$. Sustaining 19 to 30% of the *absolute* Tensor-Core peak is the expected level for this estimator, because the kernel interleaves its GEMM tiles with the $O(n^2)$ non-Tensor-Core work (norms, exponentials, atomic accumulations) that runs on FP32 ALUs and SFUs, consistent with Figure 3 and the roofline analysis of Section 4.1. We will add this sweep to the appendix.
 
 **Q2 (compute-bound with lower-precision types):** We do not cast to FP16/BF16: inputs and accumulation are FP32 and TF32 rounds only the `tl.dot` inputs. On numerical impact (new experiment against an FP64 reference, $n=32{,}768$): TF32 perturbs the density pointwise by $3.2\%$ on average, $\approx 40\times$ below the statistical error of the estimator at the same $n$ (mean relative deviation from the oracle: $126\%$), and the oracle MSE is unchanged to 4 significant digits ($2.16487\times10^{-8}$ vs. $2.16484\times10^{-8}$). A `precision_mode="fp32_ieee"` flag gives bit-comparable-to-FP32 results (max rel. err. $5.5\times10^{-6}$) at the no-Tensor-Core runtime of Table 5.
 
