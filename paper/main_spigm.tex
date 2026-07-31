@@ -43,24 +43,9 @@ Conference on Machine Learning}, Seoul, South Korea, 2026.
 Copyright 2026 by the author(s).}
 \makeatother
 
-% The body figures are authored as full-width (\texttt{figure*}) floats for the
-% single-column NeurIPS layout.  In the two-column ICML layout they are rendered
-% as single-column floats so the main paper meets the 8-page workshop limit.
-% Appendix figures are restored to full width further below.
-\makeatletter
-\expandafter\let\expandafter\spigm@figurestar\csname figure*\endcsname
-\expandafter\let\expandafter\spigm@endfigurestar\csname endfigure*\endcsname
-\renewenvironment{figure*}[1][tbp]
-  {\begin{figure}[#1]\setlength{\textwidth}{\columnwidth}}
-  {\end{figure}}
-\newcommand{\spigmrestorewidefigures}{%
-  \expandafter\let\csname figure*\endcsname\spigm@figurestar
-  \expandafter\let\csname endfigure*\endcsname\spigm@endfigurestar}
-\newcommand{\spigmnarrowfigures}{%
-  \renewenvironment{figure*}[1][tbp]
-    {\begin{figure}[##1]\setlength{\textwidth}{\columnwidth}}
-    {\end{figure}}}
-\makeatother
+% Workshop build flag: routes the two 1D Laplace figures to the appendix, as in
+% the NeurIPS submission.  All figures span both columns.
+\def\spigmversion{}
 
 \icmltitlerunning{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
 
@@ -94,9 +79,7 @@ SD-KDE, GPU Acceleration, Triton}
 
 \input{sections/01_intro}
 \input{sections/02_related_work}
-\spigmrestorewidefigures   % Figure 1 spans both columns
 \input{sections/02_hardware}
-\spigmnarrowfigures
 \input{sections/03_method}
 \input{sections/04_laplace_corrected}
 \input{sections/04_results}
@@ -111,7 +94,6 @@ SD-KDE, GPU Acceleration, Triton}
 \bibliographystyle{icml2026}
 \bibliography{references}
 
-\spigmrestorewidefigures
 \input{sections/99_appendix}
 \input{sections/A_additional_experiments}
 \input{sections/B_additional_literature}

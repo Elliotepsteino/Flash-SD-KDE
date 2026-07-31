@@ -9,23 +9,12 @@
   \label{fig:oracle_16d_error_1d}
 \end{figure*}
 
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=\textwidth]{figures/fig_oracle_error_vs_n_1d.pdf}
-  \caption{Oracle error on a 1D mixture-of-Gaussians benchmark.
-           We report MISE and MIAE versus $n_{\text{train}}$ for KDE, Flash-Laplace-KDE (fused Laplace correction), non-fused Laplace correction, and Flash-SD-KDE.
-           The Laplace-corrected estimators can be slightly negative, so error is computed on the signed density.}
-  \label{fig:oracle_error_1d}
-\end{figure*}
-
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=\textwidth]{figures/fig_fused_vs_nonfused_runtime.pdf}
-  \caption{Runtime and speedup for Laplace correction in 1D.
-           The left panel shows total runtime for the fused Flash-Laplace-KDE kernel and a non-fused implementation.
-           The right panel reports speedup ratios, including Flash-SD-KDE relative to Flash-Laplace-KDE for context.}
-  \label{fig:laplace_speedup_1d}
-\end{figure*}
+% The two 1D Laplace figures live in the appendix for the workshop version
+% (\spigmversion); the single-column layout keeps them here.
+\ifdefined\spigmversion\else
+\input{sections/fig_oracle_error_1d}
+\input{sections/fig_laplace_speedup_1d}
+\fi
 Score-debiased KDE offers better asymptotic error rates, but its empirical score step adds a full quadratic pass over the data.
 A natural approximation is to replace the explicit debiasing with a correction to the kernel itself, in the spirit of classical higher-order bias corrections for KDE\footnote{Laplace kernel has $0$ second moment, but non-zero fourth moment, so it is a fourth-order kernel.}~\citep{fan1992bias,jones1997comparison}.
 This yields a Laplace-corrected KDE that captures the same leading-order bias reduction of SD-KDE~\citep{epstein2025sdkde} while avoiding the empirical score computation at the cost of admitting possibly negative values.
