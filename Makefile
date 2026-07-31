@@ -60,7 +60,7 @@ REAL_APP_TULU_EMBED_BATCH_SIZE ?= 256
 .PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration \
 	bench bench.mnist_ood bench.toy_1d_oracle bench.pykeops_16d \
 	plot plot.mnist_ood plot.grids plot.toy_1d_oracle \
-	paper paper.clean full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots paper.figures.sync \
+	paper paper.clean paper.spigm paper.spigm.clean full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots paper.figures.sync \
 	plots.runtime plots.runtime.from_logs plots.runtime.util \
 	run.sweep run.nd_runtime_sweep run.triton_scaling run.triton_sd_kde_nd \
 	rebuttal.figure1_16d_runtime rebuttal.icml2026.query_batching_sweep rebuttal.icml2026.tensorcore_ablation rebuttal.icml2026.fusion_memory_ablation rebuttal.icml2026.materialization_case rebuttal.icml2026.flash_laplace_negative_mass \
@@ -190,6 +190,19 @@ paper:
 
 paper.clean:
 	rm -rf $(PAPER_BUILD)
+
+# SPIGM @ ICML 2026 workshop camera-ready (ICML two-column style, authors shown).
+PAPER_SPIGM_BUILD := $(PAPER_DIR)/build_spigm
+
+paper.spigm:
+	mkdir -p $(PAPER_SPIGM_BUILD)
+	cd $(PAPER_DIR) && pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory build_spigm main_spigm.tex
+	cd $(PAPER_DIR) && BSTINPUTS=.:./icml2026: bibtex build_spigm/main_spigm
+	cd $(PAPER_DIR) && pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory build_spigm main_spigm.tex
+	cd $(PAPER_DIR) && pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory build_spigm main_spigm.tex
+
+paper.spigm.clean:
+	rm -rf $(PAPER_SPIGM_BUILD)
 
 full_paper:
 	mkdir -p $(PAPER_PLOTS_BASELINE) $(PAPER_PLOTS_OUT)

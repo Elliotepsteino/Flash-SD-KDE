@@ -13,6 +13,7 @@ build/
 # Outputs
 file_storage
 paper/build/
+paper/build_spigm/
 external_kernels/
 
 # OS

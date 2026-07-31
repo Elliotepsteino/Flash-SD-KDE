@@ -1,0 +1,112 @@
+% SPIGM @ ICML 2026 workshop camera-ready.
+% Same body text as main.tex (NeurIPS submission); only the formatting differs:
+% ICML 2026 two-column style, non-anonymous authors, workshop notice.
+\documentclass{article}
+
+\newif\ifarxiv
+\arxivtrue   % camera-ready: non-anonymous, show code link and acknowledgements
+
+% Recommended packages for figures and typesetting.
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{url}
+
+% Make hyperref and algorithmic work together better.
+\providecommand{\theHalgorithm}{\arabic{algorithm}}
+
+% Ensure LaTeX finds the ICML-provided style dependencies in ./icml2026/.
+\makeatletter
+\def\input@path{{icml2026/}}
+\makeatother
+
+% ICML 2026 style, camera-ready (accepted) mode: shows author names.
+\usepackage[accepted]{icml2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{comment}
+
+\input{macros}
+
+% Replace the ICML proceedings notice with the SPIGM workshop notice.
+\makeatletter
+\renewcommand{\ICML@appearing}{\textit{Structured Probabilistic Inference
+\& Generative Modeling workshop at the $\mathit{43}^{rd}$ International
+Conference on Machine Learning}, Seoul, South Korea, 2026.
+Copyright 2026 by the author(s).}
+\makeatother
+
+% The body figures are authored as full-width (\texttt{figure*}) floats for the
+% single-column NeurIPS layout.  In the two-column ICML layout they are rendered
+% as single-column floats so the main paper meets the 8-page workshop limit.
+% Appendix figures are restored to full width further below.
+\makeatletter
+\expandafter\let\expandafter\spigm@figurestar\csname figure*\endcsname
+\expandafter\let\expandafter\spigm@endfigurestar\csname endfigure*\endcsname
+\renewenvironment{figure*}[1][tbp]
+  {\begin{figure}[#1]\setlength{\textwidth}{\columnwidth}}
+  {\end{figure}}
+\newcommand{\spigmrestorewidefigures}{%
+  \expandafter\let\csname figure*\endcsname\spigm@figurestar
+  \expandafter\let\csname endfigure*\endcsname\spigm@endfigurestar}
+\makeatother
+
+\icmltitlerunning{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
+
+\begin{document}
+
+\twocolumn[
+\icmltitle{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
+
+\begin{icmlauthorlist}
+\icmlauthor{Elliot L. Epstein}{icme}
+\icmlauthor{Rajat Vadiraj Dwaraknath}{icme}
+\icmlauthor{John Winnicki}{icme}
+\end{icmlauthorlist}
+
+\icmlaffiliation{icme}{Institute for Computational and Mathematical
+Engineering (ICME), Stanford University, Stanford, CA, USA}
+
+\icmlcorrespondingauthor{Elliot L. Epstein}{epsteine@stanford.edu}
+
+\icmlkeywords{Kernel Density Estimation, Score Debiasing, Tensor Cores,
+SD-KDE, GPU Acceleration, Triton}
+
+\vskip 0.3in
+]
+
+\printAffiliationsAndNotice{}
+
+\begin{abstract}
+\input{sections/00_abstract}
+\end{abstract}
+
+\input{sections/01_intro}
+\input{sections/02_related_work}
+\input{sections/02_hardware}
+\input{sections/03_method}
+\input{sections/04_laplace_corrected}
+\input{sections/04_results}
+\input{sections/05_optimizations}
+
+\input{sections/08_conclusion}
+\ifarxiv
+\input{sections/06_acknowledgements}
+\fi
+\input{sections/09_impact}
+
+\bibliographystyle{icml2026}
+\bibliography{references}
+
+\spigmrestorewidefigures
+\input{sections/99_appendix}
+\input{sections/A_additional_experiments}
+\input{sections/B_additional_literature}
+\end{document}
