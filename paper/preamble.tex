@@ -7,17 +7,26 @@
 \usepackage{hyperref}
 \usepackage{url}
 
-% Ensure LaTeX finds NeurIPS-provided style dependencies in ./neurips2026/.
+% Make both venues' style assets resolvable.
 \makeatletter
-\def\input@path{{neurips2026/}}
+\def\input@path{{neurips2026/}{icml2026/}}
 \makeatother
 
-% NeurIPS 2026 style: default is anonymous double-blind submission.
-% Use [preprint] for arXiv / non-anonymous postings.
-\ifarxiv
-\usepackage[preprint]{neurips_2026}
+% Venue style: SPIGM @ ICML 2026 uses the ICML 2026 main-conf template;
+% otherwise default to NeurIPS 2026.  In both cases [preprint] enables the
+% non-anonymous (arXiv) build via \ifarxiv.
+\ifspigm
+  \ifarxiv
+  \usepackage[preprint]{icml2026}
+  \else
+  \usepackage{icml2026}
+  \fi
 \else
-\usepackage{neurips_2026}
+  \ifarxiv
+  \usepackage[preprint]{neurips_2026}
+  \else
+  \usepackage{neurips_2026}
+  \fi
 \fi
 
 % If accepted, use:

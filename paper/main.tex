@@ -1,7 +1,10 @@
 \documentclass{article}
 \newif\ifarxiv
 % \arxivtrue   % uncomment for arXiv / preprint
-\arxivfalse % uncomment for anonymous NeurIPS submission
+\arxivfalse % uncomment for anonymous submission
+\newif\ifspigm
+\spigmtrue   % uncomment for SPIGM @ ICML 2026 workshop build
+% \spigmfalse % uncomment for NeurIPS 2026 build
 
 \input{preamble}
 \input{macros}
@@ -10,6 +13,9 @@
 \newcommand{\revadd}[1]{\textcolor{red}{#1}}
 \newenvironment{revadded}{\begingroup\color{red}}{\endgroup}
 
+\ifspigm
+\icmltitlerunning{Flash-SD-KDE}
+\else
 \title{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
 
 \author{%
@@ -23,10 +29,27 @@
   John Winnicki\\
   ICME, Stanford University\\
 }
+\fi
 
 \begin{document}
 
+\ifspigm
+\twocolumn[
+  \icmltitle{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
+  \begin{icmlauthorlist}
+    \icmlauthor{Elliot L.\ Epstein}{stanford}
+    \icmlauthor{Rajat Vadiraj Dwaraknath}{stanford}
+    \icmlauthor{John Winnicki}{stanford}
+  \end{icmlauthorlist}
+  \icmlaffiliation{stanford}{ICME, Stanford University}
+  \icmlcorrespondingauthor{Elliot L.\ Epstein}{epsteine@stanford.edu}
+  \icmlkeywords{kernel density estimation, GPU kernels, SD-KDE}
+  \vskip 0.3in
+]
+\printAffiliationsAndNotice{}
+\else
 \maketitle
+\fi
 
 \begin{abstract}
 \input{sections/00_abstract}
@@ -48,7 +71,11 @@
 % \input{sections/09_impact}
 % [END MOVED TO BACK MATTER AFTER REFERENCES]
 
+\ifspigm
+\bibliographystyle{icml2026/icml2026}
+\else
 \bibliographystyle{plainnat}
+\fi
 \bibliography{references}
 
 % \begin{revadded}
@@ -59,9 +86,13 @@
 
 \input{sections/A_additional_experiments}
 \input{sections/99_appendix}
+\ifspigm\else
 \input{sections/B_additional_literature}
+\fi
 
+\ifspigm\else
 \clearpage
 \input{checklist.tex}
+\fi
 
 \end{document}
