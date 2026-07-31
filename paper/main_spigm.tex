@@ -56,6 +56,10 @@ Copyright 2026 by the author(s).}
 \newcommand{\spigmrestorewidefigures}{%
   \expandafter\let\csname figure*\endcsname\spigm@figurestar
   \expandafter\let\csname endfigure*\endcsname\spigm@endfigurestar}
+\newcommand{\spigmnarrowfigures}{%
+  \renewenvironment{figure*}[1][tbp]
+    {\begin{figure}[##1]\setlength{\textwidth}{\columnwidth}}
+    {\end{figure}}}
 \makeatother
 
 \icmltitlerunning{Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores}
@@ -90,7 +94,9 @@ SD-KDE, GPU Acceleration, Triton}
 
 \input{sections/01_intro}
 \input{sections/02_related_work}
+\spigmrestorewidefigures   % Figure 1 spans both columns
 \input{sections/02_hardware}
+\spigmnarrowfigures
 \input{sections/03_method}
 \input{sections/04_laplace_corrected}
 \input{sections/04_results}
