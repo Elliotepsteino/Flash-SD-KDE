@@ -1,0 +1,55 @@
+Bottleneck @ file:///home/task_176193795131750/conda-bld/bottleneck_1761937999296/work
+contourpy @ file:///home/task_176364358039429/conda-bld/contourpy_1763643922278/work
+cycler @ file:///tmp/build/80754af9/cycler_1637851556182/work
+filelock==3.19.1
+fonttools @ file:///home/task_175975446549307/conda-bld/fonttools_1759754871956/work
+fsspec==2025.9.0
+Jinja2==3.1.6
+joblib @ file:///home/task_175792571725602/conda-bld/joblib_1757926344243/work
+keopscore==2.3
+kiwisolver @ file:///croot/kiwisolver_1737039087198/work
+MarkupSafe==3.0.2
+matplotlib==3.10.6
+mkl-service==2.5.2
+mkl_fft @ file:///home/task_176159249290440/conda-bld/mkl_fft_1761592897595/work
+mkl_random @ file:///home/task_176159294306005/conda-bld/mkl_random_1761592958759/work
+mpmath==1.3.0
+networkx==3.5
+numexpr @ file:///home/task_176216555892389/conda-bld/numexpr_1762165570527/work
+numpy @ file:///home/task_176252779627398/conda-bld/numpy_and_numpy_base_1762528500786/work/dist/numpy-2.3.4-cp313-cp313-linux_x86_64.whl#sha256=b6601a81471cd17185002c3310291aeab3e0ff7791e2caaf4bce12a59e938682
+nvidia-cublas-cu11==11.11.3.6
+nvidia-cuda-cupti-cu11==11.8.87
+nvidia-cuda-nvrtc-cu11==11.8.89
+nvidia-cuda-runtime-cu11==11.8.89
+nvidia-cudnn-cu11==9.1.0.70
+nvidia-cufft-cu11==10.9.0.58
+nvidia-curand-cu11==10.3.0.86
+nvidia-cusolver-cu11==11.4.1.48
+nvidia-cusparse-cu11==11.7.5.86
+nvidia-nccl-cu11==2.21.5
+nvidia-nvtx-cu11==11.8.86
+packaging @ file:///home/task_176104878999627/conda-bld/packaging_1761049078606/work
+pandas @ file:///home/task_176233227716934/conda-bld/pandas_1762332316855/work/dist/pandas-2.3.3-cp313-cp313-linux_x86_64.whl#sha256=2a8cd490d33d9b52e76e907647165bb2d5ad29518cda829f64278dfa3b83e952
+pillow @ file:///home/task_176252756300243/conda-bld/pillow_1762528238732/work
+pybind11==3.0.1
+pykeops==2.3
+pyparsing @ file:///io/buildout/croot/pyparsing_1735862672222/work
+PyQt6==6.9.1
+PyQt6_sip @ file:///home/task_175751009430255/conda-bld/pyqt-split_1757511023908/work/pyqt_sip
+python-dateutil @ file:///work/perseverance-python-buildout/croot/python-dateutil_1728385355105/work
+pytz @ file:///croot/pytz_1752135852232/work
+scikit-learn @ file:///home/task_175861954039045/conda-bld/scikit-learn_1758619605892/work
+scipy @ file:///home/task_176219474400170/conda-bld/scipy_1762194758450/work/dist/scipy-1.16.3-cp313-cp313-linux_x86_64.whl#sha256=101be46a8559a597ca9bbc2555381426e7e7d6f600d75e7129f0439d3f6d19b8
+setuptools==80.9.0
+sip @ file:///croot/sip_1756223371714/work
+six @ file:///croot/six_1744271502820/work
+sympy==1.14.0
+threadpoolctl @ file:///croot/threadpoolctl_1731006087558/work
+torch==2.7.1+cu118
+torchaudio==2.7.1+cu118
+torchvision==0.22.1+cu118
+tornado @ file:///croot/tornado_1748956929273/work
+triton==3.3.1
+typing_extensions==4.15.0
+tzdata @ file:///croot/python-tzdata_1746123641790/work
+wheel==0.45.1

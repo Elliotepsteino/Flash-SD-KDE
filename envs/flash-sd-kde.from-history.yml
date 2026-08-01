@@ -1,0 +1,10 @@
+name: flash-sd-kde
+channels:
+  - defaults
+dependencies:
+  - numpy
+  - matplotlib
+  - scipy
+  - scikit-learn
+  - pandas
+prefix: /home/epsteine/anaconda3/envs/flash-sd-kde
