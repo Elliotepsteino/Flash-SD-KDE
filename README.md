@@ -1,13 +1,16 @@
 # Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores
 
-Official code release for the paper `Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores`.
+Official code release for [Flash-SD-KDE: Accelerating SD-KDE with Tensor Cores](https://arxiv.org/abs/2602.10378).
 
-![Flash-SD-KDE 16D Runtime Banner](https://raw.githubusercontent.com/Elliotepsteino/Flash-SD-KDE/main/paper/figures/runtime/runtime_16d_kde_sdkde.png)
+**Accepted at NeurIPS 2026.**
+
+![Flash-SD-KDE 16D Runtime Banner](https://raw.githubusercontent.com/Elliotepsteino/Flash-SD-KDE/main/docs/assets/runtime_16d_kde_sdkde.png)
 
 ## Quick Links
 
 - Experiment reproduction guide: `EXPERIMENTS.md`
-- Paper source: `paper/main.tex`
+- Paper: [arXiv](https://arxiv.org/abs/2602.10378)
+- Archived paper sources and submission ZIP: [development archive](https://github.com/Elliotepsteino/Flash-SD-KDE-dev2/tree/neurips26_stuff)
 - Minimal runnable API demo: `example.py`
 
 ## Repository Layout

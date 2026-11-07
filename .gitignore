@@ -12,7 +12,6 @@ build/
 
 # Outputs
 file_storage
-paper/build/
 external_kernels/
 
 # OS
@@ -32,5 +31,4 @@ PLOTTING_GUIDE.md
 SLACK_RESULTS.md
 
 # Local notes/drafts
-paper/todo.*
 todo.*

@@ -21,7 +21,6 @@ make full_paper_experiments_plots PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
 
 Outputs:
 - Generated plots: `file_storage/paper_plots/<ts>/generated`
-- Baseline snapshot of current paper figures: `file_storage/paper_plots/<ts>/baseline`
 
 ## Figure Commands (Paper Order)
 
@@ -88,13 +87,10 @@ Outputs:
 - `fig_oracle_error_vs_n_16d.pdf`
 - `fig_oracle_error_vs_n_16d.png`
 
-## Sync Generated Plots Into `paper/figures`
-
-```bash
-make paper.figures.sync PAPER_PLOTS_RUN=file_storage/paper_plots/<ts>
-```
-
 ## Notes
 
 - The reproduction targets are GPU-heavy and can take substantial time.
 - `run.nd_runtime_sweep` now writes both PDF and PNG for the 16D runtime plot.
+
+The paper sources, submission ZIP, and original figures are preserved in the
+[development archive](https://github.com/Elliotepsteino/Flash-SD-KDE-dev2/tree/neurips26_stuff).

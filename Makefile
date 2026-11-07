@@ -2,18 +2,17 @@ PY ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; else echo 
 RUNTIME_DIR ?= experiments/runtime
 RUNTIME_CFG_DIR ?= experiments/configs/runtime
 RUNTIME_LOG_DIR ?= file_storage/runtime_sweeps
-RUNTIME_FIG_DIR ?= paper/figures/runtime
+RUNTIME_FIG_DIR ?= $(FILE_STORAGE_ROOT)/runtime_figures
 FILE_STORAGE_ROOT ?= file_storage
 PAPER_PLOTS_DIR ?= $(FILE_STORAGE_ROOT)/paper_plots
 PAPER_PLOTS_RUN ?= $(PAPER_PLOTS_DIR)/$(shell date +%Y%m%d_%H%M%S)
-PAPER_PLOTS_BASELINE ?= $(PAPER_PLOTS_RUN)/baseline
 PAPER_PLOTS_OUT ?= $(PAPER_PLOTS_RUN)/generated
 TOY_1D_PLOTS_OUT ?= $(PAPER_PLOTS_OUT)
 
 .PHONY: test test.all test.small test.large test.fast test.full test.unit test.integration \
 	bench bench.mnist_ood bench.toy_1d_oracle bench.pykeops_16d \
 	plot plot.mnist_ood plot.grids plot.toy_1d_oracle \
-	paper paper.clean full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots paper.figures.sync \
+	full_paper full_paper_experiments_plots toy_1d_oracle_plots oracle_16d_plots \
 	plots.runtime plots.runtime.from_logs plots.runtime.util \
 	run.sweep run.nd_runtime_sweep run.triton_scaling run.triton_sd_kde_nd \
 	bench.emp_score_kernel_speed
@@ -126,23 +125,8 @@ plots.runtime.util:
 	$(PY) $(RUNTIME_DIR)/plot_triton_large_util.py --log $(RUNTIME_LOG_DIR)/triton_scaling.log --output $(RUNTIME_FIG_DIR)/util_1d_triton_scaling.pdf
 	$(PY) $(RUNTIME_DIR)/plot_triton_sd_kde_nd_util.py --log $(RUNTIME_LOG_DIR)/triton_sd_kde_nd.log --output $(RUNTIME_FIG_DIR)/util_16d_sdkde_tensorcore.pdf
 
-PAPER_DIR := paper
-PAPER_BUILD := $(PAPER_DIR)/build
-PAPER_MAIN := $(PAPER_DIR)/main.tex
-
-paper:
-	mkdir -p $(PAPER_BUILD)
-	cd $(PAPER_DIR) && pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory build main.tex
-	cd $(PAPER_DIR) && bibtex build/main
-	cd $(PAPER_DIR) && pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory build main.tex
-	cd $(PAPER_DIR) && pdflatex -interaction=nonstopmode -halt-on-error -synctex=1 -output-directory build main.tex
-
-paper.clean:
-	rm -rf $(PAPER_BUILD)
-
 full_paper:
-	mkdir -p $(PAPER_PLOTS_BASELINE) $(PAPER_PLOTS_OUT)
-	cp -a $(PAPER_DIR)/figures/. $(PAPER_PLOTS_BASELINE)/
+	mkdir -p $(PAPER_PLOTS_OUT)
 	@if [ -f $(RUNTIME_LOG_DIR)/sweep.log ]; then \
 	  $(PY) $(RUNTIME_DIR)/plot_flash_sd_kde.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(PAPER_PLOTS_OUT)/runtime_1d_kde_sdkde.pdf; \
 	  $(PY) $(RUNTIME_DIR)/plot_emp_sd_kde_util.py --log $(RUNTIME_LOG_DIR)/sweep.log --output $(PAPER_PLOTS_OUT)/util_1d_empirical_sdkde.pdf; \
@@ -183,6 +167,3 @@ oracle_16d_plots:
 	$(PY) -m experiments.error_suite_16d.sweep --config configs/error_suite_16d/grid_oracle_mog_16d.yaml
 	$(PY) scripts/error_suite_oracle_plot.py --output "$(PAPER_PLOTS_OUT)"
 	@echo "16D oracle plots written to $(PAPER_PLOTS_OUT)"
-
-paper.figures.sync:
-	@$(PY) scripts/paper_figures_sync.py --source "$(PAPER_PLOTS_OUT)" --dest "$(PAPER_DIR)/figures"
